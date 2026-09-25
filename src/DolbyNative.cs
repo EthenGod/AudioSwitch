@@ -1,4 +1,7 @@
-﻿// Version-pinned local DAX RPC adapter. Used only inside the isolated worker process.
+﻿// Copyright (C) 2026 EthenGod
+// SPDX-License-Identifier: GPL-3.0-only
+// This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
+// Version-pinned local DAX RPC adapter. Used only inside the isolated worker process.
 // Reads installed protocol metadata as data; never loads or distributes Dolby executable code.
 using System;
 using System.IO;

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 EthenGod
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 param([switch]$Test, [string]$OutputDirectory = 'bin')
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -15,6 +18,8 @@ foreach ($vendorFile in @('svcl.exe', 'readme.txt', 'svcl.chm')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "vendor\svcl\$vendorFile") -Destination (Join-Path $vendorOutput $vendorFile)
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD_PARTY.md') -Destination (Join-Path $output 'THIRD_PARTY.md')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination (Join-Path $output 'LICENSE')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'NOTICE.txt') -Destination (Join-Path $output 'NOTICE.txt')
 if ($Test) {
     & $compiler /nologo /target:exe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Tests "/win32manifest:$PSScriptRoot\src\app.manifest" "/out:$output\AudioSwitch.Tests.exe" @references @sources (Join-Path $PSScriptRoot 'tests\Tests.cs')
     if ($LASTEXITCODE -ne 0) { throw '测试编译失败。' }

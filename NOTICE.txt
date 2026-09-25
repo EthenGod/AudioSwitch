@@ -1,0 +1,31 @@
+AudioSwitch / 声间
+Copyright (C) 2026 EthenGod
+SPDX-License-Identifier: GPL-3.0-only
+
+AudioSwitch is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, version 3 of the License only.
+
+AudioSwitch is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with AudioSwitch, in the file LICENSE. If not, see
+<https://www.gnu.org/licenses/>.
+
+This notice applies to AudioSwitch's own source code, build scripts,
+tests and project documentation. Separately identified third-party
+materials retain their original licenses. In particular, the files
+under vendor/svcl/ are NOT licensed under the GNU GPL; see THIRD_PARTY.md
+and vendor/svcl/readme.txt for their original license and attribution.
+
+对应源码：请从本程序的同一 GitHub Release 下载配套的 source.zip 附件。
+源码包含 src/、tests/、build.ps1、许可证、文档及构建所需的 SVCL 原始文件。
+构建方法见 README.md。Windows / .NET Framework 以及 Dolby 组件由系统或
+用户另行安装，本项目不附带或重新授权这些组件。
+
+分发程序包时，请同时提供与该程序对应的完整源码及构建脚本，并保留
+LICENSE、NOTICE.txt 和第三方声明。GPLv3 允许商业使用；SVCL 的原许可
+单独限制 SVCL 的分发，不能用于限制用户对声间自有代码享有的 GPL 权利。
