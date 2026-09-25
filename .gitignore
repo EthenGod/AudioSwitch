@@ -1,0 +1,44 @@
+# 构建产物、界面截图和本机验证资料
+bin/
+obj/
+artifacts/
+staging/
+
+# 本地工具和编辑器状态
+/.codex/
+.vs/
+*.user
+*.suo
+
+# 编译文件和本机驱动组件（不分发 Dolby DLL）
+*.exe
+*.exe.config
+*.dll
+*.pdb
+# 构建必需的 SVCL 原始程序；同目录许可和帮助文件也保留
+!/vendor/svcl/svcl.exe
+# 已解压到 vendor/svcl/，构建不使用此重复下载包
+/vendor/svcl-x64.zip
+
+# 个人音频设置、导出文件及自动备份
+settings.json
+AudioSwitch-settings-*.json
+backups/
+
+# 日志、崩溃转储及临时文件
+*.log
+*.dmp
+*.tmp
+*.bak
+*~
+Thumbs.db
+Desktop.ini
+
+# 本地凭据文件；保留可公开的环境变量示例
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pfx
+*.p12
+*.key
