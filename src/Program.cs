@@ -25,6 +25,8 @@ namespace AudioSwitch
             Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e) { Log(e.Exception); NoticeDialog.ShowNotice(Form.ActiveForm, "操作未完成", e.Exception.Message, true); };
             try
             {
+                if (args.Length == 2 && args[0] == "--apply-update") { UpdateInstaller.Run(args[1]); return; }
+                if (UpdateInstaller.IsUpdating()) { NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。"); return; }
                 if (args.Contains("--ui") || args.Contains("--prompt"))
                 {
                     // Read without migration/writes, so the first frame already has the saved theme.
@@ -54,7 +56,16 @@ namespace AudioSwitch
                 using (var mutex = new Mutex(true, "Local\\AudioSwitch-Host-" + Wire.Identity, out first))
                 {
                     if (!first) { Wire.Send(new Request { Action = "show" }); return; }
-                    using (var host = new TrayHost(!args.Contains("--background"))) Application.Run(host);
+                    using (var host = new TrayHost(!args.Contains("--background")))
+                    {
+                        var updated = args.FirstOrDefault(a => a.StartsWith("--updated=Local\\AudioSwitch-Update-Started-", StringComparison.Ordinal));
+                        if (updated != null)
+                        {
+                            try { using (var ready = EventWaitHandle.OpenExisting(updated.Substring(10))) ready.Set(); }
+                            catch (WaitHandleCannotBeOpenedException) { }
+                        }
+                        Application.Run(host);
+                    }
                 }
             }
             catch (Exception ex) { Log(ex); NoticeDialog.ShowNotice(null, "无法启动声间", ex.Message, true); }

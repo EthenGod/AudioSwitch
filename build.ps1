@@ -8,7 +8,7 @@ if (!(Test-Path -LiteralPath $compiler)) { throw '需要 Windows 自带的 .NET 
 $output = Join-Path $PSScriptRoot $OutputDirectory
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' | ForEach-Object FullName)
-$references = @('/r:System.dll','/r:System.Core.dll','/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll')
+$references = @('/r:System.dll','/r:System.Core.dll','/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.IO.Compression.dll','/r:System.IO.Compression.FileSystem.dll')
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Program "/win32manifest:$PSScriptRoot\src\app.manifest" "/out:$output\AudioSwitch.exe" @references @sources
 if ($LASTEXITCODE -ne 0) { throw '编译失败。' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src\App.config') -Destination (Join-Path $output 'AudioSwitch.exe.config')
@@ -21,7 +21,8 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD_PARTY.md') -Destination (
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination (Join-Path $output 'LICENSE')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'NOTICE.txt') -Destination (Join-Path $output 'NOTICE.txt')
 if ($Test) {
-    & $compiler /nologo /target:exe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Tests "/win32manifest:$PSScriptRoot\src\app.manifest" "/out:$output\AudioSwitch.Tests.exe" @references @sources (Join-Path $PSScriptRoot 'tests\Tests.cs')
+    $testSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests') -Filter '*.cs' | ForEach-Object FullName)
+    & $compiler /nologo /target:exe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Tests "/win32manifest:$PSScriptRoot\src\app.manifest" "/out:$output\AudioSwitch.Tests.exe" @references @sources @testSources
     if ($LASTEXITCODE -ne 0) { throw '测试编译失败。' }
     & (Join-Path $output 'AudioSwitch.Tests.exe')
     if ($LASTEXITCODE -ne 0) { throw '测试失败。' }

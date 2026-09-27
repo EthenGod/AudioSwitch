@@ -15,7 +15,7 @@ namespace AudioSwitch
     {
         private static readonly Type Configuration = Type.GetType("Windows.Media.Audio.SpatialAudioDeviceConfiguration, Windows.Media, ContentType=WindowsRuntime");
         private static readonly Type Subtypes = Type.GetType("Windows.Media.Audio.SpatialAudioFormatSubtype, Windows.Media, ContentType=WindowsRuntime");
-        private const string HelperHash = "0C4738296D253495BC995DA7B5938E27B306C8F204DC9F7D4D5D455F1D8D3E38";
+        internal const string HelperHash = "0C4738296D253495BC995DA7B5938E27B306C8F204DC9F7D4D5D455F1D8D3E38";
         internal static SpatialState Read(string id)
         {
             if (Configuration == null || Subtypes == null) throw new InvalidOperationException("当前 Windows 版本不能读取空间音效设置。");

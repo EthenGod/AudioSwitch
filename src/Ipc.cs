@@ -41,9 +41,11 @@ namespace AudioSwitch
         private readonly object gate = new object();
         private NamedPipeServerStream active;
         private readonly Func<Request, Reply> handler;
-        public PipeServer(Func<Request, Reply> handler)
+        private readonly Action<Request> afterReply;
+        public PipeServer(Func<Request, Reply> handler, Action<Request> afterReply = null)
         {
             this.handler = handler;
+            this.afterReply = afterReply;
             var thread = new Thread(Run) { IsBackground = true, Name = "AudioSwitch IPC" };
             thread.Start();
         }
@@ -64,12 +66,16 @@ namespace AudioSwitch
                         var reader = new StreamReader(pipe);
                         var input = reader.ReadLineAsync();
                         if (!input.Wait(3000) || input.Result == null || input.Result.Length > 4 * 1024 * 1024) continue;
-                        Reply response;
-                        try { response = handler(Wire.Decode<Request>(input.Result)); }
+                        Reply response; Request request = null;
+                        try { request = Wire.Decode<Request>(input.Result); response = handler(request); }
                         catch (Exception ex) { response = new Reply { Error = ex.Message }; }
-                        var writer = new StreamWriter(pipe) { AutoFlush = true };
-                        var output = writer.WriteLineAsync(Wire.Encode(response));
-                        output.Wait(3000);
+                        try
+                        {
+                            var writer = new StreamWriter(pipe) { AutoFlush = true };
+                            var output = writer.WriteLineAsync(Wire.Encode(response));
+                            output.Wait(3000);
+                        }
+                        finally { if (request != null && afterReply != null) afterReply(request); }
                     }
                 }
                 catch (Exception ex)

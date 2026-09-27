@@ -59,7 +59,9 @@ namespace AudioSwitch
                 try { dispatcher.BeginInvoke((Action)delegate { if (!exiting) debounce.Signal(); }); }
                 catch (InvalidOperationException) { }
             });
-            server = new PipeServer(request => (Reply)dispatcher.Invoke((Func<Reply>)(() => Handle(request))));
+            server = new PipeServer(request => (Reply)dispatcher.Invoke((Func<Reply>)(() => Handle(request))), request => {
+                if (request.Action == "exitForUpdate") dispatcher.BeginInvoke((Action)(() => { if (exiting) ExitThread(); }));
+            });
             try
             {
                 bool hadOrder = preferences.DeviceOrder.Count > 0;
@@ -168,6 +170,14 @@ namespace AudioSwitch
         }
         private Reply Handle(Request request)
         {
+            if (exiting) return new Reply { Error = "声间正在退出，请等待更新完成。" };
+            if (request.Action == "exitForUpdate")
+            {
+                if (String.IsNullOrEmpty(request.UpdatePath) || !UpdateInstaller.SamePath(request.UpdatePath, Application.ExecutablePath) || !UpdateInstaller.IsUpdating())
+                    return new Reply { Error = "更新任务与当前程序不一致。" };
+                exiting = true; dolby.Stop(); debounce.Stop();
+                return new Reply();
+            }
             string error = null;
             DeviceSettingsInfo settings = null;
             string backupPath = null;

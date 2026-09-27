@@ -123,6 +123,7 @@ namespace AudioSwitch
 
     public sealed class Request
     {
+        public string UpdatePath { get; set; }
         public string Action { get; set; }
         public string DeviceId { get; set; }
         public string Token { get; set; }

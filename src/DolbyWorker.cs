@@ -57,6 +57,7 @@ namespace AudioSwitch
             try
             {
                 // No WinForms initialization or visible window in this short-lived process.
+                if (UpdateInstaller.IsUpdating()) throw new OperationCanceledException("声间正在更新，Dolby 任务已取消。");
                 var request = Wire.Decode<DolbyRequest>(Console.ReadLine());
                 DolbyProfiles.Validate(request.Profile);
                 using (var mutex = new Mutex(false, "Local\\AudioSwitch-Dolby-" + Wire.Identity))

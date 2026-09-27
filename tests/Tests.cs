@@ -23,6 +23,7 @@ namespace AudioSwitch
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
+                if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
                 if (args.Contains("--settings-layout")) { TestSettingsLayout(); return 0; }
                 if (args.Contains("--lifecycle") || args.Contains("--dolby-smoke"))
                 {
@@ -38,6 +39,7 @@ namespace AudioSwitch
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();
                 RunConfigurationTests();
+                UpdateTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
                 {
@@ -63,6 +65,7 @@ namespace AudioSwitch
                 if (args.Contains("--lifecycle")) Lifecycle();
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
+                if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
                 Console.WriteLine("PASS: " + passed + " checks");
                 return 0;
             }
@@ -469,6 +472,26 @@ namespace AudioSwitch
             Application.EnableVisualStyles();
             string output = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts"));
             Directory.CreateDirectory(output);
+            foreach (bool dark in new[] { false, true })
+            {
+                Palette.Apply(dark);
+                using (var update = new UpdateDialog(true))
+                {
+                    update.Show(); Application.DoEvents();
+                    SaveUi(update, dark ? "update-dark.png" : "update-light.png");
+                    var notes = Descendants(update).OfType<TextBox>().Single(n => n.Name == "updateNotes");
+                    notes.Text = String.Join("\r\n", Enumerable.Range(1, 16).Select(i => "更新说明 " + i + "：优化设备切换与界面显示。保留原有设置，支持选择并复制这些文字。"));
+                    notes.Select(0, 4);
+                    Check(notes.ReadOnly && notes.SelectedText == "更新说明", "release notes remain selectable and read-only");
+                    Application.DoEvents();
+                    SaveUi(update, dark ? "update-notes-dark.png" : "update-notes-light.png");
+                    notes.SelectionStart = notes.TextLength; notes.ScrollToCaret(); Application.DoEvents();
+                    SaveUi(update, dark ? "update-notes-bottom-dark.png" : "update-notes-bottom-light.png");
+                    Check(Descendants(update).OfType<Button>().Any(b => b.Text == "检查更新" && b.Enabled), "update dialog has enabled check action");
+                    update.Close();
+                }
+            }
+            Palette.Apply(false);
             var speaker = Device("Realtek 扬声器", 0); var headphones = Device("WH-1000XM5 耳机", 0); var mic = Device("USB 桌面麦克风", 1);
             var initial = State(speaker.Id, mic.Id, speaker, mic);
             var state = State(speaker.Id, mic.Id, speaker, headphones, mic);
@@ -537,6 +560,8 @@ namespace AudioSwitch
                 duplicateRows.SelectMany(c => c.Controls.OfType<Button>()).Single(b => b.Name == "switchDevice" && b.Enabled).PerformClick();
                 Check(requests.Last().Action == "switch" && requests.Last().DeviceId == devices[1].Id, "redesigned switch action targets endpoint ID even when display names match");
                 window.Size = window.MinimumSize; Application.DoEvents();
+                var updateButton = Descendants(window).OfType<Button>().Single(b => b.Name == "checkUpdates");
+                Check(updateButton.Parent.ClientRectangle.Contains(updateButton.Bounds) && updateButton.Parent.Controls.OfType<Label>().All(l => !l.Bounds.IntersectsWith(updateButton.Bounds)), "update button remains clear of sidebar footer at minimum window size");
                 Check(Descendants(window).OfType<DeviceGlyph>().All(g => Math.Abs(g.Top * 2 + g.Height - g.Parent.ClientSize.Height) <= 1), "device icon tiles stay vertically centered in dashboard rows");
                 Check(Descendants(window).Where(c => c.Name == "deviceRow").All(row => row.Controls.OfType<Button>().All(b => row.ClientRectangle.Contains(b.Bounds)) &&
                     row.Controls.OfType<Label>().All(l => row.Controls.OfType<Button>().All(b => !l.Bounds.IntersectsWith(b.Bounds)))), "minimum window width keeps long names clear of switch and settings buttons");
