@@ -24,6 +24,7 @@ namespace AudioSwitch
             try
             {
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
+                if (args.Contains("--startup-process")) { StartupTests.BackgroundProcess(Check); return 0; }
                 if (args.Contains("--settings-layout")) { TestSettingsLayout(); return 0; }
                 if (args.Contains("--lifecycle") || args.Contains("--dolby-smoke"))
                 {
@@ -39,6 +40,7 @@ namespace AudioSwitch
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();
                 RunConfigurationTests();
+                StartupTests.Run(Check);
                 UpdateTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
@@ -65,6 +67,7 @@ namespace AudioSwitch
                 if (args.Contains("--lifecycle")) Lifecycle();
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
+                if (args.Contains("--render")) StartupTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
                 Console.WriteLine("PASS: " + passed + " checks");
                 return 0;

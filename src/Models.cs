@@ -124,6 +124,8 @@ namespace AudioSwitch
     public sealed class Request
     {
         public string UpdatePath { get; set; }
+        public string StartupExecutablePath { get; set; }
+        public string ExpectedStartupCommand { get; set; }
         public string Action { get; set; }
         public string DeviceId { get; set; }
         public string Token { get; set; }
@@ -138,6 +140,8 @@ namespace AudioSwitch
 
     public sealed class Reply
     {
+        public StartupState Startup { get; set; }
+        public string BackendExecutablePath { get; set; }
         public string Error { get; set; }
         public string Warning { get; set; }
         public string ConfigurationJson { get; set; }

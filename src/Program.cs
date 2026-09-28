@@ -26,9 +26,10 @@ namespace AudioSwitch
             try
             {
                 if (args.Length == 2 && args[0] == "--apply-update") { UpdateInstaller.Run(args[1]); return; }
-                if (UpdateInstaller.IsUpdating()) { NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。"); return; }
+                if (UpdateInstaller.IsUpdating()) { if (!args.Contains("--background")) NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。"); return; }
                 if (args.Contains("--ui") || args.Contains("--prompt"))
                 {
+                    if (args.Contains("--ui")) InstanceLocation.RequireBackend(Application.ExecutablePath, Wire.Send(new Request { Action = "snapshot" }));
                     // Read without migration/writes, so the first frame already has the saved theme.
                     try { if (File.Exists(PreferenceStore.SettingsPath)) Palette.Apply(PreferenceStore.Parse(PreferenceStore.ReadFile(PreferenceStore.SettingsPath)).DarkMode); }
                     catch { } // The backend reports configuration errors; appearance must not prevent opening it.
@@ -55,7 +56,15 @@ namespace AudioSwitch
                 bool first;
                 using (var mutex = new Mutex(true, "Local\\AudioSwitch-Host-" + Wire.Identity, out first))
                 {
-                    if (!first) { Wire.Send(new Request { Action = "show" }); return; }
+                    if (!first)
+                    {
+                        if (!args.Contains("--background"))
+                        {
+                            InstanceLocation.RequireBackend(Application.ExecutablePath, Wire.Send(new Request { Action = "snapshot" }));
+                            Wire.Send(new Request { Action = "show" });
+                        }
+                        return;
+                    }
                     using (var host = new TrayHost(!args.Contains("--background")))
                     {
                         var updated = args.FirstOrDefault(a => a.StartsWith("--updated=Local\\AudioSwitch-Update-Started-", StringComparison.Ordinal));

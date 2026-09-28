@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -31,6 +31,9 @@ namespace AudioSwitch
         private readonly CheckBox communications;
         private readonly CheckBox priority;
         private readonly CheckBox darkMode;
+        private readonly CheckBox startup;
+        private readonly Label startupHint;
+        private StartupState startupState = new StartupState();
         private readonly Timer refreshTimer = new Timer { Interval = 1500 };
         private bool busy;
         private bool applying;
@@ -68,14 +71,17 @@ namespace AudioSwitch
             var subtitle = Palette.Label("A U D I O  S W I T C H", 7, Palette.Muted, false); subtitle.SetBounds(81, 64, 136, 22); sidebar.Controls.Add(subtitle);
             var navigation = new Surface { Location = new Point(16, 116), Size = new Size(200, 46), Fill = Palette.Card, Stroke = Palette.Card };
             var nav = Palette.Label("声音设备", 10, Palette.Accent, true); nav.Dock = DockStyle.Fill; nav.Padding = new Padding(18, 0, 0, 0); nav.TextAlign = ContentAlignment.MiddleLeft; navigation.Controls.Add(nav); sidebar.Controls.Add(navigation);
-            var preferences = Palette.Label("自动切换", 8.5F, Palette.Muted, true); preferences.SetBounds(24, 199, 170, 24); sidebar.Controls.Add(preferences);
-            priority = CreateCheck("按设备优先级选择", 233); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
-            var priorityHint = Palette.Label("优先使用排序靠前的在线设备", 8, Palette.Muted, false); priorityHint.SetBounds(24, 267, 190, 24); sidebar.Controls.Add(priorityHint);
-            ask = CreateCheck("新设备接入时询问", 308); sidebar.Controls.Add(ask);
-            var askHint = Palette.Label("接入时提供快捷切换提示", 8, Palette.Muted, false); askHint.SetBounds(24, 342, 190, 24); sidebar.Controls.Add(askHint);
-            communications = CreateCheck("同时切换通话设备", 383); sidebar.Controls.Add(communications);
-            var callHint = Palette.Label("让通话与日常播放使用同一设备", 8, Palette.Muted, false); callHint.SetBounds(24, 417, 196, 24); sidebar.Controls.Add(callHint);
-            darkMode = CreateCheck("深色模式", 466); darkMode.Name = "darkMode"; darkMode.Checked = Palette.Dark; sidebar.Controls.Add(darkMode);
+            var preferences = Palette.Label("自动切换", 8.5F, Palette.Muted, true); preferences.SetBounds(24, 178, 170, 24); sidebar.Controls.Add(preferences);
+            priority = CreateCheck("按设备优先级选择", 210); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
+            var priorityHint = Palette.Label("优先使用排序靠前的在线设备", 8, Palette.Muted, false); priorityHint.SetBounds(24, 242, 190, 24); sidebar.Controls.Add(priorityHint);
+            ask = CreateCheck("新设备接入时询问", 270); sidebar.Controls.Add(ask);
+            var askHint = Palette.Label("接入时提供快捷切换提示", 8, Palette.Muted, false); askHint.SetBounds(24, 302, 190, 24); sidebar.Controls.Add(askHint);
+            communications = CreateCheck("同时切换通话设备", 330); sidebar.Controls.Add(communications);
+            var callHint = Palette.Label("让通话与日常播放使用同一设备", 8, Palette.Muted, false); callHint.SetBounds(24, 362, 196, 24); sidebar.Controls.Add(callHint);
+            darkMode = CreateCheck("深色模式", 404); darkMode.Name = "darkMode"; darkMode.Checked = Palette.Dark; sidebar.Controls.Add(darkMode);
+            startup = CreateCheck("开机自启", 446); startup.Name = "startWithWindows"; startup.Enabled = false; sidebar.Controls.Add(startup);
+            startupHint = Palette.Label("登录 Windows 后只启动托盘", 8, Palette.Muted, false); startupHint.Name = "startupDetails"; startupHint.Cursor = Cursors.Hand; startupHint.SetBounds(24, 478, 196, 24); sidebar.Controls.Add(startupHint);
+            startupHint.Click += delegate { NoticeDialog.ShowNotice(this, "开机自启设置", startupState.Details ?? startupHint.Text); };
             var export = new FlatAction("导出备份", false) { Name = "exportSettings", Location = new Point(22, 514), Size = new Size(90, 34) };
             var import = new FlatAction("导入设置", false) { Name = "importSettings", Location = new Point(120, 514), Size = new Size(90, 34) };
             export.Click += async delegate { await ExportSettings(); };
@@ -128,6 +134,11 @@ namespace AudioSwitch
                 if (!busy) await Execute(new Request { Action = "darkMode", Value = darkMode.Checked });
                 if (!IsDisposed) { applying = true; darkMode.Checked = currentPreferences.DarkMode; applying = false; }
             };
+            startup.CheckedChanged += async delegate {
+                if (applying) return;
+                if (!busy) await Execute(new Request { Action = "startup", Value = startup.Checked, StartupExecutablePath = Application.ExecutablePath, ExpectedStartupCommand = startupState.RegisteredCommand });
+                if (!IsDisposed) { applying = true; startup.Checked = startupState.Enabled; applying = false; }
+            };
             refreshTimer.Tick += async delegate { await Execute(new Request { Action = "snapshot" }); };
             Shown += async delegate { if (!preview) { await Execute(new Request { Action = "snapshot" }); refreshTimer.Start(); } };
             Resize += delegate { if (WindowState == FormWindowState.Minimized) Close(); };
@@ -148,7 +159,7 @@ namespace AudioSwitch
             if (busy || IsDisposed || preview) return;
             busy = true;
             bool mutation = request.Action != "snapshot";
-            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; }
+            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; startup.Enabled = false; }
             try
             {
                 Reply reply = await send(request);
@@ -165,7 +176,7 @@ namespace AudioSwitch
             finally
             {
                 busy = false;
-                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; }
+                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; startup.Enabled = startupState.Available; }
             }
         }
         internal void RenderReply(Reply reply)
@@ -174,6 +185,13 @@ namespace AudioSwitch
             RenderNotice(reply.Error, reply.Warning);
             currentPreferences = reply.Preferences;
             currentReply = reply;
+            startupState = reply.Startup ?? new StartupState { Available = preview, Message = "登录 Windows 后只启动托盘" };
+            if (startupState.CurrentExecutablePath != null && !UpdateInstaller.SamePath(startupState.CurrentExecutablePath, Application.ExecutablePath))
+                startupState = new StartupState { Message = "后台位于另一位置，点击查看", Details = "请先从托盘退出声间，再从需要的位置重新打开，避免将自启设置到旧目录。\n\n后台程序：\n" + startupState.CurrentExecutablePath + "\n\n当前面板：\n" + Application.ExecutablePath };
+            applying = true; startup.Checked = startupState.Enabled; applying = false;
+            startup.Enabled = startupState.Available;
+            startupHint.Text = startupState.Message ?? "登录 Windows 后只启动托盘";
+            tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
             if (reply.DolbyApplying || dolbyWasApplying) status.Text = reply.DolbyApplying ? "●  正在后台应用 Dolby 方案…" : "●  设备监听中  ·  关闭窗口即可释放界面";
             dolbyWasApplying = reply.DolbyApplying;
             applying = true; ask.Checked = reply.Preferences.AskOnConnect; communications.Checked = reply.Preferences.IncludeCommunications; priority.Checked = reply.Preferences.UseDevicePriority; darkMode.Checked = reply.Preferences.DarkMode; applying = false;
@@ -187,6 +205,7 @@ namespace AudioSwitch
             var scroll = content.AutoScrollPosition;
             content.SuspendLayout();
             tips.RemoveAll();
+            tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
             while (content.Controls.Count > 0) { var child = content.Controls[0]; content.Controls.RemoveAt(0); child.Dispose(); }
             foreach (var pending in reply.Pending) content.Controls.Add(CreateArrival(pending, reply.State));
             for (int flow = 0; flow < 2; flow++) if (selectedFlow == -1 || selectedFlow == flow) content.Controls.Add(CreateGroup(flow, reply.State));

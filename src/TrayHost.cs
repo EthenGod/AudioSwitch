@@ -188,6 +188,10 @@ namespace AudioSwitch
                 switch (request.Action)
                 {
                     case "snapshot": break;
+                    case "startup":
+                        InstanceLocation.RequireSame(Application.ExecutablePath, request.StartupExecutablePath);
+                        StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
+                        break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); break;
                     case "exportSettings": return new Reply { ConfigurationJson = PreferenceStore.Export(preferences) };
                     case "importSettings":
@@ -279,11 +283,11 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode") RefreshAudio(false);
+                if (request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
             return Wire.Decode<Reply>(Wire.Encode(new Reply { Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
-                Preferences = preferences, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
+                Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,
                 FrontendPid = frontend != null && !frontend.HasExited ? frontend.Id : 0 }));
         }
