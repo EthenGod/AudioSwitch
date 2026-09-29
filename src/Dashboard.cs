@@ -19,6 +19,8 @@ namespace AudioSwitch
         private readonly Label status;
         private readonly Label summary;
         private readonly InlineNotice notice = new InlineNotice();
+        private readonly Surface updateNotice = new Surface { Name = "automaticUpdateNotice", Dock = DockStyle.Top, Height = 58, Visible = false };
+        private readonly Label updateMessage = Palette.Label("", 9, Palette.Text, false);
         private readonly FlatAction dismissNotice;
         private readonly Func<Request, Task<Reply>> send;
         private string dismissedError;
@@ -31,6 +33,8 @@ namespace AudioSwitch
         private readonly CheckBox communications;
         private readonly CheckBox priority;
         private readonly CheckBox darkMode;
+        private readonly CheckBox gameMode;
+        private readonly CheckBox automaticUpdates;
         private readonly CheckBox startup;
         private readonly Label startupHint;
         private StartupState startupState = new StartupState();
@@ -109,6 +113,10 @@ namespace AudioSwitch
             summary = Palette.Label("正在连接音频后台…", 9, Palette.Muted, false); summary.SetBounds(2, 54, 560, 24); header.Controls.Add(summary);
             var reload = new FlatAction("刷新设备", false) { Size = new Size(96, 34), Location = new Point(716, 9), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             reload.Click += async delegate { await Execute(new Request { Action = "refresh" }); }; header.Controls.Add(reload);
+            gameMode = new SwitchOption { Name = "gameMode", Text = "游戏模式", AccessibleName = "游戏模式", Size = new Size(140, 32), Location = new Point(672, 94), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            header.Controls.Add(gameMode);
+            automaticUpdates = new SwitchOption { Name = "automaticUpdates", Text = "自动更新", AccessibleName = "自动更新", Checked = true, Size = new Size(140, 32), Location = new Point(516, 94), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            header.Controls.Add(automaticUpdates);
             for (int i = 0; i < filters.Length; i++)
             {
                 int flow = i - 1;
@@ -129,7 +137,11 @@ namespace AudioSwitch
             dismissNotice = notice.CloseButton;
             dismissNotice.Click += async delegate { await DismissNotice(); };
             content.Name = "deviceList"; content.Dock = DockStyle.Fill; content.AutoScroll = true;
-            main.Controls.Add(content); main.Controls.Add(notice); main.Controls.Add(footer); main.Controls.Add(header);
+            updateMessage.Name = "automaticUpdateMessage"; updateMessage.Dock = DockStyle.Fill; updateMessage.TextAlign = ContentAlignment.MiddleLeft;
+            var updateDetails = new FlatAction("检查更新", false) { Dock = DockStyle.Right, Width = 96, Name = "automaticUpdateDetails" };
+            updateNotice.Padding = new Padding(14, 10, 12, 10); updateNotice.Controls.Add(updateMessage); updateNotice.Controls.Add(updateDetails);
+            updateDetails.Click += delegate { if (!preview && !busy) using (var dialog = new UpdateDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); } };
+            main.Controls.Add(content); main.Controls.Add(notice); main.Controls.Add(footer); main.Controls.Add(updateNotice); main.Controls.Add(header);
             content.SizeChanged += delegate { ResizeCards(); };
             content.Layout += delegate { ResizeCards(); };
             ask.CheckedChanged += async delegate { if (!applying) await Execute(new Request { Action = "ask", Value = ask.Checked }); };
@@ -139,6 +151,16 @@ namespace AudioSwitch
                 if (applying) return;
                 if (!busy) await Execute(new Request { Action = "darkMode", Value = darkMode.Checked });
                 if (!IsDisposed) { applying = true; darkMode.Checked = currentPreferences.DarkMode; applying = false; }
+            };
+            gameMode.CheckedChanged += async delegate {
+                if (applying) return;
+                if (!busy) await Execute(new Request { Action = "gameMode", Value = gameMode.Checked });
+                if (!IsDisposed) { applying = true; gameMode.Checked = currentPreferences.GameMode; applying = false; }
+            };
+            automaticUpdates.CheckedChanged += async delegate {
+                if (applying) return;
+                if (!busy) await Execute(new Request { Action = "automaticUpdates", Value = automaticUpdates.Checked });
+                if (!IsDisposed) { applying = true; automaticUpdates.Checked = currentPreferences.AutoUpdateEnabled; applying = false; }
             };
             startup.CheckedChanged += async delegate {
                 if (applying) return;
@@ -165,7 +187,7 @@ namespace AudioSwitch
             if (busy || IsDisposed || preview) return;
             busy = true;
             bool mutation = request.Action != "snapshot";
-            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; startup.Enabled = false; }
+            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; startup.Enabled = false; gameMode.Enabled = false; automaticUpdates.Enabled = false; }
             try
             {
                 Reply reply = await send(request);
@@ -182,14 +204,22 @@ namespace AudioSwitch
             finally
             {
                 busy = false;
-                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; startup.Enabled = startupState.Available; }
+                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; startup.Enabled = startupState.Available; gameMode.Enabled = true; automaticUpdates.Enabled = true; }
             }
         }
         internal void RenderReply(Reply reply)
         {
             Palette.Apply(reply.Preferences.DarkMode);
             RenderNotice(reply.Error, reply.Warning);
+            updateNotice.Visible = reply.Update != null && !String.IsNullOrEmpty(reply.Update.Message);
+            updateNotice.Fill = Palette.Selected; updateMessage.ForeColor = Palette.Text;
+            updateMessage.Text = reply.Update == null ? "" : reply.Update.Message;
+            tips.SetToolTip(updateMessage, updateMessage.Text);
             currentPreferences = reply.Preferences;
+            applying = true; gameMode.Checked = reply.Preferences.GameMode; automaticUpdates.Checked = reply.Preferences.AutoUpdateEnabled; applying = false;
+            refreshTimer.Interval = reply.Preferences.GameMode ? 5000 : 1500;
+            tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
+            tips.SetToolTip(automaticUpdates, "默认开启；关闭后停止自动检查、下载和安装，仍可手动检查更新。游戏模式会暂时暂停自动更新。");
             currentReply = reply;
             startupState = reply.Startup ?? new StartupState { Available = preview, Message = "登录 Windows 后只启动托盘" };
             if (startupState.CurrentExecutablePath != null && !UpdateInstaller.SamePath(startupState.CurrentExecutablePath, Application.ExecutablePath))
@@ -211,6 +241,9 @@ namespace AudioSwitch
             var scroll = content.AutoScrollPosition;
             content.SuspendLayout();
             tips.RemoveAll();
+            tips.SetToolTip(automaticUpdates, "默认开启；关闭后停止自动检查、下载和安装，仍可手动检查更新。游戏模式会暂时暂停自动更新。");
+            tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
+            tips.SetToolTip(updateMessage, updateMessage.Text);
             tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
             while (content.Controls.Count > 0) { var child = content.Controls[0]; content.Controls.RemoveAt(0); child.Dispose(); }
             foreach (var pending in reply.Pending) content.Controls.Add(CreateArrival(pending, reply.State));

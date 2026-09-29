@@ -65,8 +65,8 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "DeviceProfiles", "DeviceOrder", "DeviceRules");
-            foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode" })
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled" })
                 if (settings.ContainsKey(key) && !(settings[key] is bool)) throw new InvalidOperationException(key + " 必须为 true 或 false。");
             foreach (string key in new[] { "DeviceProfiles", "DeviceRules" })
             {

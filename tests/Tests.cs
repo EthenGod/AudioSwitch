@@ -24,6 +24,7 @@ namespace AudioSwitch
             try
             {
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
+                if (args.Contains("--update-activity")) { BackgroundUpdateTests.NativeActivity(Check); return 0; }
                 if (args.Contains("--startup-process")) { StartupTests.BackgroundProcess(Check); return 0; }
                 if (args.Contains("--settings-layout")) { TestSettingsLayout(); return 0; }
                 if (args.Contains("--lifecycle") || args.Contains("--dolby-smoke"))
@@ -42,6 +43,9 @@ namespace AudioSwitch
                 RunConfigurationTests();
                 StartupTests.Run(Check);
                 UpdateTests.Run(Check);
+                BackgroundUpdateTests.Run(Check);
+                GameModeTests.Run(Check);
+                AutoUpdatePreferenceTests.Run(Check);
                 IntegrityTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
@@ -63,15 +67,18 @@ namespace AudioSwitch
                         }
                     }
                 }
-                if (args.Contains("--render")) { Render(); TestDashboardWorkspace(); TestDevicePrompt(); TestEventBatch(); TestSettingsDialog(); TestSettingsLayout(); TestPriorityDialog(); TestDismissibleNotice(); TestDolbyEditor(); TestThemeAndControls(); TestNoticesAndMenus(); }
+                if (args.Contains("--render")) { Render(); TestDashboardWorkspace(); TestDevicePrompt(); TestEventBatch(); TestSettingsDialog(); TestSettingsLayout(); TestPriorityDialog(); TestDismissibleNotice(); TestAutomaticUpdateNotice(); TestDolbyEditor(); TestThemeAndControls(); TestNoticesAndMenus(); }
                 if (args.Contains("--settings-smoke")) SettingsSmoke();
                 if (args.Contains("--lifecycle")) Lifecycle();
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
                 if (args.Contains("--render")) StartupTests.Render(Check);
+                if (args.Contains("--render")) GameModeTests.Render(Check);
+                if (args.Contains("--render")) AutoUpdatePreferenceTests.Render(Check);
                 if (args.Contains("--render")) IntegrityTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
                 if (args.Contains("--repair-process")) UpdateTests.ProcessSmoke(Check, true);
+                if (args.Contains("--automatic-process")) { UpdateTests.ProcessSmoke(Check, false, true); UpdateTests.AutomaticInvalidPlan(Check); }
                 Console.WriteLine("PASS: " + passed + " checks");
                 return 0;
             }
@@ -1585,6 +1592,31 @@ namespace AudioSwitch
             File.WriteAllText(Path.Combine(blocked, "backups"), "a file prevents backup creation");
             failed = false; try { PreferenceStore.Import(blockedPath, exported, current, out backup); } catch (IOException) { failed = true; }
             Check(failed && File.ReadAllText(blockedPath) == exported, "backup write failure aborts import without touching active config");
+        }
+        private static void TestAutomaticUpdateNotice()
+        {
+            var speaker = Device("扬声器", 0);
+            var reply = new Reply { State = State(speaker.Id, null, speaker), Pending = new List<Arrival>(), Preferences = new Preferences(),
+                Update = new BackgroundUpdateState { Stage = "waiting", Version = "v99.0.0", Message = "发现 v99.0.0，将在空闲时下载，下次启动时安装。" } };
+            using (var window = new Dashboard(false, true))
+            {
+                window.Show(); window.RenderReply(reply); Application.DoEvents();
+                var banner = Descendants(window).OfType<Panel>().Single(p => p.Name == "automaticUpdateNotice");
+                var label = Descendants(window).OfType<Label>().Single(l => l.Name == "automaticUpdateMessage");
+                var button = Descendants(window).OfType<Button>().Single(b => b.Name == "automaticUpdateDetails");
+                Check(banner.Visible && label.Text == reply.Update.Message && !label.Bounds.IntersectsWith(button.Bounds), "panel update reminder has a separate usable action");
+                SaveUi(window, "automatic-update-light.png");
+                reply.Update.Stage = "ready"; reply.Update.Message = "v99.0.0 已下载，下次启动时自动安装。";
+                window.RenderReply(reply);
+                Check(label.Text == reply.Update.Message, "update status refreshes without any audio state change");
+                reply.Error = "设备切换失败"; reply.Preferences.DarkMode = true;
+                window.Size = window.MinimumSize; window.RenderReply(reply); Application.DoEvents();
+                Check(banner.Visible && Descendants(window).OfType<Panel>().Single(p => p.Name == "panelNotice").Visible && button.Width >= 90, "audio warning and update status coexist at minimum window size");
+                SaveUi(window, "automatic-update-dark-compact.png");
+                reply.Update = null; window.RenderReply(reply);
+                Check(!banner.Visible, "clearing update status removes only the update reminder");
+                window.Close();
+            }
         }
         private static void TestDismissibleNotice()
         {

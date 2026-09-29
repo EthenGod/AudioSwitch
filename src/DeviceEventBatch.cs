@@ -10,11 +10,13 @@ namespace AudioSwitch
     internal sealed class DeviceEventBatch : IDisposable
     {
         private readonly Timer timer = new Timer { Interval = 150 };
+        private int interval = 150;
         internal DeviceEventBatch(Action refresh)
         {
             timer.Tick += delegate { timer.Stop(); refresh(); };
         }
-        internal void Signal() { if (!timer.Enabled) timer.Start(); }
+        internal void SetGameMode(bool enabled) { interval = enabled ? 500 : 150; }
+        internal void Signal() { if (!timer.Enabled) { timer.Interval = interval; timer.Start(); } }
         internal void Stop() { timer.Stop(); }
         public void Dispose() { timer.Dispose(); }
     }

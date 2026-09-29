@@ -109,6 +109,9 @@ namespace AudioSwitch
 
     public sealed class Preferences
     {
+        public bool GameMode { get; set; }
+        public bool AutoUpdateEnabled { get; set; }
+        internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
         public bool AskOnConnect { get; set; }
         public bool IncludeCommunications { get; set; }
@@ -116,7 +119,7 @@ namespace AudioSwitch
         public bool UseDevicePriority { get; set; }
         public List<Endpoint> DeviceOrder { get; set; }
         public Dictionary<string, DeviceRule> DeviceRules { get; set; }
-        public Preferences() { AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
+        public Preferences() { AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
     }
 
     public enum DeviceRule { Normal = 0, AcceptSystem = 1, SwitchOnConnect = 2 }
@@ -140,6 +143,7 @@ namespace AudioSwitch
 
     public sealed class Reply
     {
+        public BackgroundUpdateState Update { get; set; }
         public StartupState Startup { get; set; }
         public string BackendExecutablePath { get; set; }
         public string Error { get; set; }

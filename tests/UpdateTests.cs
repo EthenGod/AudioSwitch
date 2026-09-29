@@ -173,7 +173,20 @@ namespace AudioSwitch
                 check(result.Digest.Length == 64 && result.Url.EndsWith("-win-x64.zip"), "live official asset page provides exact package SHA-256 without REST API");
             }
         }
-        internal static void ProcessSmoke(Action<bool, string> check, bool repair = false)
+        internal static void AutomaticInvalidPlan(Action<bool, string> check)
+        {
+            string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "automatic-invalid-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            string helper = Path.Combine(folder, "AudioSwitch.Update.exe"), plan = Path.Combine(folder, "install.json");
+            File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AudioSwitch.exe"), helper);
+            File.WriteAllText(plan, "{broken-json");
+            using (var process = Process.Start(new ProcessStartInfo(helper, "--apply-auto-update " + UpdateInstaller.Quote(plan)) { UseShellExecute = false, CreateNoWindow = true }))
+            {
+                try { check(process.WaitForExit(5000) && File.Exists(Path.Combine(folder, "result.txt")), "unreadable automatic plan exits silently instead of showing a dialog"); }
+                finally { if (UpdateInstaller.Matches(process, helper)) { process.Kill(); process.WaitForExit(5000); } }
+            }
+        }
+        internal static void ProcessSmoke(Action<bool, string> check, bool repair = false, bool automatic = false)
         {
             Mutex existing;
             if (Mutex.TryOpenExisting("Local\\AudioSwitch-Host-" + Wire.Identity, out existing))
@@ -203,9 +216,9 @@ class Fixture {
     }
    } return;
   }
-  if(args[0].StartsWith(""--updated="")) {
-   File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,""fixture-started.txt""), ""started without touching audio"");
-   using(var ready=EventWaitHandle.OpenExisting(args[0].Substring(10))) ready.Set();
+  foreach(string arg in args) if(arg.StartsWith(""--updated="")) {
+   File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,""fixture-started.txt""), String.Join("" "",args));
+   using(var ready=EventWaitHandle.OpenExisting(arg.Substring(10))) ready.Set();
   }
  }
 }";
@@ -249,24 +262,26 @@ class Fixture {
             string originalHash = AppUpdate.Hash(Path.Combine(target, "AudioSwitch.exe"));
             using (var ready = new EventWaitHandle(false, EventResetMode.ManualReset, readyName))
             using (var hostReady = new EventWaitHandle(false, EventResetMode.ManualReset, hostReadyName))
-            using (var backend = Process.Start(new ProcessStartInfo(Path.Combine(target, "AudioSwitch.exe"), "--host " + UpdateInstaller.Quote(hostReadyName)) { UseShellExecute = false, CreateNoWindow = true }))
+            using (var backend = automatic ? null : Process.Start(new ProcessStartInfo(Path.Combine(target, "AudioSwitch.exe"), "--host " + UpdateInstaller.Quote(hostReadyName)) { UseShellExecute = false, CreateNoWindow = true }))
             using (var parent = Process.Start(new ProcessStartInfo(Path.Combine(target, "AudioSwitch.exe"), "--parent " + UpdateInstaller.Quote(readyName)) { UseShellExecute = false, CreateNoWindow = true }))
             {
                 Process helperProcess = null;
                 try
                 {
-                    check(hostReady.WaitOne(5000), "isolated fake tray host starts without audio access");
+                    if (!automatic) check(hostReady.WaitOne(5000), "isolated fake tray host starts without audio access");
                     var plan = new UpdatePlan { Target = Path.Combine(target, "AudioSwitch.exe"), Payload = payload, Version = repair ? AppVersion.Number : "99.0.0", ParentPid = parent.Id, ReadyEvent = readyName, Repair = repair,
+                        Automatic = automatic, Background = automatic,
                         Hashes = (repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
                     string planFile = Path.Combine(work, "install.json"); File.WriteAllText(planFile, Wire.Encode(plan));
-                    helperProcess = Process.Start(new ProcessStartInfo(helper, "--apply-update " + UpdateInstaller.Quote(planFile)) { UseShellExecute = false, CreateNoWindow = true });
+                    helperProcess = Process.Start(new ProcessStartInfo(helper, (automatic ? "--apply-auto-update " : "--apply-update ") + UpdateInstaller.Quote(planFile)) { UseShellExecute = false, CreateNoWindow = true });
                     check(helperProcess.WaitForExit(30000), "real update helper completes cross-process replacement and restart");
-                    check(parent.HasExited && backend.HasExited, "update waits for the exact panel and tray processes to exit");
+                    check(parent.HasExited && (backend == null || backend.HasExited), "update waits for the exact initiating processes to exit");
                     check(File.Exists(Path.Combine(target, "fixture-started.txt")), "new executable acknowledges startup across processes");
                     check(AppUpdate.Hash(Path.Combine(target, "AudioSwitch.exe")) == plan.Hashes["AudioSwitch.exe"], "installed executable matches verified payload");
                     string saved = Directory.GetDirectories(Path.Combine(target, "update-backups")).Single();
                     check(AppUpdate.Hash(Path.Combine(saved, "AudioSwitch.exe")) == originalHash, "old running executable preserved in complete backup");
                     check(!UpdateInstaller.IsUpdating(), "update mutex is released after helper exits");
+                    if (automatic) check(File.ReadAllText(Path.Combine(target, "fixture-started.txt")).StartsWith("--background --updated="), "real automatic installer restarts without requesting a panel");
                     if (repair) check(AppUpdate.Files.Except(FileIntegrity.RequiredFiles).All(name => File.ReadAllText(Path.Combine(target, name)) == "keep optional file"), "real same-version repair helper leaves all optional files untouched");
                 }
                 finally

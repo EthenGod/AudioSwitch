@@ -21,6 +21,13 @@ namespace AudioSwitch
         private readonly DeviceEventBatch debounce;
         private readonly PipeServer server;
         private readonly DolbyQueue dolby;
+        private readonly BackgroundUpdate updates;
+        private readonly Timer updateIdleTimer = new Timer { Interval = 30000 };
+        private readonly UpdateActivity updateActivity = new UpdateActivity();
+        private System.Threading.Tasks.Task<bool> activitySample;
+        private System.Threading.Tasks.Task activityCleanup;
+        private bool activityReleased;
+        private DateTime updateBusyUntil = DateTime.UtcNow.AddSeconds(15);
         private Preferences preferences;
         private Process frontend;
         private Process promptFrontend;
@@ -31,10 +38,10 @@ namespace AudioSwitch
         private readonly Dictionary<string, string> presetWarnings = new Dictionary<string, string>();
         [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
         [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
-        internal TrayHost(bool show)
+        internal TrayHost(bool show, string updateIssue = null, Preferences startupPreferences = null)
         {
             var handle = dispatcher.Handle;
-            preferences = LoadPreferences();
+            preferences = startupPreferences ?? LoadPreferences();
             Palette.Apply(preferences.DarkMode);
             audio = new AudioService();
             tracker = new ArrivalTracker(audio.Read());
@@ -53,10 +60,11 @@ namespace AudioSwitch
             menu.Opening += delegate { BuildMenu(menu); };
             tray.ContextMenuStrip = menu;
             debounce = new DeviceEventBatch(() => RefreshAudio(true, true));
+            debounce.SetGameMode(preferences.GameMode);
             audio.Listen(delegate {
                 if (exiting) return;
                 // Bound the wait from the first event; later callbacks must not postpone it.
-                try { dispatcher.BeginInvoke((Action)delegate { if (!exiting) debounce.Signal(); }); }
+                try { dispatcher.BeginInvoke((Action)delegate { if (!exiting) { updateBusyUntil = DateTime.UtcNow.AddSeconds(15); debounce.Signal(); } }); }
                 catch (InvalidOperationException) { }
             });
             server = new PipeServer(request => (Reply)dispatcher.Invoke((Func<Reply>)(() => Handle(request))), request => {
@@ -70,6 +78,24 @@ namespace AudioSwitch
             }
             catch (Exception ex) { priorityError = "初始化设备优先级失败：" + ex.Message; Program.Log(ex); }
             ObserveDolby(tracker.Current);
+            updates = new BackgroundUpdate(new AutomaticUpdateStore(Program.DataDirectory, Application.ExecutablePath), updateIssue);
+            updateIdleTimer.Tick += async delegate {
+                if (exiting || !preferences.AutomaticUpdatesAllowed || activityReleased || (activitySample != null && !activitySample.IsCompleted)) return;
+                updates.Start(); // A check cancelled by a rapid mode toggle can resume once its worker exits.
+                if (updates.Finished) { updateIdleTimer.Stop(); ReleaseUpdateActivity(); return; }
+                if (!updates.NeedsActivity) { updateActivity.Dispose(); return; }
+                string updateStage = updates.Snapshot().Stage;
+                if (updateStage != "waiting" && updateStage != "downloading") return;
+                bool idle = UpdateIdle.IsIdle();
+                bool audioBusy = dolby.Applying || tracker.Pending.Count > 0 || DateTime.UtcNow < updateBusyUntil || UpdateInstaller.IsUpdating();
+                if (audioBusy || (!idle && updateStage != "downloading"))
+                { updates.Tick(idle, audioBusy); updateActivity.Dispose(); return; }
+                activitySample = System.Threading.Tasks.Task.Run(() => updateActivity.ReadBusy());
+                bool pressure = await activitySample;
+                if (exiting || !preferences.AutomaticUpdatesAllowed || activityReleased) return;
+                updates.Tick(UpdateIdle.IsIdle(), pressure || dolby.Applying || tracker.Pending.Count > 0 || DateTime.UtcNow < updateBusyUntil || UpdateInstaller.IsUpdating());
+            };
+            UpdateGameMode();
             if (show) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
         }
         private void RefreshAudio(bool notify, bool automatic = false)
@@ -166,6 +192,10 @@ namespace AudioSwitch
                 if (result.Error != null) tray.ShowBalloonTip(5000, "设备优先级", result.Error, ToolTipIcon.Warning);
             };
             menu.Items.Add(priority);
+            menu.Items.Add(GameModeMenu.Create(preferences.GameMode, value => {
+                var result = Handle(new Request { Action = "gameMode", Value = value });
+                if (result.Error != null) tray.ShowBalloonTip(5000, "游戏模式未更改", result.Error, ToolTipIcon.Warning);
+            }));
             menu.Items.Add("退出", null, delegate { ExitThread(); });
         }
         private Reply Handle(Request request)
@@ -175,7 +205,7 @@ namespace AudioSwitch
             {
                 if (String.IsNullOrEmpty(request.UpdatePath) || !UpdateInstaller.SamePath(request.UpdatePath, Application.ExecutablePath) || !UpdateInstaller.IsUpdating())
                     return new Reply { Error = "更新任务与当前程序不一致。" };
-                exiting = true; dolby.Stop(); debounce.Stop();
+                exiting = true; dolby.Stop(); debounce.Stop(); updates.Dispose(); updateIdleTimer.Stop(); ReleaseUpdateActivity();
                 return new Reply();
             }
             string error = null;
@@ -193,12 +223,21 @@ namespace AudioSwitch
                         StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
                         break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); break;
+                    case "gameMode":
+                        preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
+                        UpdateGameMode();
+                        break;
+                    case "automaticUpdates":
+                        preferences.AutoUpdateEnabled = request.Value; SavePreferences(); preferencesSaved = true;
+                        UpdateGameMode();
+                        break;
                     case "exportSettings": return new Reply { ConfigurationJson = PreferenceStore.Export(preferences) };
                     case "importSettings":
                         preferences = PreferenceStore.Import(PreferenceStore.SettingsPath, request.ConfigurationJson, preferences, out backupPath);
                         preferencesSaved = true;
                         tracker.Pending.Clear(); presetWarnings.Clear(); priorityError = null; audioError = null;
                         dolby.Cancel();
+                        if (preferences.GameMode != beforePreferences.GameMode || preferences.AutoUpdateEnabled != beforePreferences.AutoUpdateEnabled) UpdateGameMode();
                         break;
                     case "dismissWarning":
                         // A stale close click must not discard a newer warning.
@@ -283,11 +322,11 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup") RefreshAudio(false);
+                if (request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
             return Wire.Decode<Reply>(Wire.Encode(new Reply { Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
-                Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
+                Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,
                 FrontendPid = frontend != null && !frontend.HasExited ? frontend.Id : 0 }));
         }
@@ -375,9 +414,40 @@ namespace AudioSwitch
         {
             PreferenceStore.Save(PreferenceStore.SettingsPath, preferences);
         }
+        private void UpdateGameMode()
+        {
+            debounce.SetGameMode(preferences.GameMode);
+            updates.SetPaused(!preferences.AutomaticUpdatesAllowed, preferences.AutoUpdateEnabled ? null : "自动更新已关闭，可手动检查更新。");
+            if (!preferences.AutomaticUpdatesAllowed)
+            {
+                updateIdleTimer.Stop(); ReleaseUpdateActivity();
+            }
+            else
+            {
+                updates.Start();
+                if (updates.Finished) return;
+                // Never reuse/dispose the query while a previous sample is still running.
+                if (activityCleanup != null && !activityCleanup.IsCompleted)
+                {
+                    activityCleanup.ContinueWith(task => {
+                        try { dispatcher.BeginInvoke((Action)(() => { if (!exiting && preferences.AutomaticUpdatesAllowed) UpdateGameMode(); })); }
+                        catch (InvalidOperationException) { }
+                    });
+                    return;
+                }
+                activityReleased = false; updateIdleTimer.Start();
+            }
+        }
+        private void ReleaseUpdateActivity()
+        {
+            if (activityReleased) return; activityReleased = true;
+            if (activitySample == null || activitySample.IsCompleted) updateActivity.Dispose();
+            else activityCleanup = activitySample.ContinueWith(task => updateActivity.Dispose(), System.Threading.Tasks.TaskScheduler.Default);
+        }
         protected override void ExitThreadCore()
         {
             exiting = true;
+            updateIdleTimer.Stop(); updates.Dispose(); ReleaseUpdateActivity();
             dolby.Stop();
             debounce.Stop();
             if (frontend != null && !frontend.HasExited) frontend.CloseMainWindow();
@@ -386,6 +456,7 @@ namespace AudioSwitch
         }
         protected override void Dispose(bool disposing)
         {
+            if (disposing && !disposed) { updateIdleTimer.Dispose(); if (updates != null) updates.Dispose(); ReleaseUpdateActivity(); }
             if (disposing && !disposed)
             {
                 disposed = true;

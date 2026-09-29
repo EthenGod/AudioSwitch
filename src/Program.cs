@@ -26,7 +26,8 @@ namespace AudioSwitch
             try
             {
                 if (args.Contains("--licenses")) { NoticeDialog.ShowNotice(null, "许可与第三方说明", DistributionNotices.Read()); return; }
-                if (args.Length == 2 && args[0] == "--apply-update") { UpdateInstaller.Run(args[1]); return; }
+                if (args.Length == 2 && (args[0] == "--apply-update" || args[0] == "--apply-auto-update"))
+                { UpdateInstaller.Run(args[1], args[0] == "--apply-auto-update"); return; }
                 if (UpdateInstaller.IsUpdating()) {
                     if (args.Contains("--check-files")) Environment.ExitCode = 3;
                     if (!args.Contains("--background") && !(args.Contains("--check-files") && args.Contains("--quiet"))) NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。");
@@ -78,7 +79,12 @@ namespace AudioSwitch
                         return;
                     }
                     if (!FileIntegrity.RequireStartupFiles()) return;
-                    using (var host = new TrayHost(!args.Contains("--background")))
+                    string updateIssue = null;
+                    var startupPreferences = PreferenceStore.Load(PreferenceStore.SettingsPath);
+                    var updates = new AutomaticUpdateStore(DataDirectory, Application.ExecutablePath);
+                    if (updates.TryInstall(args.Contains("--background"), (payload, release, background) =>
+                        UpdateInstaller.LaunchAutomatic(payload, release, Process.GetCurrentProcess().Id, background), out updateIssue, !startupPreferences.AutomaticUpdatesAllowed)) return;
+                    using (var host = new TrayHost(!args.Contains("--background"), updateIssue, startupPreferences))
                     {
                         var updated = args.FirstOrDefault(a => a.StartsWith("--updated=Local\\AudioSwitch-Update-Started-", StringComparison.Ordinal));
                         if (updated != null)

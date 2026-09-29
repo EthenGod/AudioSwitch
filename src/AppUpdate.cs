@@ -220,14 +220,39 @@ namespace AudioSwitch
         internal static string Prepare(UpdateRelease release, CancellationToken cancel, Action<long> progress)
         {
             string work = Path.Combine(Program.DataDirectory, "updates", Guid.NewGuid().ToString("N"));
+            return PrepareInDirectory(release, cancel, progress, work);
+        }
+        internal static string PrepareInDirectory(UpdateRelease release, CancellationToken cancel, Action<long> progress, string work)
+        {
+            using (UpdateStorage.CacheLease(Path.GetDirectoryName(work)))
+                return PrepareLocked(release, cancel, progress, work);
+        }
+        private static string PrepareLocked(UpdateRelease release, CancellationToken cancel, Action<long> progress, string work)
+        {
+            cancel.ThrowIfCancellationRequested();
+            UpdateInstaller.RejectLinks(work);
+            if (File.Exists(Path.Combine(work, "install.json"))) throw new IOException("该缓存已交给安装助手，请重新检查更新。");
+            string root = Path.GetDirectoryName(work);
+            // A retry replaces only this attempt's fixed files. Count all older cache towards the cap.
+            long replaceable = 0;
+            foreach (string name in Files.Select(name => Path.Combine("payload", name)).Concat(new[] { "package.zip" }))
+            {
+                string path = Path.Combine(work, name); UpdateInstaller.RejectLinks(path);
+                if (File.Exists(path)) replaceable += new FileInfo(path).Length;
+            }
+            long helperSize = new FileInfo(typeof(AppUpdate).Assembly.Location).Length;
+            long reserve = (release.Size > 0 ? release.Size : MaxPackage) + MaxPackage * 2 + helperSize + 256 * 1024;
+            UpdateStorage.Require(root, UpdateStorage.CacheLimit, Math.Max(0, reserve - replaceable), "更新缓存");
             Directory.CreateDirectory(work);
             string zip = Path.Combine(work, "package.zip");
-            using (var output = new FileStream(zip, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                Download(release.Url, output, release.Size > 0 ? release.Size : MaxPackage, cancel, progress);
+            // A completed verified ZIP is reusable after cancellation during extraction.
+            if (!File.Exists(zip) || (release.Size > 0 && new FileInfo(zip).Length != release.Size) || !String.Equals(Hash(zip), release.Digest, StringComparison.OrdinalIgnoreCase))
+                using (var output = new FileStream(zip, FileMode.Create, FileAccess.Write, FileShare.None))
+                    Download(release.Url, output, release.Size > 0 ? release.Size : MaxPackage, cancel, progress);
             if ((release.Size > 0 && new FileInfo(zip).Length != release.Size) || !String.Equals(Hash(zip), release.Digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("更新包不完整或校验失败。原程序没有更改，请重新下载。");
             string payload = Path.Combine(work, "payload");
-            Extract(zip, payload, cancel);
+            Extract(zip, payload, cancel, true);
             ValidatePayload(payload, release.Version);
             return payload;
         }
@@ -236,7 +261,7 @@ namespace AudioSwitch
             using (var stream = File.OpenRead(path)) using (var hash = SHA256.Create())
                 return BitConverter.ToString(hash.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
         }
-        internal static void Extract(string zip, string destination, CancellationToken cancel)
+        internal static void Extract(string zip, string destination, CancellationToken cancel, bool replaceAttempt = false)
         {
             using (var archive = ZipFile.OpenRead(zip))
             {
@@ -249,8 +274,9 @@ namespace AudioSwitch
                     var entry = archive.GetEntry(name); total += entry.Length;
                     if (entry.Length <= 0 || entry.Length > MaxPackage * 2 || total > MaxPackage * 2) throw new InvalidDataException("解压后的更新文件大小无效。");
                     string path = Path.Combine(destination, name.Replace('/', Path.DirectorySeparatorChar));
+                    UpdateInstaller.RejectLinks(path);
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    using (var input = entry.Open()) using (var output = new FileStream(path, FileMode.CreateNew))
+                    using (var input = entry.Open()) using (var output = new FileStream(path, replaceAttempt ? FileMode.Create : FileMode.CreateNew))
                         if (CopyBounded(input, output, entry.Length, cancel, null) != entry.Length) throw new InvalidDataException("更新文件不完整。");
                 }
             }
