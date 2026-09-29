@@ -18,6 +18,7 @@ namespace AudioSwitch
         public int ParentPid { get; set; }
         public string ReadyEvent { get; set; }
         public Dictionary<string, string> Hashes { get; set; }
+        public bool Repair { get; set; }
     }
     internal static class UpdateInstaller
     {
@@ -58,15 +59,20 @@ namespace AudioSwitch
             }
         }
         internal static void Launch(string payload, UpdateRelease release, int parentPid)
+        { LaunchCore(payload, release, parentPid, false); }
+        internal static void LaunchRepair(string payload, int parentPid)
+        { LaunchCore(payload, new UpdateRelease { Version = AppUpdate.ParseVersion(AppVersion.Number) }, parentPid, true); }
+        private static void LaunchCore(string payload, UpdateRelease release, int parentPid, bool repair)
         {
             string work = Path.GetDirectoryName(payload);
             string target = Application.ExecutablePath;
             var plan = new UpdatePlan { Target = target, Payload = payload, Version = release.Version.ToString(3), ParentPid = parentPid,
                 ReadyEvent = "Local\\AudioSwitch-Update-Ready-" + Guid.NewGuid().ToString("N"),
-                Hashes = AppUpdate.Files.ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
+                Repair = repair, Hashes = (repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
             string helper = Path.Combine(work, "AudioSwitch.Update.exe");
-            File.Copy(target, helper, false);
-            File.Copy(target + ".config", helper + ".config", false);
+            // A damaged running executable must never be used as the repair helper.
+            File.Copy(repair ? Path.Combine(payload, "AudioSwitch.exe") : target, helper, false);
+            File.Copy(repair ? Path.Combine(payload, "AudioSwitch.exe.config") : target + ".config", helper + ".config", false);
             string planFile = Path.Combine(work, "install.json");
             File.WriteAllText(planFile, Wire.Encode(plan), new System.Text.UTF8Encoding(false));
             using (var ready = new EventWaitHandle(false, EventResetMode.ManualReset, plan.ReadyEvent))
@@ -85,15 +91,17 @@ namespace AudioSwitch
         {
             if (plan == null || plan.ParentPid <= 0 || plan.ReadyEvent == null || !plan.ReadyEvent.StartsWith("Local\\AudioSwitch-Update-Ready-", StringComparison.Ordinal))
                 throw new InvalidDataException("更新任务无效。");
-            if (Path.GetFileName(plan.Target) != "AudioSwitch.exe" || !File.Exists(plan.Target)) throw new InvalidDataException("找不到原程序。");
+            if (Path.GetFileName(plan.Target) != "AudioSwitch.exe" || (!plan.Repair && !File.Exists(plan.Target))) throw new InvalidDataException("找不到原程序。");
             if (!SamePath(plan.Payload, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "payload"))) throw new InvalidDataException("更新文件目录无效。");
             if (SamePath(Path.GetDirectoryName(plan.Target), plan.Payload)) throw new InvalidDataException("不能覆盖更新来源。");
             RejectLinks(plan.Target); RejectLinks(plan.Payload);
             var version = AppUpdate.ParseVersion(plan.Version);
-            if (version <= AppUpdate.ParseVersion(AppVersion.Number)) throw new InvalidDataException("不能安装相同或更旧的版本。");
-            AppUpdate.ValidatePayload(plan.Payload, version);
-            if (plan.Hashes == null || plan.Hashes.Count != AppUpdate.Files.Length) throw new InvalidDataException("更新校验信息不完整。");
-            foreach (string name in AppUpdate.Files)
+            ValidateVersion(version, plan.Repair);
+            if (plan.Repair) { if (!FileIntegrity.Check(plan.Payload).Passed) throw new InvalidDataException("修复包的必要文件校验失败。"); }
+            else AppUpdate.ValidatePayload(plan.Payload, version);
+            var files = plan.Repair ? FileIntegrity.RequiredFiles : AppUpdate.Files;
+            if (plan.Hashes == null || plan.Hashes.Count != files.Length) throw new InvalidDataException("更新校验信息不完整。");
+            foreach (string name in files)
             {
                 string hash;
                 RejectLinks(Path.Combine(plan.Payload, name)); RejectLinks(Path.Combine(Path.GetDirectoryName(plan.Target), name));
@@ -101,6 +109,11 @@ namespace AudioSwitch
             }
             using (var parent = Process.GetProcessById(plan.ParentPid))
                 if (!Matches(parent, plan.Target)) throw new InvalidDataException("发起更新的程序已退出或路径不一致。");
+        }
+        internal static void ValidateVersion(Version version, bool repair)
+        {
+            if (repair ? version != AppUpdate.ParseVersion(AppVersion.Number) : version <= AppUpdate.ParseVersion(AppVersion.Number))
+                throw new InvalidDataException(repair ? "只能使用当前版本的修复包。" : "不能安装相同或更旧的版本。");
         }
         private static List<Process> RunningCopies(string target)
         {
@@ -125,12 +138,16 @@ namespace AudioSwitch
                     throw new IOException("程序仍被面板或音效任务占用，尚未替换文件。请关闭相关窗口后重试。");
         }
         internal static void ApplyFiles(string payload, string targetDirectory, string backup, Action<string> afterWrite = null)
+        { ApplySelectedFiles(payload, targetDirectory, backup, AppUpdate.Files, afterWrite); }
+        internal static void ApplySelectedFiles(string payload, string targetDirectory, string backup, string[] files, Action<string> afterWrite = null)
         {
+            if (files == null || files.Length == 0 || files.Distinct().Count() != files.Length || files.Any(name => !AppUpdate.Files.Contains(name)))
+                throw new InvalidDataException("待替换文件清单无效。");
             RejectLinks(targetDirectory); RejectLinks(backup);
             var originals = new Dictionary<string, string>();
             var attempted = new List<string>();
             // Complete and verify every backup before touching any destination file.
-            foreach (string name in AppUpdate.Files)
+            foreach (string name in files)
             {
                 string target = Path.Combine(targetDirectory, name), saved = Path.Combine(backup, name);
                 RejectLinks(target); RejectLinks(Path.Combine(payload, name));
@@ -144,7 +161,7 @@ namespace AudioSwitch
             }
             try
             {
-                foreach (string name in AppUpdate.Files)
+                foreach (string name in files)
                 {
                     string target = Path.Combine(targetDirectory, name), source = Path.Combine(payload, name);
                     Directory.CreateDirectory(Path.GetDirectoryName(target));
@@ -227,7 +244,7 @@ namespace AudioSwitch
                         finally { foreach (var process in remaining) process.Dispose(); }
                     }
                     finally { foreach (var process in running) process.Dispose(); }
-                    ApplyFiles(plan.Payload, directory, backup);
+                    ApplySelectedFiles(plan.Payload, directory, backup, plan.Repair ? FileIntegrity.RequiredFiles : AppUpdate.Files);
                     installed = true;
                     File.WriteAllText(resultPath, "已安装 " + plan.Version + "\r\n原程序备份：" + backup);
                     mutex.ReleaseMutex(); held = false;

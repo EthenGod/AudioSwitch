@@ -42,6 +42,7 @@ namespace AudioSwitch
                 RunConfigurationTests();
                 StartupTests.Run(Check);
                 UpdateTests.Run(Check);
+                IntegrityTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
                 {
@@ -68,7 +69,9 @@ namespace AudioSwitch
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
                 if (args.Contains("--render")) StartupTests.Render(Check);
+                if (args.Contains("--render")) IntegrityTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
+                if (args.Contains("--repair-process")) UpdateTests.ProcessSmoke(Check, true);
                 Console.WriteLine("PASS: " + passed + " checks");
                 return 0;
             }
@@ -564,6 +567,8 @@ namespace AudioSwitch
                 Check(requests.Last().Action == "switch" && requests.Last().DeviceId == devices[1].Id, "redesigned switch action targets endpoint ID even when display names match");
                 window.Size = window.MinimumSize; Application.DoEvents();
                 var updateButton = Descendants(window).OfType<Button>().Single(b => b.Name == "checkUpdates");
+                var integrityButton = Descendants(window).OfType<Button>().Single(b => b.Name == "checkFiles");
+                Check(integrityButton.Parent.ClientRectangle.Contains(integrityButton.Bounds) && integrityButton.Parent.Controls.Cast<Control>().Where(c => c != integrityButton).All(c => !c.Bounds.IntersectsWith(integrityButton.Bounds)), "file check button fits minimum sidebar without overlaps");
                 Check(updateButton.Parent.ClientRectangle.Contains(updateButton.Bounds) && updateButton.Parent.Controls.OfType<Label>().All(l => !l.Bounds.IntersectsWith(updateButton.Bounds)), "update button remains clear of sidebar footer at minimum window size");
                 Check(Descendants(window).OfType<DeviceGlyph>().All(g => Math.Abs(g.Top * 2 + g.Height - g.Parent.ClientSize.Height) <= 1), "device icon tiles stay vertically centered in dashboard rows");
                 Check(Descendants(window).Where(c => c.Name == "deviceRow").All(row => row.Controls.OfType<Button>().All(b => row.ClientRectangle.Contains(b.Bounds)) &&

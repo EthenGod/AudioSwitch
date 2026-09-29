@@ -87,12 +87,18 @@ namespace AudioSwitch
             export.Click += async delegate { await ExportSettings(); };
             import.Click += async delegate { await ImportSettings(); };
             sidebar.Controls.Add(export); sidebar.Controls.Add(import);
-            var update = new FlatAction("检查更新", false) { Name = "checkUpdates", Location = new Point(22, 557), Size = new Size(188, 32) };
+            var update = new FlatAction("检查更新", false) { Name = "checkUpdates", Location = new Point(22, 557), Size = new Size(90, 32) };
             update.Click += delegate {
                 if (preview || busy) return;
                 using (var dialog = new UpdateDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); }
             };
             sidebar.Controls.Add(update);
+            var integrity = new FlatAction("文件检查", false) { Name = "checkFiles", Location = new Point(120, 557), Size = new Size(90, 32) };
+            integrity.Click += delegate {
+                if (preview || busy) return;
+                using (var dialog = new IntegrityDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); }
+            };
+            sidebar.Controls.Add(integrity);
             var low = Palette.Label("关闭面板后，托盘继续工作", 8, Palette.Muted, false); low.SetBounds(24, ClientSize.Height - 51, 195, 20); low.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(low);
             var ver = Palette.Label("声间  /  v" + AppVersion.Number, 8, Palette.Muted, false); ver.SetBounds(24, ClientSize.Height - 28, 190, 20); ver.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(ver);
 

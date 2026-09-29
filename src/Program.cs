@@ -26,9 +26,20 @@ namespace AudioSwitch
             try
             {
                 if (args.Length == 2 && args[0] == "--apply-update") { UpdateInstaller.Run(args[1]); return; }
-                if (UpdateInstaller.IsUpdating()) { if (!args.Contains("--background")) NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。"); return; }
+                if (UpdateInstaller.IsUpdating()) {
+                    if (args.Contains("--check-files")) Environment.ExitCode = 3;
+                    if (!args.Contains("--background") && !(args.Contains("--check-files") && args.Contains("--quiet"))) NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。");
+                    return;
+                }
+                if (args.Contains("--check-files"))
+                {
+                    if (args.Contains("--quiet")) Environment.ExitCode = FileIntegrity.Check(AppDomain.CurrentDomain.BaseDirectory).Passed ? 0 : 2;
+                    else using (var dialog = new IntegrityDialog()) { dialog.ShowDialog(); Environment.ExitCode = dialog.Passed || dialog.Restarting ? 0 : 2; }
+                    return; // Quiet diagnostics are read-only; interactive main repair may hand off a restart.
+                }
                 if (args.Contains("--ui") || args.Contains("--prompt"))
                 {
+                    if (!FileIntegrity.RequireStartupFiles()) return;
                     if (args.Contains("--ui")) InstanceLocation.RequireBackend(Application.ExecutablePath, Wire.Send(new Request { Action = "snapshot" }));
                     // Read without migration/writes, so the first frame already has the saved theme.
                     try { if (File.Exists(PreferenceStore.SettingsPath)) Palette.Apply(PreferenceStore.Parse(PreferenceStore.ReadFile(PreferenceStore.SettingsPath)).DarkMode); }
@@ -65,6 +76,7 @@ namespace AudioSwitch
                         }
                         return;
                     }
+                    if (!FileIntegrity.RequireStartupFiles()) return;
                     using (var host = new TrayHost(!args.Contains("--background")))
                     {
                         var updated = args.FirstOrDefault(a => a.StartsWith("--updated=Local\\AudioSwitch-Update-Started-", StringComparison.Ordinal));

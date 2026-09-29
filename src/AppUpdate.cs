@@ -72,6 +72,25 @@ namespace AudioSwitch
         {
             return Check(cancel, ReadPage);
         }
+        internal static UpdateRelease RepairRelease(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read = null)
+        {
+            read = read ?? ReadPage;
+            var release = new UpdateRelease { Version = ParseVersion(AppVersion.Number), Tag = "v" + AppVersion.Number };
+            string url = ReleasesUrl + "/expanded_assets/" + release.Tag;
+            try
+            {
+                var page = read(url, cancel);
+                if (page.Address.AbsoluteUri != url) throw new InvalidDataException("修复包页面地址已改变。");
+                ParseAssetPage(release, page.Text);
+                return release;
+            }
+            catch (WebException ex)
+            {
+                var status = Status(ex); if (ex.Response != null) ex.Response.Dispose();
+                cancel.ThrowIfCancellationRequested();
+                throw new IOException(status == HttpStatusCode.NotFound ? "当前版本 v" + AppVersion.Number + " 尚无可下载的修复包，请从发布页下载完整版本。" : "暂时无法下载修复包，请检查网络后重试。", ex);
+            }
+        }
         internal static UpdateRelease Check(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read)
         {
             // The public latest-release redirect does not consume the shared anonymous REST API quota.

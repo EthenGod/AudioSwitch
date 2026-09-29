@@ -170,7 +170,7 @@ namespace AudioSwitch
                 check(result.Digest.Length == 64 && result.Url.EndsWith("-win-x64.zip"), "live official asset page provides exact package SHA-256 without REST API");
             }
         }
-        internal static void ProcessSmoke(Action<bool, string> check)
+        internal static void ProcessSmoke(Action<bool, string> check, bool repair = false)
         {
             Mutex existing;
             if (Mutex.TryOpenExisting("Local\\AudioSwitch-Host-" + Wire.Identity, out existing))
@@ -207,12 +207,36 @@ class Fixture {
  }
 }";
             string compiler = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), @"Microsoft.NET\Framework64\v4.0.30319\csc.exe");
+            string manifest = Path.Combine(work, "integrity.txt");
+            using (var input = typeof(FileIntegrity).Assembly.GetManifestResourceStream("AudioSwitch.Integrity"))
+            using (var output = File.Create(manifest)) input.CopyTo(output);
             foreach (string folder in new[] { target, payload })
             {
                 string cs = Path.Combine(work, folder == target ? "old.cs" : "new.cs");
-                File.WriteAllText(cs, source.Replace("VERSION", folder == target ? AppVersion.Number : "99.0.0"));
-                using (var compile = Process.Start(new ProcessStartInfo(compiler, "/nologo /target:exe /platform:x64 /out:" + UpdateInstaller.Quote(Path.Combine(folder, "AudioSwitch.exe")) + " " + UpdateInstaller.Quote(cs)) { UseShellExecute = false, CreateNoWindow = true }))
-                { if (!compile.WaitForExit(15000) || compile.ExitCode != 0) throw new Exception("Cannot compile update fixture."); }
+                File.WriteAllText(cs, source.Replace("VERSION", folder == target || repair ? AppVersion.Number : "99.0.0"));
+                string resource = repair && folder == payload ? " /resource:" + UpdateInstaller.Quote(manifest) + ",AudioSwitch.Integrity" : "";
+                using (var compile = Process.Start(new ProcessStartInfo(compiler, "/nologo /utf8output /target:exe /platform:x64 /out:" + UpdateInstaller.Quote(Path.Combine(folder, "AudioSwitch.exe")) + resource + " " + UpdateInstaller.Quote(cs)) {
+                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, StandardOutputEncoding = System.Text.Encoding.UTF8 }))
+                {
+                    if (!compile.WaitForExit(15000)) throw new Exception("Update fixture compilation timed out.");
+                    string diagnostic = compile.StandardOutput.ReadToEnd();
+                    if (compile.ExitCode != 0) throw new Exception("Cannot compile update fixture: " + diagnostic);
+                }
+            }
+            if (repair)
+            {
+                string path = Path.Combine(payload, "AudioSwitch.exe"); byte[] bytes = File.ReadAllBytes(path);
+                string marker = "AudioSwitch-Self-SHA256-v1=";
+                int offset = System.Text.Encoding.ASCII.GetString(bytes).IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    sha.TransformBlock(bytes, 0, offset, bytes, 0); sha.TransformFinalBlock(bytes, offset + 64, bytes.Length - offset - 64);
+                    byte[] digest = System.Text.Encoding.ASCII.GetBytes(BitConverter.ToString(sha.Hash).Replace("-", ""));
+                    Buffer.BlockCopy(digest, 0, bytes, offset, 64);
+                }
+                File.WriteAllBytes(path, bytes);
+                check(FileIntegrity.Check(payload).Passed, "same-version repair fixture has valid executable and runtime hashes");
+                foreach (string name in AppUpdate.Files.Except(FileIntegrity.RequiredFiles)) File.WriteAllText(Path.Combine(target, name), "keep optional file");
             }
             string helper = Path.Combine(work, "AudioSwitch.Update.exe");
             File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AudioSwitch.exe"), helper);
@@ -229,8 +253,8 @@ class Fixture {
                 try
                 {
                     check(hostReady.WaitOne(5000), "isolated fake tray host starts without audio access");
-                    var plan = new UpdatePlan { Target = Path.Combine(target, "AudioSwitch.exe"), Payload = payload, Version = "99.0.0", ParentPid = parent.Id, ReadyEvent = readyName,
-                        Hashes = AppUpdate.Files.ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
+                    var plan = new UpdatePlan { Target = Path.Combine(target, "AudioSwitch.exe"), Payload = payload, Version = repair ? AppVersion.Number : "99.0.0", ParentPid = parent.Id, ReadyEvent = readyName, Repair = repair,
+                        Hashes = (repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
                     string planFile = Path.Combine(work, "install.json"); File.WriteAllText(planFile, Wire.Encode(plan));
                     helperProcess = Process.Start(new ProcessStartInfo(helper, "--apply-update " + UpdateInstaller.Quote(planFile)) { UseShellExecute = false, CreateNoWindow = true });
                     check(helperProcess.WaitForExit(30000), "real update helper completes cross-process replacement and restart");
@@ -240,6 +264,7 @@ class Fixture {
                     string saved = Directory.GetDirectories(Path.Combine(target, "update-backups")).Single();
                     check(AppUpdate.Hash(Path.Combine(saved, "AudioSwitch.exe")) == originalHash, "old running executable preserved in complete backup");
                     check(!UpdateInstaller.IsUpdating(), "update mutex is released after helper exits");
+                    if (repair) check(AppUpdate.Files.Except(FileIntegrity.RequiredFiles).All(name => File.ReadAllText(Path.Combine(target, name)) == "keep optional file"), "real same-version repair helper leaves all optional files untouched");
                 }
                 finally
                 {
