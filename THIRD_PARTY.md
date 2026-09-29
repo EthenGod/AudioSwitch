@@ -12,7 +12,7 @@
 
 该组件为 freeware，原许可允许免费分发完整、未经修改的发行文件，但不允许收费或作为商业产品的一部分分发。完整许可见 `vendor/svcl/readme.txt`。含有该组件的发布包须遵守这项分发限制；商业分发前须另行取得许可或替换实现。该限制不改变用户对声间自有代码享有的 GPLv3 权利，也不把声间源码改为“仅限非商业使用”。
 
-声间通过独立进程和 `/SetSpatial` 命令行参数调用 SVCL，不将其代码链接或嵌入声间程序。SVCL 的许可、帮助和程序文件均完整保留。GPL 允许将独立程序按各自许可共同分发；是否属于独立程序还取决于具体交互方式，并非仅凭分开进程即可判断。当前说明依据这一命令行调用方式；以后若改为链接、嵌入或更紧密的交互，应重新审查许可兼容性。参考 [GNU GPL FAQ：独立程序合集](https://www.gnu.org/licenses/gpl-faq.en.html#MereAggregation)。
+声间通过独立进程和 `/SetSpatial` 命令行参数调用 SVCL，不链接其代码。为离线修复和单 EXE 下载，程序资源中还保存了未经修改的 `svcl.exe`、`svcl.chm` 和 `readme.txt` 原始文件；运行时释放独立 EXE 后调用，不在声间进程中执行该组件。完整包和源码包仍保留 `vendor/svcl/` 原始文件。项目许可、声明和本说明也内嵌保存，使用 `AudioSwitch.exe --licenses` 可查看和复制完整许可文字。各文件仍遵守各自许可，内嵌存储不改变授权范围。参考 [GNU GPL FAQ：独立程序合集](https://www.gnu.org/licenses/gpl-faq.en.html#MereAggregation)。
 
 Windows、.NET Framework 和 Dolby 驱动／Access 组件由系统或用户另行安装，保留各自许可；本项目不附带 Dolby DLL，不授予其分发或修改权限。对这些组件的调用适配不表示官方合作或授权。
 

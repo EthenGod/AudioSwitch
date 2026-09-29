@@ -27,6 +27,7 @@ namespace AudioSwitch
         {
             var original = FileIntegrity.Check(AppDomain.CurrentDomain.BaseDirectory);
             check(original.Passed && original.Entries.Count == 3, "only three runtime files determine integrity status");
+            SingleExe(check);
             string directory = CopyPackage("中文 空格 & (移动位置)");
             check(FileIntegrity.Check(directory).Passed, "whole distribution remains valid after relocation");
             foreach (var file in AppUpdate.Files.Skip(1))
@@ -106,6 +107,45 @@ namespace AudioSwitch
                     CheckProcess(exe, 3, check, "standalone check during update reports not checked rather than success");
                 } finally { if (held) updating.ReleaseMutex(); }
             }
+        }
+        private static void SingleExe(Action<bool, string> check)
+        {
+            foreach (string name in AppUpdate.Files.Except(FileIntegrity.RequiredFiles))
+            using (var stream = typeof(DistributionNotices).Assembly.GetManifestResourceStream("AudioSwitch.Distribution." + name))
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                check(stream != null && BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant() == AppUpdate.Hash(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name)), "embedded distribution notice/help retains exact original bytes: " + name);
+            check(DistributionNotices.Read().Contains("GNU GENERAL PUBLIC LICENSE") && DistributionNotices.Read().Contains("Nir Sofer"), "embedded license viewer includes project license and third-party attribution");
+            string directory = Path.Combine(Path.GetTempPath(), "AudioSwitch-single-exe-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string exe = Path.Combine(directory, "AudioSwitch.exe");
+            File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AudioSwitch.exe"), exe);
+            using (var process = Process.Start(new ProcessStartInfo(exe, "--licenses") { UseShellExecute = false }))
+            {
+                bool visible = false; var watch = Stopwatch.StartNew();
+                while (!process.HasExited && watch.ElapsedMilliseconds < 6000)
+                {
+                    process.Refresh();
+                    if (process.MainWindowTitle == "许可与第三方说明 · 声间") { visible = true; process.CloseMainWindow(); break; }
+                    Thread.Sleep(30);
+                }
+                bool exited = process.WaitForExit(3000);
+                if (!exited && UpdateInstaller.Matches(process, exe)) { process.Kill(); process.WaitForExit(2000); }
+                check(visible && exited && process.ExitCode == 0 && Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length == 1, "single executable displays licenses without extracting files or starting audio");
+            }
+            using (var process = Process.Start(new ProcessStartInfo(exe, "--check-files") { UseShellExecute = false }))
+            {
+                bool restored = false; var watch = Stopwatch.StartNew();
+                while (!process.HasExited && watch.ElapsedMilliseconds < 8000)
+                {
+                    process.Refresh();
+                    if (FileIntegrity.Check(directory).Passed && process.MainWindowTitle == "文件检查与修复 · 声间") { restored = true; process.CloseMainWindow(); break; }
+                    Thread.Sleep(30);
+                }
+                bool exited = process.WaitForExit(4000);
+                if (!exited && UpdateInstaller.Matches(process, exe)) { process.Kill(); process.WaitForExit(2000); }
+                check(restored && exited && process.ExitCode == 0, "EXE-only first run restores config and SVCL from embedded copies without a backend");
+            }
+            check(AppUpdate.Files.Except(FileIntegrity.RequiredFiles).All(name => !File.Exists(Path.Combine(directory, name))), "single executable never demands optional files on disk");
         }
         private static void RunRepair(Action<bool, string> check, string directory)
         {

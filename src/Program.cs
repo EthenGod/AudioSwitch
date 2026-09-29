@@ -25,6 +25,7 @@ namespace AudioSwitch
             Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e) { Log(e.Exception); NoticeDialog.ShowNotice(Form.ActiveForm, "操作未完成", e.Exception.Message, true); };
             try
             {
+                if (args.Contains("--licenses")) { NoticeDialog.ShowNotice(null, "许可与第三方说明", DistributionNotices.Read()); return; }
                 if (args.Length == 2 && args[0] == "--apply-update") { UpdateInstaller.Run(args[1]); return; }
                 if (UpdateInstaller.IsUpdating()) {
                     if (args.Contains("--check-files")) Environment.ExitCode = 3;

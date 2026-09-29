@@ -21,7 +21,10 @@ materials retain their original licenses. In particular, the files
 under vendor/svcl/ are NOT licensed under the GNU GPL; see THIRD_PARTY.md
 and vendor/svcl/readme.txt for their original license and attribution.
 
-对应源码：请从本程序的同一 GitHub Release 下载配套的 source.zip 附件。
+对应源码：请从本程序的同一 GitHub Release 下载自动提供的 Source code (zip)
+或 Source code (tar.gz)，版本标签应与程序版本一致。
+单 EXE 内已保存 LICENSE、NOTICE.txt、THIRD_PARTY.md 及 SVCL 原始发行文件。
+运行 AudioSwitch.exe --licenses 可查看许可说明，并通过“复制详情”取得全文。
 源码包含 src/、tests/、build.ps1、许可证、文档及构建所需的 SVCL 原始文件。
 构建方法见 README.md。Windows / .NET Framework 以及 Dolby 组件由系统或
 用户另行安装，本项目不附带或重新授权这些组件。

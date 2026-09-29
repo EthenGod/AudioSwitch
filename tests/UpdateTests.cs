@@ -41,6 +41,9 @@ namespace AudioSwitch
             var release = Release(next);
             var parsed = AppUpdate.ParseRelease(Wire.Encode(release));
             check(parsed.Version > current && parsed.Notes.Contains("保留设备配置"), "parse GitHub release and UTF-8 notes");
+            var single = new Dictionary<string, object> { { "name", "AudioSwitch.exe" } };
+            release["assets"] = new object[] { Asset(release), single };
+            check(AppUpdate.ParseRelease(Wire.Encode(release)).Url == parsed.Url, "new single-EXE asset does not change the full package selected for updates");
             check(AppUpdate.ParseRelease(Wire.Encode(Release("v0.10.1"))).Version < current, "existing v0.10.1 is never offered as downgrade");
             release["prerelease"] = true; check(AppUpdate.ParseRelease(Wire.Encode(release)) == null, "preview releases are ignored");
             release["prerelease"] = false; release["draft"] = true; check(AppUpdate.ParseRelease(Wire.Encode(release)) == null, "draft releases are ignored");

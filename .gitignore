@@ -3,6 +3,8 @@ bin/
 obj/
 artifacts/
 staging/
+# 每版待上传的 Release 附件；保留根目录说明
+/releases/*/
 
 # 本地工具和编辑器状态
 /.codex/

@@ -4,6 +4,8 @@
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
 `AudioSwitch.exe.config` 是 .NET 运行时文件，不存放用户设置。
 
+Release 的独立 `AudioSwitch.exe` 附件与完整 ZIP 包使用相同主程序。单 EXE 首次运行会在所在目录释放运行配置和 SVCL，需使用可写文件夹；不是运行时零文件落地的版本。内嵌许可文字通过 `--licenses` 查看，不触发文件修复。用户设置仍使用上述唯一活动路径，不在 EXE 同目录创建第二份用户配置。发布产物保存在 `releases/v版本号/`，其中仅放 ZIP 和 EXE，不存放用户配置。
+
 必要文件检查与修复不增加配置字段，不改变配置版本，也不修改用户配置、已有备份、日志或开机自启登记。只校验主 EXE、运行配置和 SVCL；说明／帮助／许可文件不要求补齐。`AudioSwitch.exe.config` 可从内置副本自动恢复，`settings.json` 不参与程序文件校验。配套文件在音频后台初始化前尝试离线修复，失败则停止启动；原文件保存在程序目录 `repair-backups/`，不自动清理。主 EXE 需要修复时才尝试下载当前版本官方包，独立助手备份至 `update-backups/` 并正常退出／重启本目录实例。完整移动程序目录仍可通过检查，但自启登记路径的修复仍需按原流程确认。
 
 “开机自启”是本机 Windows 用户设置，存放于 `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run` 下名为 `AudioSwitch` 的字符串值，内容为带引号的程序完整路径和 `--background` 参数。未登记时默认关闭；开关写入并读回核验。它不新增 JSON 字段，不改变配置版本，不参与导入／导出，也不在每次启动时自动重写。IPC 的 `Startup` 状态包含登记状态、是否可操作以及提示文字，与音频 `Preferences` 分开。

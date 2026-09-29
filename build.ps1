@@ -1,4 +1,4 @@
-# Copyright (C) 2026 EthenGod
+﻿# Copyright (C) 2026 EthenGod
 # SPDX-License-Identifier: GPL-3.0-only
 # This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 param([switch]$Test, [string]$OutputDirectory = 'bin')
@@ -22,6 +22,10 @@ $integrityManifest = Join-Path $output 'integrity-manifest.txt'
 [IO.File]::WriteAllLines($integrityManifest, [string[]]$integrityLines, [Text.UTF8Encoding]::new($false))
 $integrityResource = '/resource:' + $integrityManifest + ',AudioSwitch.Integrity'
 $repairResources = @("/resource:$PSScriptRoot\src\App.config,AudioSwitch.Repair.Config", "/resource:$PSScriptRoot\vendor\svcl\svcl.exe,AudioSwitch.Repair.Svcl")
+# Preserve the complete original third-party distribution and notices in single-EXE downloads.
+foreach ($file in @('vendor/svcl/readme.txt', 'vendor/svcl/svcl.chm', 'LICENSE', 'NOTICE.txt', 'THIRD_PARTY.md')) {
+    $repairResources += "/resource:$PSScriptRoot\$file,AudioSwitch.Distribution.$file"
+}
 function Set-ExecutableIntegrity([string]$path) {
     # The digest occupies its own fixed 64-byte resource slot, excluded from hashing.
     # Every other byte of the final executable participates, including the companion manifest.
