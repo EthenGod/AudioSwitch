@@ -122,7 +122,9 @@ namespace AudioSwitch
         }
         private static void Store(Action<bool, string> check, UpdateRelease release)
         {
-            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "automatic-tests", Guid.NewGuid().ToString("N"));
+            // Release builds already live in a unique nested directory. Keep this
+            // deeply nested cache fixture independent of that path (Framework MAX_PATH).
+            string root = Path.Combine(Path.GetTempPath(), "AudioSwitch-auto-" + Guid.NewGuid().ToString("N"));
             string work = Path.Combine(root, "updates", Guid.NewGuid().ToString("N")), payload = Path.Combine(work, "payload");
             foreach (string name in AppUpdate.Files)
             {

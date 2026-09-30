@@ -16,7 +16,8 @@ namespace AudioSwitch
         {
             check(new Preferences().AutoUpdateEnabled && PreferenceStore.Parse("{\"GameMode\":false}").AutoUpdateEnabled, "automatic updates default on for new and old configurations");
             var preferences = new Preferences { AutoUpdateEnabled = false };
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "automatic-preference-tests", Guid.NewGuid().ToString("N"), "settings.json");
+            // Cache keys add another long directory; do not inherit the nested release build path.
+            string path = Path.Combine(Path.GetTempPath(), "AudioSwitch-pref-" + Guid.NewGuid().ToString("N"), "settings.json");
             PreferenceStore.Save(path, preferences);
             check(!PreferenceStore.Load(path).AutoUpdateEnabled && !Wire.Decode<Preferences>(Wire.Encode(preferences)).AutoUpdateEnabled, "disabled automatic updates survive restart and IPC");
             check(!PreferenceStore.Parse(PreferenceStore.Export(preferences)).AutoUpdateEnabled, "export and import preserve disabled automatic updates");

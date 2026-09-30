@@ -9,6 +9,10 @@ $output = Join-Path $PSScriptRoot $OutputDirectory
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' | ForEach-Object FullName)
 $references = @('/r:System.dll','/r:System.Core.dll','/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.IO.Compression.dll','/r:System.IO.Compression.FileSystem.dll')
+# Embed the logo before computing the executable's integrity digest. Both release
+# assets reuse this same executable, so neither needs a separate icon file.
+$iconPath = Join-Path $PSScriptRoot 'assets\AudioSwitch.ico'
+if (!(Test-Path -LiteralPath $iconPath -PathType Leaf)) { throw '缺少程序 Logo 图标：assets\AudioSwitch.ico' }
 # Embed companion hashes; no extra distribution file is needed by older updaters.
 $integrityFiles = @('AudioSwitch.exe.config', 'vendor/svcl/svcl.exe', 'vendor/svcl/readme.txt', 'vendor/svcl/svcl.chm', 'LICENSE', 'NOTICE.txt', 'THIRD_PARTY.md')
 $integrityLines = foreach ($file in $integrityFiles) {
@@ -44,7 +48,7 @@ function Set-ExecutableIntegrity([string]$path) {
     [Array]::Copy($digest, 0, $bytes, $digestPosition, 64)
     [IO.File]::WriteAllBytes($path, $bytes)
 }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Program "/win32manifest:$PSScriptRoot\src\app.manifest" "/out:$output\AudioSwitch.exe" $integrityResource @repairResources @references @sources
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Program "/win32manifest:$PSScriptRoot\src\app.manifest" "/win32icon:$iconPath" "/out:$output\AudioSwitch.exe" $integrityResource @repairResources @references @sources
 if ($LASTEXITCODE -ne 0) { throw '编译失败。' }
 Set-ExecutableIntegrity (Join-Path $output 'AudioSwitch.exe')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src\App.config') -Destination (Join-Path $output 'AudioSwitch.exe.config')

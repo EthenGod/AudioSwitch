@@ -30,8 +30,11 @@ namespace AudioSwitch
             var state = graphics.Save();
             try {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                // Sample at pixel centers and give the tile and waveform the same
+                // (24, 24) center, including when scaled to large Explorer icons.
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
                 graphics.ScaleTransform(size / 48F, size / 48F);
-                using (var path = Palette.Round(new RectangleF(0, 0, 47, 47), 13))
+                using (var path = Palette.Round(new RectangleF(.5F, .5F, 47, 47), 13))
                 using (var brush = new SolidBrush(background)) graphics.FillPath(brush, path);
                 using (var pen = new Pen(Color.White, 3)) {
                     pen.StartCap = pen.EndCap = LineCap.Round;

@@ -72,7 +72,7 @@
 - `AudioSwitch-v版本号-win-x64.zip`：完整程序包，继续用于软件内更新和主程序修复。
 - `AudioSwitch.exe`：可直接下载的单 EXE，与 ZIP 中的主程序完全相同。
 
-以后每次发布只上传该版本子目录中的 ZIP 和 EXE。源码通过 GitHub 按该版本标签自动生成的 [Source code 下载入口](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) 提供，无需再上传第三个附件；发布前必须提交并推送与构建对应的全部源码和构建必需文件，再创建匹配标签，并在说明中注明源码入口。
+以后每次发布只上传该版本子目录中的 ZIP 和 EXE。ZIP 内的 EXE 与单独的 EXE 均内嵌工具 Logo 图标，使用同一份程序；构建资源 `assets/AudioSwitch.ico` 包含 16–256 像素图标，无需另行上传。源码通过 GitHub 按该版本标签自动生成的 [Source code 下载入口](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) 提供，无需再上传第三个附件；发布前必须提交并推送与构建对应的全部源码和构建必需文件，再创建匹配标签，并在说明中注明源码入口。
 
 单 EXE 首次运行会离线释放运行配置和 `vendor/svcl/svcl.exe`，因此须下载到可写文件夹，保留 `AudioSwitch.exe` 文件名。不会要求补齐不影响运行的说明文件；原始第三方文件及许可已内嵌，可运行 `AudioSwitch.exe --licenses` 查看和复制许可文字。用户设置仍保存到原来的 LocalAppData 目录。待上传目录只保存原件，试运行请复制到其他目录。
 
