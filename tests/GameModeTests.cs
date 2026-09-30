@@ -117,7 +117,8 @@ namespace AudioSwitch
                         int snapshots = requests.Count(r => r.Action == "snapshot"); Pump(1800);
                         check(requests.Count(r => r.Action == "snapshot") == snapshots, "game mode avoids normal 1.5-second dashboard polling");
                     }
-                    check(toggle.Parent.ClientRectangle.Contains(toggle.Bounds) && toggle.Parent.Controls.Cast<Control>().Where(c => c != toggle).All(c => !c.Bounds.IntersectsWith(toggle.Bounds)), "game mode fits compact header without overlapping filters in theme " + dark);
+                    check(toggle.Parent.Dock == DockStyle.Left && toggle.Parent.ClientRectangle.Contains(toggle.Bounds) && toggle.Parent.Controls.Cast<Control>().Where(c => c != toggle).All(c => !c.Bounds.IntersectsWith(toggle.Bounds)), "game mode fits left sidebar without overlap in minimum window in theme " + dark);
+                    check(!Children(form).Any(c => c.Name == "automaticUpdates"), "automatic update toggle has moved out of dashboard in theme " + dark);
                     using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(output, dark ? "game-mode-dark.png" : "game-mode-light.png")); }
                     fail = true; toggle.Checked = false; Application.DoEvents();
                     check(toggle.Checked && prefs.GameMode, "failed game mode save restores confirmed toggle in theme " + dark);

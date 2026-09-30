@@ -58,19 +58,21 @@ namespace AudioSwitch
                 var prefs = new Preferences { DarkMode = dark };
                 var reply = new Reply { Preferences = prefs, State = new AudioState(), Pending = new List<Arrival>() };
                 var requests = new List<Request>(); bool fail = false;
-                using (var form = new Dashboard(false, false, request => {
+                Palette.Apply(dark);
+                Func<Request, Task<Reply>> send = request => {
                     requests.Add(request);
                     if (request.Action == "automaticUpdates") { if (!fail) prefs.AutoUpdateEnabled = request.Value; reply.Error = fail ? "设置保存失败" : null; }
                     reply.Update = prefs.AutoUpdateEnabled ? null : new BackgroundUpdateState { Stage = "paused", Message = "自动更新已关闭，可手动检查更新。" };
                     return Task.FromResult(reply);
-                }))
+                };
+                using (var form = new UpdateDialog(true, send))
                 {
-                    form.Show(); form.Size = form.MinimumSize; Application.DoEvents();
+                    form.Show(); Application.DoEvents();
                     var toggle = Children(form).OfType<CheckBox>().Single(c => c.Name == "automaticUpdates");
                     check(toggle.Checked, "automatic update switch initially shows enabled in theme " + dark);
                     toggle.Checked = false; Application.DoEvents();
                     check(!prefs.AutoUpdateEnabled && requests.Last().Action == "automaticUpdates", "automatic update switch sends dedicated saved-state request in theme " + dark);
-                    check(toggle.Parent.ClientRectangle.Contains(toggle.Bounds) && toggle.Parent.Controls.Cast<Control>().Where(c => c != toggle).All(c => !c.Bounds.IntersectsWith(toggle.Bounds)), "automatic update switch fits alongside game mode and filters in theme " + dark);
+                    check(toggle.Parent == form && toggle.Parent.ClientRectangle.Contains(toggle.Bounds) && toggle.Parent.Controls.Cast<Control>().Where(c => c != toggle).All(c => !c.Bounds.IntersectsWith(toggle.Bounds)), "automatic update switch fits inside update dialog without overlap in theme " + dark);
                     check(Children(form).Single(c => c.Name == "checkUpdates").Enabled, "manual update entry remains available while automatic updates are off in theme " + dark);
                     string image = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", dark ? "automatic-switch-dark.png" : "automatic-switch-light.png"));
                     using (var bitmap = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(image); }
@@ -78,6 +80,36 @@ namespace AudioSwitch
                     check(!toggle.Checked && !prefs.AutoUpdateEnabled, "failed save restores confirmed automatic update switch state in theme " + dark);
                     check(requests.All(r => r.Action == "snapshot" || r.Action == "automaticUpdates"), "automatic update toggle makes no audio mutation requests in theme " + dark);
                     form.Close();
+                }
+                using (var reopened = new UpdateDialog(true, send))
+                {
+                    reopened.Show(); Application.DoEvents();
+                    check(!Children(reopened).OfType<CheckBox>().Single(c => c.Name == "automaticUpdates").Checked, "reopening update dialog reads saved off setting in theme " + dark);
+                    reopened.Close();
+                }
+                using (var failedLoad = new UpdateDialog(true, request => { throw new InvalidOperationException("offline"); }))
+                {
+                    failedLoad.Show(); Application.DoEvents();
+                    check(!Children(failedLoad).OfType<CheckBox>().Single(c => c.Name == "automaticUpdates").Enabled && Children(failedLoad).Single(c => c.Name == "checkUpdates").Enabled,
+                        "unavailable preferences disable only the toggle, leaving manual updates available in theme " + dark);
+                    failedLoad.Close();
+                }
+                using (var exiting = new UpdateDialog(true, request => Task.FromResult(new Reply { Error = "后台正在退出" })))
+                {
+                    exiting.Show(); Application.DoEvents();
+                    check(!Children(exiting).OfType<CheckBox>().Single(c => c.Name == "automaticUpdates").Enabled, "an error-only reply cannot be mistaken for confirmed default preferences in theme " + dark);
+                    exiting.Close();
+                }
+                var pendingSave = new TaskCompletionSource<Reply>();
+                using (var saving = new UpdateDialog(true, request => request.Action == "snapshot" ? Task.FromResult(reply) : pendingSave.Task))
+                {
+                    saving.Show(); Application.DoEvents();
+                    var toggle = Children(saving).OfType<CheckBox>().Single(c => c.Name == "automaticUpdates");
+                    toggle.Checked = true; Application.DoEvents();
+                    check(!toggle.Enabled && !Children(saving).Single(c => c.Name == "checkUpdates").Enabled, "pending preference save blocks duplicate edits and manual install in theme " + dark);
+                    pendingSave.SetException(new InvalidOperationException("connection lost")); Application.DoEvents();
+                    check(!toggle.Checked && toggle.Enabled && Children(saving).Single(c => c.Name == "checkUpdates").Enabled, "transport failure restores confirmed setting and manual action in theme " + dark);
+                    saving.Close();
                 }
             }
         }

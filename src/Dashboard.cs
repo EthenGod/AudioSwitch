@@ -34,7 +34,6 @@ namespace AudioSwitch
         private readonly CheckBox priority;
         private readonly CheckBox darkMode;
         private readonly CheckBox gameMode;
-        private readonly CheckBox automaticUpdates;
         private readonly CheckBox startup;
         private readonly Label startupHint;
         private StartupState startupState = new StartupState();
@@ -76,12 +75,13 @@ namespace AudioSwitch
             var navigation = new Surface { Location = new Point(16, 116), Size = new Size(200, 46), Fill = Palette.Card, Stroke = Palette.Card };
             var nav = Palette.Label("声音设备", 10, Palette.Accent, true); nav.Dock = DockStyle.Fill; nav.Padding = new Padding(18, 0, 0, 0); nav.TextAlign = ContentAlignment.MiddleLeft; navigation.Controls.Add(nav); sidebar.Controls.Add(navigation);
             var preferences = Palette.Label("自动切换", 8.5F, Palette.Muted, true); preferences.SetBounds(24, 178, 170, 24); sidebar.Controls.Add(preferences);
-            priority = CreateCheck("按设备优先级选择", 210); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
-            var priorityHint = Palette.Label("优先使用排序靠前的在线设备", 8, Palette.Muted, false); priorityHint.SetBounds(24, 242, 190, 24); sidebar.Controls.Add(priorityHint);
-            ask = CreateCheck("新设备接入时询问", 270); sidebar.Controls.Add(ask);
-            var askHint = Palette.Label("接入时提供快捷切换提示", 8, Palette.Muted, false); askHint.SetBounds(24, 302, 190, 24); sidebar.Controls.Add(askHint);
-            communications = CreateCheck("同时切换通话设备", 330); sidebar.Controls.Add(communications);
-            var callHint = Palette.Label("让通话与日常播放使用同一设备", 8, Palette.Muted, false); callHint.SetBounds(24, 362, 196, 24); sidebar.Controls.Add(callHint);
+            priority = CreateCheck("按设备优先级选择", 202); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
+            var priorityHint = Palette.Label("优先使用排序靠前的在线设备", 8, Palette.Muted, false); priorityHint.SetBounds(24, 234, 190, 20); sidebar.Controls.Add(priorityHint);
+            ask = CreateCheck("新设备接入时询问", 254); sidebar.Controls.Add(ask);
+            var askHint = Palette.Label("接入时提供快捷切换提示", 8, Palette.Muted, false); askHint.SetBounds(24, 286, 190, 20); sidebar.Controls.Add(askHint);
+            communications = CreateCheck("同时切换通话设备", 306); sidebar.Controls.Add(communications);
+            var callHint = Palette.Label("让通话与日常播放使用同一设备", 8, Palette.Muted, false); callHint.SetBounds(24, 338, 196, 20); sidebar.Controls.Add(callHint);
+            gameMode = CreateCheck("游戏模式", 366); gameMode.Name = "gameMode"; sidebar.Controls.Add(gameMode);
             darkMode = CreateCheck("深色模式", 404); darkMode.Name = "darkMode"; darkMode.Checked = Palette.Dark; sidebar.Controls.Add(darkMode);
             startup = CreateCheck("开机自启", 446); startup.Name = "startWithWindows"; startup.Enabled = false; sidebar.Controls.Add(startup);
             startupHint = Palette.Label("登录 Windows 后只启动托盘", 8, Palette.Muted, false); startupHint.Name = "startupDetails"; startupHint.Cursor = Cursors.Hand; startupHint.SetBounds(24, 478, 196, 24); sidebar.Controls.Add(startupHint);
@@ -92,10 +92,7 @@ namespace AudioSwitch
             import.Click += async delegate { await ImportSettings(); };
             sidebar.Controls.Add(export); sidebar.Controls.Add(import);
             var update = new FlatAction("检查更新", false) { Name = "checkUpdates", Location = new Point(22, 557), Size = new Size(90, 32) };
-            update.Click += delegate {
-                if (preview || busy) return;
-                using (var dialog = new UpdateDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); }
-            };
+            update.Click += async delegate { await OpenUpdateDialog(); };
             sidebar.Controls.Add(update);
             var integrity = new FlatAction("文件检查", false) { Name = "checkFiles", Location = new Point(120, 557), Size = new Size(90, 32) };
             integrity.Click += delegate {
@@ -113,10 +110,6 @@ namespace AudioSwitch
             summary = Palette.Label("正在连接音频后台…", 9, Palette.Muted, false); summary.SetBounds(2, 54, 560, 24); header.Controls.Add(summary);
             var reload = new FlatAction("刷新设备", false) { Size = new Size(96, 34), Location = new Point(716, 9), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             reload.Click += async delegate { await Execute(new Request { Action = "refresh" }); }; header.Controls.Add(reload);
-            gameMode = new SwitchOption { Name = "gameMode", Text = "游戏模式", AccessibleName = "游戏模式", Size = new Size(140, 32), Location = new Point(672, 94), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            header.Controls.Add(gameMode);
-            automaticUpdates = new SwitchOption { Name = "automaticUpdates", Text = "自动更新", AccessibleName = "自动更新", Checked = true, Size = new Size(140, 32), Location = new Point(516, 94), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            header.Controls.Add(automaticUpdates);
             for (int i = 0; i < filters.Length; i++)
             {
                 int flow = i - 1;
@@ -140,7 +133,7 @@ namespace AudioSwitch
             updateMessage.Name = "automaticUpdateMessage"; updateMessage.Dock = DockStyle.Fill; updateMessage.TextAlign = ContentAlignment.MiddleLeft;
             var updateDetails = new FlatAction("检查更新", false) { Dock = DockStyle.Right, Width = 96, Name = "automaticUpdateDetails" };
             updateNotice.Padding = new Padding(14, 10, 12, 10); updateNotice.Controls.Add(updateMessage); updateNotice.Controls.Add(updateDetails);
-            updateDetails.Click += delegate { if (!preview && !busy) using (var dialog = new UpdateDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); } };
+            updateDetails.Click += async delegate { await OpenUpdateDialog(); };
             main.Controls.Add(content); main.Controls.Add(notice); main.Controls.Add(footer); main.Controls.Add(updateNotice); main.Controls.Add(header);
             content.SizeChanged += delegate { ResizeCards(); };
             content.Layout += delegate { ResizeCards(); };
@@ -156,11 +149,6 @@ namespace AudioSwitch
                 if (applying) return;
                 if (!busy) await Execute(new Request { Action = "gameMode", Value = gameMode.Checked });
                 if (!IsDisposed) { applying = true; gameMode.Checked = currentPreferences.GameMode; applying = false; }
-            };
-            automaticUpdates.CheckedChanged += async delegate {
-                if (applying) return;
-                if (!busy) await Execute(new Request { Action = "automaticUpdates", Value = automaticUpdates.Checked });
-                if (!IsDisposed) { applying = true; automaticUpdates.Checked = currentPreferences.AutoUpdateEnabled; applying = false; }
             };
             startup.CheckedChanged += async delegate {
                 if (applying) return;
@@ -182,12 +170,22 @@ namespace AudioSwitch
         {
             return new SwitchOption { Text = text, AccessibleName = text, ForeColor = Palette.Text, Location = new Point(24, y), Size = new Size(184, 32) };
         }
+        private async Task OpenUpdateDialog()
+        {
+            if (preview || busy) return;
+            using (var dialog = new UpdateDialog(false, send))
+            {
+                dialog.ShowDialog(this);
+                if (dialog.Restarting) { Close(); return; }
+            }
+            await Execute(new Request { Action = "snapshot" });
+        }
         private async Task Execute(Request request)
         {
             if (busy || IsDisposed || preview) return;
             busy = true;
             bool mutation = request.Action != "snapshot";
-            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; startup.Enabled = false; gameMode.Enabled = false; automaticUpdates.Enabled = false; }
+            if (mutation) { content.Enabled = false; ask.Enabled = false; communications.Enabled = false; priority.Enabled = false; darkMode.Enabled = false; startup.Enabled = false; gameMode.Enabled = false; }
             try
             {
                 Reply reply = await send(request);
@@ -204,7 +202,7 @@ namespace AudioSwitch
             finally
             {
                 busy = false;
-                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; startup.Enabled = startupState.Available; gameMode.Enabled = true; automaticUpdates.Enabled = true; }
+                if (!IsDisposed) { content.Enabled = true; ask.Enabled = true; communications.Enabled = true; priority.Enabled = true; darkMode.Enabled = true; startup.Enabled = startupState.Available; gameMode.Enabled = true; }
             }
         }
         internal void RenderReply(Reply reply)
@@ -216,10 +214,9 @@ namespace AudioSwitch
             updateMessage.Text = reply.Update == null ? "" : reply.Update.Message;
             tips.SetToolTip(updateMessage, updateMessage.Text);
             currentPreferences = reply.Preferences;
-            applying = true; gameMode.Checked = reply.Preferences.GameMode; automaticUpdates.Checked = reply.Preferences.AutoUpdateEnabled; applying = false;
+            applying = true; gameMode.Checked = reply.Preferences.GameMode; applying = false;
             refreshTimer.Interval = reply.Preferences.GameMode ? 5000 : 1500;
             tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
-            tips.SetToolTip(automaticUpdates, "默认开启；关闭后停止自动检查、下载和安装，仍可手动检查更新。游戏模式会暂时暂停自动更新。");
             currentReply = reply;
             startupState = reply.Startup ?? new StartupState { Available = preview, Message = "登录 Windows 后只启动托盘" };
             if (startupState.CurrentExecutablePath != null && !UpdateInstaller.SamePath(startupState.CurrentExecutablePath, Application.ExecutablePath))
@@ -241,7 +238,6 @@ namespace AudioSwitch
             var scroll = content.AutoScrollPosition;
             content.SuspendLayout();
             tips.RemoveAll();
-            tips.SetToolTip(automaticUpdates, "默认开启；关闭后停止自动检查、下载和安装，仍可手动检查更新。游戏模式会暂时暂停自动更新。");
             tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
             tips.SetToolTip(updateMessage, updateMessage.Text);
             tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
