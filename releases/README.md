@@ -10,8 +10,8 @@
 
 ```text
 releases/
-  v0.11.0/
-    AudioSwitch-v0.11.0-win-x64.zip
+  v0.11.1/
+    AudioSwitch-v0.11.1-win-x64.zip
     AudioSwitch.exe
   v下一版本/
     AudioSwitch-v下一版本-win-x64.zip

@@ -11,6 +11,6 @@ namespace AudioSwitch
     internal static class AppVersion
     {
         // Release tags and package names use v + Number. Keep three numeric components.
-        internal const string Number = "0.11.0";
+        internal const string Number = "0.11.1";
     }
 }
