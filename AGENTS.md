@@ -11,11 +11,12 @@
 
 ## 产品目标与技术边界
 
-- Windows x64 音频设备管理工具，原生 WinForms 界面。保持轻量，不引入 Electron、WebView、常驻浏览器或新的后台服务。
-- 使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；没有 SDK 风格项目或 NuGet 恢复步骤。
+- Windows x64 音频设备管理工具。`refactor/ui` 重构采用 React / TypeScript / Tailwind / shadcn 前端，后续使用 Tauri 2 / WebView2；现有 C# 音频后台保留。保持轻量，不引入 Electron 或新的常驻服务；关闭界面后释放对应界面进程。
+- 现有后台使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；后台没有 SDK 风格项目或 NuGet 恢复步骤。新增 `frontend/` 独立使用 Node 构建，不把前端构建依赖加入后台。
+- UI 重构按独立阶段验收，每阶段完成后先汇报并等待用户确认，不自动进入下一阶段、不自动提交或合并。第一阶段只实现模拟数据原型，不连接后台或真实用户配置，不改现有发布入口。
 - 默认进程是托盘后台；`--ui` 是面板，`--prompt` 是右下角提示，`--dolby-worker` 是短时辅助进程。关闭界面必须释放对应进程，不能只是隐藏。
 - 空闲后台依靠 Core Audio 事件，不轮询设备或 Dolby。约 150 ms 的事件合并从首条事件起算，连续事件不能无限推迟处理。
-- 中文界面沿用 `Palette` / `FlatAction`，提示要说明可执行的操作。不要把调试协议、RPC 编号或内部实现细节放到普通使用流程里。
+- 现有 WinForms 中文界面沿用 `Palette` / `FlatAction`；新前端使用独立主题与组件。提示要说明可执行的操作。不要把调试协议、RPC 编号或内部实现细节放到普通使用流程里。
 
 ## 代码地图
 

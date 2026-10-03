@@ -1,5 +1,7 @@
 # 配置与备份
 
+`frontend/` 第一阶段界面原型不读取或写入本章的真实配置，也不修改注册表。其主题、设备预设、自启等开关仅保存在页面内存，浏览器刷新后重置；没有新增配置版本或真实配置字段。数据结构说明见 `frontend/README.md`。
+
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
 `AudioSwitch.exe.config` 是 .NET 运行时文件，不存放用户设置。

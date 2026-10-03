@@ -3,6 +3,11 @@ bin/
 obj/
 artifacts/
 staging/
+frontend/node_modules/
+frontend/dist/
+frontend/output/
+frontend/.playwright-cli/
+frontend/*.tsbuildinfo
 # 每版待上传的 Release 附件；保留根目录说明
 /releases/*/
 

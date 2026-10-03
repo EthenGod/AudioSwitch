@@ -1,5 +1,7 @@
 # 第三方组件
 
+独立前端原型的设计参考、shadcn 组件来源及 npm 许可见 [frontend/THIRD-PARTY.md](frontend/THIRD-PARTY.md)。本阶段未将这些依赖加入现有 Windows 发布包；前端生产构建会另附运行依赖的完整许可文字。
+
 声间自有代码采用 `GPL-3.0-only`，见 `LICENSE` 和 `NOTICE.txt`。本文件单独标明的第三方组件仍遵守原作者许可，不能因附带于本仓库或发布包就按 GPL 重新授权。
 
 本项目使用 Nir Sofer 的 **SoundVolumeCommandLine 1.28 x64**，仅在写入设备空间音效时短暂启动，不常驻、不安装服务。音量由 Windows Core Audio 直接设置，空间音效状态及可用格式由 Windows WinRT API 读取。

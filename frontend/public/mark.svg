@@ -1,0 +1,2 @@
+<!-- Same geometry and color as src/AppIcon.cs: AppIcon.DrawMark. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect x=".5" y=".5" width="47" height="47" rx="13" fill="#0066dc"/><path d="M10 19.5v9M17 15v18M24 10.5v27M31 17v14M38 13.5v21" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>

@@ -1,0 +1,96 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AudioLines, ChevronRight, CircleHelp, Gamepad2, Headphones, Info, LoaderCircle, Moon, RefreshCw, Settings2, SlidersHorizontal, Sun, ArrowRightLeft, X, TriangleAlert, Check } from 'lucide-react'
+import type { Device, Page, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './data/types'
+import { Button } from './components/ui/button'
+import { Devices } from './components/Devices'
+import { Automation } from './components/Automation'
+import { Settings } from './components/Settings'
+import { DeviceSheet } from './components/DeviceSheet'
+
+const pages = {
+  devices: { title: '声音设备', Icon: Headphones },
+  automation: { title: '自动切换', Icon: ArrowRightLeft },
+  settings: { title: '应用设置', Icon: Settings2 },
+}
+type Notice = { text: string; error?: boolean } | null
+
+export function App({ gateway }: { gateway: PreviewGateway }) {
+  const [page, setPage] = useState<Page>('devices')
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState<Notice>(null)
+  const [editing, setEditing] = useState<Device | null>(null)
+  const [scenario, setScenario] = useState<Scenario>('normal')
+  const [dark, setDark] = useState(true)
+  const locked = useRef(false)
+  const revision = useRef(0)
+  const main = useRef<HTMLElement>(null)
+  const currentPage = pages[page]
+
+  useEffect(() => { document.documentElement.classList.toggle('dark', dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light' }, [dark])
+  useLayoutEffect(() => { if (main.current) main.current.scrollTop = 0 }, [page])
+  useEffect(() => {
+    const ticket = ++revision.current
+    gateway.read().then(data => { if (ticket === revision.current) { setSnapshot(data); setDark(data.Preferences.DarkMode); setLoading(false) } }).catch(e => { if (ticket === revision.current) { setError(String(e.message)); setLoading(false) } })
+    return () => { revision.current++ }
+  }, [gateway])
+
+  const run = useCallback(async (operation: () => Promise<Snapshot>, message: string): Promise<boolean> => {
+    if (locked.current) return false
+    locked.current = true; setBusy(true)
+    try {
+      const data = await operation()
+      setSnapshot(data); setDark(data.Preferences.DarkMode)
+      setNotice({ text: message }); return true
+    } catch (e) { setNotice({ text: e instanceof Error ? e.message : '操作未完成，请重试。', error: true }); return false }
+    finally { locked.current = false; setBusy(false) }
+  }, [])
+
+  async function loadScenario(next: Scenario) {
+    if (locked.current || loading) return
+    locked.current = true; setLoading(true); setError(''); setSnapshot(null); setNotice(null); setEditing(null); setScenario(next)
+    try { const data = await gateway.setScenario(next); setSnapshot(data); setDark(data.Preferences.DarkMode) }
+    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据。') }
+    finally { locked.current = false; setLoading(false) }
+  }
+  async function refresh() {
+    if (scenario === 'error') { await loadScenario('normal'); return }
+    if (locked.current || loading) return
+    locked.current = true; setLoading(true); setError(''); setNotice(null)
+    try { setSnapshot(await gateway.read()) }
+    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据。') }
+    finally { locked.current = false; setLoading(false) }
+  }
+  const preference = (key: PreferenceKey, value: boolean) => { void run(() => gateway.setPreference(key, value), '已更新预览设置；系统设置未改变。') }
+  const unavailable = (name: string) => setNotice({ text: `${name}暂未接入。此阶段仅预览界面，不会执行真实操作。` })
+
+  return <div className="app-shell">
+    <a href="#main-content" className="skip-link">跳到主要内容</a>
+    <aside className="sidebar">
+      <div className="brand"><img src="/mark.svg" alt="" width="34" height="34" /><div><strong>声间</strong><span>AUDIO SWITCH</span></div></div>
+      <div className="sidebar-label">工作空间</div>
+      <nav aria-label="主导航">{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span>{page === key && <ChevronRight size={13} />}</button> })}</nav>
+      <div className="sidebar-bottom">
+        <div className="automation-hint"><span><ArrowRightLeft size={15} />自动切换</span><strong>{snapshot ? snapshot.Preferences.UseDevicePriority ? '按设备优先级选择' : '当前已关闭优先级' : '等待示例数据'}</strong><p>优先使用排序靠前的在线设备</p><button onClick={() => setPage('automation')}>管理规则 <ChevronRight size={12} /></button></div>
+        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label="关于此预览" onClick={() => unavailable('真实音频连接')}><CircleHelp size={15} /></Button></div>
+      </div>
+    </aside>
+    <div className="workspace">
+      <header className="topbar"><div className="breadcrumb"><AudioLines size={15} /><span>工作空间</span><ChevronRight size={12} /><strong>{currentPage.title}</strong></div><div className="topbar-actions">{snapshot?.Preferences.GameMode && <span className="game-badge"><Gamepad2 size={13} />游戏模式</span>}<Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} disabled={busy || loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></div></header>
+      <div className="preview-banner"><Info size={14} /><span>界面预览，操作不会改变系统设置</span><span className="preview-detail">所有设备均为示例</span></div>
+      <main ref={main} id="main-content" tabIndex={-1} className="main-content">
+        <div className="page-heading"><h1>{currentPage.title}</h1>{page === 'devices' && <Button variant="outline" disabled={busy || loading} onClick={() => { void refresh() }}><RefreshCw size={14} className={loading ? 'spin' : ''} />刷新示例</Button>}</div>
+        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>正在载入示例设备…</h2><p>不会连接真实音频后台。</p><div className="skeleton-row" /><div className="skeleton-row" /></div> : error ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void loadScenario('normal') }}><RefreshCw />重试</Button></div> : snapshot && <>
+          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), `已在预览中切换到「${device.Name}」。系统设备未改变。`) }} onSettings={setEditing} onAutomation={() => setPage('automation')} />}
+          {page === 'automation' && <Automation snapshot={snapshot} busy={busy} onPreference={preference} onReorder={(flow, ids) => { void run(() => gateway.reorder(flow, ids), '已调整示例优先级，离线设备仍保留。') }} />}
+          {page === 'settings' && <Settings snapshot={snapshot} busy={busy} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), '已更新自启开关预览；没有修改 Windows 启动项。') }} onUnavailable={unavailable} />}
+        </>}
+      </main>
+      <footer className="statusbar"><span><span className="online-dot" />{busy ? '正在更新预览…' : '模拟数据 · 仅本次会话'}</span><label><SlidersHorizontal size={12} /><span>预览场景</span><select aria-label="预览场景" value={scenario} disabled={busy || loading} onChange={e => { void loadScenario(e.target.value as Scenario) }}><option value="normal">常规设备</option><option value="empty">空设备</option><option value="duplicate">同名设备</option><option value="long">长名称</option><option value="loading">加载中</option><option value="error">连接错误</option></select></label></footer>
+    </div>
+    {notice && <div className={`toast ${notice.error ? 'toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.error ? <TriangleAlert size={17} /> : <Check size={17} />}<span>{notice.text}</span><Button variant="ghost" size="icon" aria-label="关闭操作提示" onClick={() => setNotice(null)}><X /></Button></div>}
+    {editing && snapshot && <DeviceSheet key={editing.Id} device={editing} snapshot={snapshot} busy={busy} onClose={() => setEditing(null)} onSave={(profile, rule) => run(() => gateway.saveDevice(editing.Id, profile, rule), '预设已保存在本次预览中；没有切换设备或应用音效。')} />}
+  </div>
+}

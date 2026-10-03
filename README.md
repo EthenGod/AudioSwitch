@@ -1,5 +1,7 @@
 # 声间 · Audio Switch
 
+> `refactor/ui` 分支新增独立的 [前端原型](frontend/README.md)：React / TypeScript 界面，目前只使用模拟数据。运行 `.\frontend\dev.ps1 -Command dev` 预览；首次先执行 `-Command install`。原有 Windows 程序与音频后台仍按下文使用，本阶段没有替换它们。
+
 用于 Windows 10 / 11 x64 的轻量音频设备管理工具。支持浅色和深色原生界面，前端按需启动，关闭窗口时整个界面进程退出。
 
 当前版本 **v0.11.1**：新增游戏模式、空闲下载与下次启动安装的自动更新，调整更新开关位置并修正程序图标。升级后的自动更新默认开启，可在“检查更新”窗口关闭。完整变更及下载说明见 [v0.11.1 发行说明](releases/RELEASE-NOTES-v0.11.1.md)。
