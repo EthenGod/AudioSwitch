@@ -1,6 +1,6 @@
 # 第三方组件
 
-独立前端原型的设计参考、shadcn 组件来源及 npm 许可见 [frontend/THIRD-PARTY.md](frontend/THIRD-PARTY.md)。本阶段未将这些依赖加入现有 Windows 发布包；前端生产构建会另附运行依赖的完整许可文字。
+独立前端的设计参考、shadcn 组件来源及 npm / Tauri 许可说明见 [frontend/THIRD-PARTY.md](frontend/THIRD-PARTY.md)。本阶段未将这些依赖加入现有 Windows 发布包；前端生产构建会另附 npm 运行依赖的完整许可文字。Rust 桌面外壳目前仅本机构建验收，安装与更新分发仍留在第五阶段。
 
 声间自有代码采用 `GPL-3.0-only`，见 `LICENSE` 和 `NOTICE.txt`。本文件单独标明的第三方组件仍遵守原作者许可，不能因附带于本仓库或发布包就按 GPL 重新授权。
 

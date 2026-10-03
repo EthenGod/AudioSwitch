@@ -27,9 +27,12 @@ export interface Snapshot {
   Defaults: Partial<Record<`${Flow}:${Role}`, string>>
   Preferences: Preferences
   StartupEnabled: boolean
+  BackendWarning?: string
+  StartupMessage?: string
 }
-/** The UI only sees this asynchronous boundary. Stage 1 ships MockGateway only. */
+/** Only the mock implementation permits mutations in stage 2. */
 export interface AudioGateway {
+  readonly mode: 'preview' | 'desktop'
   read(): Promise<Snapshot>
   switchDevice(id: string): Promise<Snapshot>
   saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule): Promise<Snapshot>
@@ -38,5 +41,8 @@ export interface AudioGateway {
   reorder(flow: Flow, ids: string[]): Promise<Snapshot>
 }
 export interface PreviewGateway extends AudioGateway {
+  readonly mode: 'preview'
   setScenario(scenario: Scenario): Promise<Snapshot>
 }
+export interface DesktopGateway extends AudioGateway { readonly mode: 'desktop' }
+export type UiGateway = PreviewGateway | DesktopGateway

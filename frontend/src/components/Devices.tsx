@@ -4,8 +4,8 @@ import type { Device, Flow, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
 import { DeviceIdentity, RoleBadges } from './shared'
 
-export function Devices({ snapshot, busy, onSwitch, onSettings, onAutomation }: {
-  snapshot: Snapshot; busy: boolean; onSwitch: (device: Device) => void
+export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings, onAutomation }: {
+  snapshot: Snapshot; busy: boolean; readOnly?: boolean; onSwitch: (device: Device) => void
   onSettings: (device: Device) => void; onAutomation: () => void
 }) {
   const [filter, setFilter] = useState<Flow | -1>(-1)
@@ -34,7 +34,7 @@ export function Devices({ snapshot, busy, onSwitch, onSettings, onAutomation }: 
             <div role="cell"><DeviceIdentity device={device} /></div>
             <div role="cell"><RoleBadges device={device} snapshot={snapshot} /></div>
             <div role="cell" className="row-actions">
-              <Button variant="ghost" size="sm" disabled={!device.Online || busy || current} aria-label={`${current ? '正在使用' : '切换到'} ${device.Name} · ${device.Connection}`} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? '使用中' : '切换'}</Button>
+              <Button variant="ghost" size="sm" disabled={readOnly || !device.Online || busy || current} aria-label={`${current ? '正在使用' : '切换到'} ${device.Name} · ${device.Connection}`} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? '使用中' : readOnly ? '只读' : '切换'}</Button>
               <Button variant="ghost" size="icon" disabled={busy} aria-label={`设置 ${device.Name} · ${device.Connection}`} title="设备设置" onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
             </div>
           </div>

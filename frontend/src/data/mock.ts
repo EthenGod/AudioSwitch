@@ -37,6 +37,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
     return found
   }
   return {
+    mode: 'preview',
     async read() {
       await delay(scenario === 'loading' ? Math.max(latency, 1800) : latency)
       if (scenario === 'error') throw new Error('模拟连接中断。点击重试可恢复示例数据。')

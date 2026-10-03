@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('install', 'dev', 'typecheck', 'test', 'build', 'preview')]
+    [ValidateSet('install', 'dev', 'typecheck', 'test', 'build', 'preview', 'desktop:dev', 'desktop:build')]
     [string]$Command = 'dev',
     [string]$NodePath
 )

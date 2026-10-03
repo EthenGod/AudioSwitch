@@ -1,6 +1,6 @@
 # 配置与备份
 
-`frontend/` 第一阶段界面原型不读取或写入本章的真实配置，也不修改注册表。其主题、设备预设、自启等开关仅保存在页面内存，浏览器刷新后重置；没有新增配置版本或真实配置字段。数据结构说明见 `frontend/README.md`。
+`frontend/` 浏览器预览不连接真实配置；其模拟设置仅保存在页面内存，浏览器刷新后重置。第二阶段 Tauri 面板只通过后台 `snapshot` 查看设备与已保存偏好，不直接读取配置文件、不写配置或注册表；主题预览也不保存。没有新增配置版本或真实配置字段。WebView2 会在独立的 `%LOCALAPPDATA%\io.github.ethengod.audioswitch.panel\` 下维护浏览器运行缓存，与本章 AudioSwitch 活动配置无关。数据边界见 `frontend/README.md`。
 
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AudioLines, ChevronRight, CircleHelp, Gamepad2, Headphones, Info, LoaderCircle, Moon, RefreshCw, Settings2, SlidersHorizontal, Sun, ArrowRightLeft, X, TriangleAlert, Check } from 'lucide-react'
-import type { Device, Page, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './data/types'
+import type { Device, Page, PreferenceKey, UiGateway, Scenario, Snapshot } from './data/types'
 import { Button } from './components/ui/button'
 import { Devices } from './components/Devices'
 import { Automation } from './components/Automation'
@@ -14,13 +14,15 @@ const pages = {
 }
 type Notice = { text: string; error?: boolean } | null
 
-export function App({ gateway }: { gateway: PreviewGateway }) {
+export function App({ gateway }: { gateway: UiGateway }) {
+  const readOnly = gateway.mode === 'desktop'
   const [page, setPage] = useState<Page>('devices')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState<Notice>(null)
+  const [dismissedWarning, setDismissedWarning] = useState('')
   const [editing, setEditing] = useState<Device | null>(null)
   const [scenario, setScenario] = useState<Scenario>('normal')
   const [dark, setDark] = useState(true)
@@ -33,7 +35,8 @@ export function App({ gateway }: { gateway: PreviewGateway }) {
   useLayoutEffect(() => { if (main.current) main.current.scrollTop = 0 }, [page])
   useEffect(() => {
     const ticket = ++revision.current
-    gateway.read().then(data => { if (ticket === revision.current) { setSnapshot(data); setDark(data.Preferences.DarkMode); setLoading(false) } }).catch(e => { if (ticket === revision.current) { setError(String(e.message)); setLoading(false) } })
+    locked.current = true
+    gateway.read().then(data => { if (ticket === revision.current) { setSnapshot(data); setDark(data.Preferences.DarkMode); setLoading(false); locked.current = false } }).catch(e => { if (ticket === revision.current) { setSnapshot(null); setError(String(e.message)); setLoading(false); locked.current = false } })
     return () => { revision.current++ }
   }, [gateway])
 
@@ -49,22 +52,30 @@ export function App({ gateway }: { gateway: PreviewGateway }) {
   }, [])
 
   async function loadScenario(next: Scenario) {
-    if (locked.current || loading) return
+    if (gateway.mode !== 'preview' || locked.current || loading) return
     locked.current = true; setLoading(true); setError(''); setSnapshot(null); setNotice(null); setEditing(null); setScenario(next)
     try { const data = await gateway.setScenario(next); setSnapshot(data); setDark(data.Preferences.DarkMode) }
     catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据。') }
     finally { locked.current = false; setLoading(false) }
   }
-  async function refresh() {
-    if (scenario === 'error') { await loadScenario('normal'); return }
-    if (locked.current || loading) return
-    locked.current = true; setLoading(true); setError(''); setNotice(null)
+  const refresh = useCallback(async () => {
+    if (locked.current) return
+    locked.current = true; setLoading(true); setError(''); setNotice(null); setEditing(null)
     try { setSnapshot(await gateway.read()) }
-    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据。') }
+    catch (e) { setSnapshot(null); setError(e instanceof Error ? e.message : '无法读取设备状态。') }
     finally { locked.current = false; setLoading(false) }
+  }, [gateway])
+  useEffect(() => {
+    if (!readOnly) return
+    const focused = () => { if (document.visibilityState !== 'hidden') void refresh() }
+    window.addEventListener('focus', focused)
+    return () => window.removeEventListener('focus', focused)
+  }, [readOnly, refresh])
+  const preference = (key: PreferenceKey, value: boolean) => {
+    if (readOnly) { if (key === 'DarkMode') setDark(value); return }
+    void run(() => gateway.setPreference(key, value), '已更新预览设置；系统设置未改变。')
   }
-  const preference = (key: PreferenceKey, value: boolean) => { void run(() => gateway.setPreference(key, value), '已更新预览设置；系统设置未改变。') }
-  const unavailable = (name: string) => setNotice({ text: `${name}暂未接入。此阶段仅预览界面，不会执行真实操作。` })
+  const unavailable = (name: string) => setNotice({ text: `${name}暂未接入。${readOnly ? '当前只读取后台状态，不会执行真实操作。' : '此阶段仅预览界面，不会执行真实操作。'}` })
 
   return <div className="app-shell">
     <a href="#main-content" className="skip-link">跳到主要内容</a>
@@ -73,24 +84,25 @@ export function App({ gateway }: { gateway: PreviewGateway }) {
       <div className="sidebar-label">工作空间</div>
       <nav aria-label="主导航">{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span>{page === key && <ChevronRight size={13} />}</button> })}</nav>
       <div className="sidebar-bottom">
-        <div className="automation-hint"><span><ArrowRightLeft size={15} />自动切换</span><strong>{snapshot ? snapshot.Preferences.UseDevicePriority ? '按设备优先级选择' : '当前已关闭优先级' : '等待示例数据'}</strong><p>优先使用排序靠前的在线设备</p><button onClick={() => setPage('automation')}>管理规则 <ChevronRight size={12} /></button></div>
-        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label="关于此预览" onClick={() => unavailable('真实音频连接')}><CircleHelp size={15} /></Button></div>
+        <div className="automation-hint"><span><ArrowRightLeft size={15} />自动切换</span><strong>{snapshot ? snapshot.Preferences.UseDevicePriority ? '按设备优先级选择' : '当前已关闭优先级' : readOnly ? '等待读取设备' : '等待示例数据'}</strong><p>优先使用排序靠前的在线设备</p><button onClick={() => setPage('automation')}>管理规则 <ChevronRight size={12} /></button></div>
+        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label="关于此预览" onClick={() => setNotice({ text: readOnly ? '只读桌面版：打开、刷新或返回窗口时读取状态；不会自动启动后台。' : '当前为浏览器模拟预览，不连接后台。' })}><CircleHelp size={15} /></Button></div>
       </div>
     </aside>
     <div className="workspace">
       <header className="topbar"><div className="breadcrumb"><AudioLines size={15} /><span>工作空间</span><ChevronRight size={12} /><strong>{currentPage.title}</strong></div><div className="topbar-actions">{snapshot?.Preferences.GameMode && <span className="game-badge"><Gamepad2 size={13} />游戏模式</span>}<Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} disabled={busy || loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></div></header>
-      <div className="preview-banner"><Info size={14} /><span>界面预览，操作不会改变系统设置</span><span className="preview-detail">所有设备均为示例</span></div>
+      <div className="preview-banner"><Info size={14} /><span>{readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '界面预览，操作不会改变系统设置'}</span><span className="preview-detail">{readOnly ? '操作将在后续阶段接入' : '所有设备均为示例'}</span></div>
       <main ref={main} id="main-content" tabIndex={-1} className="main-content">
-        <div className="page-heading"><h1>{currentPage.title}</h1>{page === 'devices' && <Button variant="outline" disabled={busy || loading} onClick={() => { void refresh() }}><RefreshCw size={14} className={loading ? 'spin' : ''} />刷新示例</Button>}</div>
-        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>正在载入示例设备…</h2><p>不会连接真实音频后台。</p><div className="skeleton-row" /><div className="skeleton-row" /></div> : error ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void loadScenario('normal') }}><RefreshCw />重试</Button></div> : snapshot && <>
-          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), `已在预览中切换到「${device.Name}」。系统设备未改变。`) }} onSettings={setEditing} onAutomation={() => setPage('automation')} />}
-          {page === 'automation' && <Automation snapshot={snapshot} busy={busy} onPreference={preference} onReorder={(flow, ids) => { void run(() => gateway.reorder(flow, ids), '已调整示例优先级，离线设备仍保留。') }} />}
-          {page === 'settings' && <Settings snapshot={snapshot} busy={busy} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), '已更新自启开关预览；没有修改 Windows 启动项。') }} onUnavailable={unavailable} />}
+        <div className="page-heading"><h1>{currentPage.title}</h1>{page === 'devices' && <Button variant="outline" disabled={busy || loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading ? 'spin' : ''} /> {readOnly ? '刷新状态' : '刷新示例'}</Button>}</div>
+        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{readOnly ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><p>{readOnly ? '只读取已运行后台的状态，不会启动后台。' : '不会连接真实音频后台。'}</p><div className="skeleton-row" /><div className="skeleton-row" /></div> : error ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void (readOnly ? refresh() : loadScenario('normal')) }}><RefreshCw />重试</Button></div> : snapshot && <>
+          {readOnly && snapshot.BackendWarning && snapshot.BackendWarning !== dismissedWarning && <div className="backend-warning" role="status"><span>后台提示：{snapshot.BackendWarning}</span><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot.BackendWarning ?? '')}><X /></Button></div>}
+          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), `已在预览中切换到「${device.Name}」。系统设备未改变。`) }} onSettings={setEditing} onAutomation={() => setPage('automation')} />}
+          {page === 'automation' && <Automation snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => { void run(() => gateway.reorder(flow, ids), '已调整示例优先级，离线设备仍保留。') }} />}
+          {page === 'settings' && <Settings snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), '已更新自启开关预览；没有修改 Windows 启动项。') }} onUnavailable={unavailable} />}
         </>}
       </main>
-      <footer className="statusbar"><span><span className="online-dot" />{busy ? '正在更新预览…' : '模拟数据 · 仅本次会话'}</span><label><SlidersHorizontal size={12} /><span>预览场景</span><select aria-label="预览场景" value={scenario} disabled={busy || loading} onChange={e => { void loadScenario(e.target.value as Scenario) }}><option value="normal">常规设备</option><option value="empty">空设备</option><option value="duplicate">同名设备</option><option value="long">长名称</option><option value="loading">加载中</option><option value="error">连接错误</option></select></label></footer>
+      <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{readOnly ? loading ? '正在读取…' : error ? '连接不可用 · 点击重试' : '真实状态 · 手动刷新或返回窗口更新' : busy ? '正在更新预览…' : '模拟数据 · 仅本次会话'}</span>{!readOnly && <label><SlidersHorizontal size={12} /><span>预览场景</span><select aria-label="预览场景" value={scenario} disabled={busy || loading} onChange={e => { void loadScenario(e.target.value as Scenario) }}><option value="normal">常规设备</option><option value="empty">空设备</option><option value="duplicate">同名设备</option><option value="long">长名称</option><option value="loading">加载中</option><option value="error">连接错误</option></select></label>}</footer>
     </div>
     {notice && <div className={`toast ${notice.error ? 'toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.error ? <TriangleAlert size={17} /> : <Check size={17} />}<span>{notice.text}</span><Button variant="ghost" size="icon" aria-label="关闭操作提示" onClick={() => setNotice(null)}><X /></Button></div>}
-    {editing && snapshot && <DeviceSheet key={editing.Id} device={editing} snapshot={snapshot} busy={busy} onClose={() => setEditing(null)} onSave={(profile, rule) => run(() => gateway.saveDevice(editing.Id, profile, rule), '预设已保存在本次预览中；没有切换设备或应用音效。')} />}
+    {editing && snapshot && <DeviceSheet key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} onClose={() => setEditing(null)} onSave={(profile, rule) => run(() => gateway.saveDevice(editing.Id, profile, rule), '预设已保存在本次预览中；没有切换设备或应用音效。')} />}
   </div>
 }

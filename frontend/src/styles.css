@@ -38,6 +38,9 @@ input[type=range] { accent-color: var(--primary); min-width: 0; }
 input[type=range]:disabled { opacity: .4; }
 select:disabled { opacity: .5; }
 .muted { color: var(--muted-foreground); }
+.backend-warning { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; color: var(--foreground); overflow-wrap: anywhere; }
+.offline-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--danger); }
+.device-description, .summary-device p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell { display: flex; height: 100dvh; min-height: 0; overflow: hidden; }
 .sidebar { width: 205px; flex-shrink: 0; padding: 25px 14px 14px; display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 31px; }

@@ -11,10 +11,14 @@
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node scripts/write-notices.mjs",
+    "build:desktop": "tsc --noEmit && vite build --mode desktop && node scripts/write-notices.mjs dist-desktop",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
-    "test": "vitest run"
+    "test": "vitest run",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build --no-bundle"
   },
   "dependencies": {
+    "@tauri-apps/api": "2.12.1",
     "@base-ui/react": "1.8.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -24,6 +28,7 @@
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.12.1",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",

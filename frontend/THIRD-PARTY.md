@@ -36,6 +36,8 @@ SOFTWARE.
 
 ## npm 运行依赖
 
+第二阶段新增 `@tauri-apps/api`、构建用 `@tauri-apps/cli` 及 Rust Tauri 2 外壳。Tauri 使用 MIT / Apache-2.0 双许可，原文见 [Tauri 仓库](https://github.com/tauri-apps/tauri)。Rust 依赖及校验值锁定于 `src-tauri/Cargo.lock`；目前仅本机构建验收，不生成安装器、不并入原有发布包。正式分发时在第五阶段补齐 Rust 间接依赖的随包许可归集。前端许可脚本会收集新增 API 包的完整许可文字。
+
 React / React DOM、Base UI、class-variance-authority、clsx、tailwind-merge 使用其随包提供的 MIT 许可；Lucide 使用随包提供的 ISC 许可及其保留说明。完整版本及间接依赖固定于 `package-lock.json`。
 
 `npm run build` 从实际安装的运行依赖收集原始 LICENSE 文本，写入 `dist/THIRD-PARTY-NOTICES.txt`；分发静态原型时应保留该文件。构建工具和测试工具不随静态界面运行。

@@ -2,6 +2,8 @@
 
 验证日期：2026-10-03（Asia/Hong_Kong）。分支：`refactor/ui`。只验收模拟数据原型，没有连接真实音频后台。
 
+第二阶段已接入独立的 Tauri 只读面板，新增验证和内存记录见 [STAGE-2.md](STAGE-2.md)。下文保留第一阶段历史验收范围。
+
 ## 已通过
 
 - `frontend/dev.ps1 -Command build`：TypeScript 类型检查、Vite 生产构建和 16 个运行依赖的许可收集通过。使用已有的独立 Node 24.19.0，未替换全局 Node。

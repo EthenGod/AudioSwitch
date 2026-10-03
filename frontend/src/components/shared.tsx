@@ -10,7 +10,7 @@ export function DeviceIcon({ device }: { device: Device }) {
 export function DeviceIdentity({ device }: { device: Device }) {
   return <div className="device-identity">
     <span className={`device-icon ${!device.Online ? 'offline' : ''}`}><DeviceIcon device={device} /></span>
-    <div className="min-w-0"><div className="device-name" title={device.Name}>{device.Name}</div><div className="device-description">{device.Connection}</div></div>
+    <div className="min-w-0"><div className="device-name" title={`${device.Name}\n设备标识：${device.Id}`}>{device.Name}</div><div className="device-description">{device.Connection}</div></div>
   </div>
 }
 export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Snapshot }) {

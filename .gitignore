@@ -8,6 +8,7 @@ staging/
 # 保留 package.json、package-lock.json、配置、测试源码及第三方许可说明
 node_modules/
 /frontend/dist/
+/frontend/dist-desktop/
 /frontend/output/
 .playwright-cli/
 *.tsbuildinfo
@@ -15,6 +16,8 @@ node_modules/
 /frontend/coverage/
 /frontend/test-results/
 /frontend/playwright-report/
+/frontend/src-tauri/target/
+/frontend/src-tauri/gen/schemas/
 
 # 每版待上传的 Release 附件；保留根目录说明
 /releases/*/
