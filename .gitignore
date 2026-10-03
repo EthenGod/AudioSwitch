@@ -3,11 +3,19 @@ bin/
 obj/
 artifacts/
 staging/
-frontend/node_modules/
-frontend/dist/
-frontend/output/
-frontend/.playwright-cli/
-frontend/*.tsbuildinfo
+
+# 前端依赖、编译缓存和自动验证产物
+# 保留 package.json、package-lock.json、配置、测试源码及第三方许可说明
+node_modules/
+/frontend/dist/
+/frontend/output/
+.playwright-cli/
+*.tsbuildinfo
+/frontend/.vite/
+/frontend/coverage/
+/frontend/test-results/
+/frontend/playwright-report/
+
 # 每版待上传的 Release 附件；保留根目录说明
 /releases/*/
 
@@ -31,6 +39,9 @@ frontend/*.tsbuildinfo
 settings.json
 AudioSwitch-settings-*.json
 backups/
+# 程序被复制到其他项目子目录运行时，也不上传更新／修复前的本机备份
+update-backups/
+repair-backups/
 
 # 日志、崩溃转储及临时文件
 *.log
@@ -49,3 +60,6 @@ Desktop.ini
 *.pfx
 *.p12
 *.key
+
+# AGENTS.md、CODE_REVIEW.md、MANUAL-TESTS.md、frontend/VALIDATION.md
+# 是共享的协作／验证文档，保留在仓库中；个人工具状态由上方规则排除。
