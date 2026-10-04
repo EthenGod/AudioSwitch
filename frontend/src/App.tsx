@@ -6,6 +6,7 @@ import { Devices } from './components/Devices'
 import { Automation } from './components/Automation'
 import { Settings } from './components/Settings'
 import { DeviceSheet } from './components/DeviceSheet'
+import { BackupSheet } from './components/BackupSheet'
 import { OperationFailure } from './data/desktop'
 
 const pages = {
@@ -25,6 +26,7 @@ export function App({ gateway }: { gateway: UiGateway }) {
   const [notice, setNotice] = useState<Notice>(null)
   const [dismissedWarning, setDismissedWarning] = useState('')
   const [editing, setEditing] = useState<Device | null>(null)
+  const [backup, setBackup] = useState<'import' | 'export' | null>(null)
   const [scenario, setScenario] = useState<Scenario>('normal')
   const [dark, setDark] = useState(true)
   const [uncertain, setUncertain] = useState(false)
@@ -75,11 +77,11 @@ export function App({ gateway }: { gateway: UiGateway }) {
     finally { locked.current = false; setLoading(false) }
   }, [gateway])
   useEffect(() => {
-    if (!desktop || editing || uncertain) return
+    if (!desktop || editing || backup || uncertain) return
     const focused = () => { if (document.visibilityState !== 'hidden') void refresh() }
     window.addEventListener('focus', focused)
     return () => window.removeEventListener('focus', focused)
-  }, [desktop, editing, uncertain, refresh])
+  }, [desktop, editing, backup, uncertain, refresh])
   const preference = (key: PreferenceKey, value: boolean) => {
     if (readOnly) { if (key === 'DarkMode') setDark(value); return }
     void run(() => gateway.setPreference(key, value), desktop ? '设置已保存。' : '已更新预览设置；系统设置未改变。')
@@ -106,12 +108,16 @@ export function App({ gateway }: { gateway: UiGateway }) {
           {desktop && snapshot.BackendWarning && snapshot.BackendWarning !== dismissedWarning && <div className="backend-warning" role="status"><span>后台提示：{snapshot.BackendWarning}</span><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot.BackendWarning ?? '')}><X /></Button></div>}
           {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」。音效结果请查看后台提示。` : `已在预览中切换到「${device.Name}」。系统设备未改变。`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
           {page === 'automation' && <Automation desktop={desktop} snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => { void run(() => gateway.reorder(flow, ids), desktop ? '排序已保存；已开启优先级时后台会立即选择设备。' : '已调整示例优先级，离线设备仍保留。') }} />}
-          {page === 'settings' && <Settings desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), desktop ? 'Windows 自启设置已更新。' : '已更新自启开关预览；没有修改 Windows 启动项。') }} onUnavailable={unavailable} />}
+          {page === 'settings' && <Settings desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), desktop ? 'Windows 自启设置已更新。' : '已更新自启开关预览；没有修改 Windows 启动项。') }} onUnavailable={unavailable} onBackup={mode => { setNotice(null); setBackup(mode) }} />}
         </>}
       </main>
       <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{desktop ? busy ? '正在处理操作…' : snapshot?.DolbyApplying ? '正在应用 Dolby，刷新可查看结果' : loading ? '正在读取…' : error ? '连接不可用 · 点击重试' : '真实状态 · 手动刷新或返回窗口更新' : busy ? '正在更新预览…' : '模拟数据 · 仅本次会话'}</span>{!desktop && <label><SlidersHorizontal size={12} /><span>预览场景</span><select aria-label="预览场景" value={scenario} disabled={busy || loading} onChange={e => { void loadScenario(e.target.value as Scenario) }}><option value="normal">常规设备</option><option value="empty">空设备</option><option value="duplicate">同名设备</option><option value="long">长名称</option><option value="loading">加载中</option><option value="error">连接错误</option></select></label>}</footer>
     </div>
     {notice && <div className={`toast ${notice.error ? 'toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.error ? <TriangleAlert size={17} /> : <Check size={17} />}<span>{notice.text}</span><Button variant="ghost" size="icon" aria-label="关闭操作提示" onClick={() => setNotice(null)}><X /></Button></div>}
     {editing && snapshot && <DeviceSheet key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} gateway={gateway} saveError={notice?.error ? notice.text : undefined} onClose={() => setEditing(null)} onSave={(profile, rule, expectedProfile, expectedRule) => run(() => gateway.saveDevice(editing.Id, profile, rule, expectedProfile, expectedRule), desktop ? '预设已保存；没有切换设备或应用音效。' : '预设已保存在本次预览中；没有切换设备或应用音效。')} />}
+    {backup && <BackupSheet mode={backup} gateway={gateway} onClose={() => setBackup(null)} onResult={data => { setSnapshot(data); setDark(data.Preferences.DarkMode) }} onFailure={failure => {
+      if (failure.snapshot) { setSnapshot(failure.snapshot); setDark(failure.snapshot.Preferences.DarkMode) }
+      if (failure.requiresRefresh) setUncertain(true)
+    }} />}
   </div>
 }

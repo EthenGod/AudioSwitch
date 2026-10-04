@@ -29,6 +29,8 @@ function initial(): Snapshot {
 export function createMockGateway(latency = 260): PreviewGateway {
   let state = initial()
   let scenario: Scenario = 'normal'
+  let importToken = ''
+  let importSequence = 0
   const delay = (ms = latency) => new Promise<void>(resolve => setTimeout(resolve, ms))
   const copy = () => structuredClone(state)
   const device = (id: string) => {
@@ -38,6 +40,18 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    async exportBackup() { await delay(); return { Path: '模拟预览：没有生成文件' } },
+    async chooseImport() {
+      await delay(); importToken = `preview-${++importSequence}`
+      return { Token: importToken, FileName: '示例备份.json', Devices: 6, Profiles: 2, Rules: 1, DolbyProfiles: 0, OfflineDevices: 1 }
+    },
+    async discardImport(token) { if (importToken === token) importToken = '' },
+    async confirmImport(token) {
+      if (!token || token !== importToken) throw new Error('示例预览已失效，请重新选择。')
+      importToken = ''; await delay()
+      state.Preferences = initial().Preferences
+      return { snapshot: copy(), BackupPath: '模拟预览：没有读写文件或系统配置' }
+    },
     async readDevice(id) {
       await delay(); const selected = device(id)
       return { CurrentVolume: selected.Online ? 50 : null, VolumeError: selected.Online ? '' : '设备离线，保留已有预设。',

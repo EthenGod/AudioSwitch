@@ -1,6 +1,6 @@
 # 配置与备份
 
-`frontend/` 浏览器预览不连接真实配置；其模拟设置仅保存在页面内存，浏览器刷新后重置。第二阶段 Tauri 面板只通过后台 `snapshot` 查看设备与已保存偏好，不直接读取配置文件、不写配置或注册表；主题预览也不保存。没有新增配置版本或真实配置字段。WebView2 会在独立的 `%LOCALAPPDATA%\io.github.ethengod.audioswitch.panel\` 下维护浏览器运行缓存，与本章 AudioSwitch 活动配置无关。数据边界见 `frontend/README.md`。
+`frontend/` 浏览器预览不连接真实配置；其模拟设置仅保存在页面内存，浏览器刷新后重置。Tauri 面板通过后台处理真实操作，后台版本过旧时禁用不支持的功能。导入／导出仅处理原生选择框选定的备份文件，活动配置仍由 C# PreferenceStore 统一管理。没有新增配置版本或真实配置字段。WebView2 会在独立的 `%LOCALAPPDATA%\io.github.ethengod.audioswitch.panel\` 下维护浏览器运行缓存，与本章 AudioSwitch 活动配置无关。数据边界见 `frontend/README.md`。
 
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
@@ -93,3 +93,9 @@ v0.10.1 不改变配置格式。Dolby 读取期间暂停编辑；返回空结果
 此基础保存接口不读取音频、不切换默认设备、不应用音效，也不取消或替换已经在执行的 Dolby 任务；因为它不改 Dolby 方案，所以不走旧版完整 Dolby 编辑器的取消路径。新基础预设在后续正常选择设备时应用。只读查询或基础保存失败也不触发音频刷新／Dolby 跟随。
 
 新增 IPC 回包 `PanelApiVersion`、`OperationError`、`PreferencesSaved` 用于面板兼容和操作结果显示，不写入用户配置。历史后台告警与本次请求错误分别显示，部分保存成功不等同于音频应用成功。版本未声明时面板禁用真实写入。
+
+## refactor/ui 导入／导出
+
+面板接口版本 2 支持原生文件选择、导出完整配置和导入预览。配置格式仍为版本 1，完整 Dolby 参数不经过前端精简模型。导出先写临时文件再替换，不能覆盖活动 settings.json。文件上限 1 MiB，严格 UTF-8（可带 BOM）。
+
+`previewImport` 由现有解析器校验文件，返回摘要及当前配置摘要值，不保存或刷新音频。Rust 保存待确认内容，网页只持有一次性标记。`importPreparedSettings` 确认预览后配置未变化，再走现有导入路径；变化则拒绝覆盖。旧配置先自动备份，导入不触发新的设备切换或音效应用，但仍会取消原有在途 Dolby 任务并按既有规则恢复已写入值。取消选择、关闭预览均不导入。结果不明确时先刷新，不能自动重复导入。

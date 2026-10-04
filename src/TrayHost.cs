@@ -232,6 +232,10 @@ namespace AudioSwitch
                         UpdateGameMode();
                         break;
                     case "exportSettings": return new Reply { ConfigurationJson = PreferenceStore.Export(preferences) };
+                    case "previewImport": return PanelImport.Preview(request.ConfigurationJson, preferences, tracker.Current);
+                    case "importPreparedSettings":
+                        PanelImport.RequireUnchanged(preferences, request.ExpectedConfigurationRevision);
+                        goto case "importSettings";
                     case "importSettings":
                         preferences = PreferenceStore.Import(PreferenceStore.SettingsPath, request.ConfigurationJson, preferences, out backupPath);
                         preferencesSaved = true;
@@ -328,10 +332,10 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
+                if (request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 1, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 2, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,

@@ -32,6 +32,7 @@ export interface Snapshot {
   StartupAvailable?: boolean
   StartupCommand?: string | null
   CanWrite?: boolean
+  CanManageBackup?: boolean
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {
@@ -40,7 +41,10 @@ export interface DeviceDetails {
   Spatial: { Supported: boolean; CurrentFormat: string; Options: { Id: string; Name: string }[] } | null
   SpatialError: string
 }
-/** The desktop implementation permits only the stage 3 command allowlist. */
+export interface ImportPreview {
+  Token: string; FileName: string; Devices: number; Profiles: number; Rules: number; DolbyProfiles: number; OfflineDevices: number
+}
+/** The desktop implementation permits only explicit panel commands. */
 export interface AudioGateway {
   readonly mode: 'preview' | 'desktop'
   read(): Promise<Snapshot>
@@ -50,6 +54,10 @@ export interface AudioGateway {
   setPreference(key: PreferenceKey, value: boolean): Promise<Snapshot>
   setStartup(value: boolean): Promise<Snapshot>
   reorder(flow: Flow, ids: string[]): Promise<Snapshot>
+  exportBackup(): Promise<{ Path: string } | null>
+  chooseImport(): Promise<ImportPreview | null>
+  confirmImport(token: string): Promise<{ snapshot: Snapshot; BackupPath: string }>
+  discardImport(token: string): Promise<void>
 }
 export interface PreviewGateway extends AudioGateway {
   readonly mode: 'preview'

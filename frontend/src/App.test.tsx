@@ -90,8 +90,8 @@ describe('preview workflows', () => {
     await user.click(screen.getByRole('switch', { name: '开机自启' }))
     await waitFor(() => expect(screen.getByRole('switch', { name: '开机自启' })).toBeChecked())
     expect((await gateway.read()).StartupEnabled).toBe(true)
-    await user.click(screen.getByRole('button', { name: /导入设置/ }))
-    expect(screen.getByText(/导入设置暂未接入/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /文件检查/ }))
+    expect(screen.getByText(/文件检查暂未接入/)).toBeVisible()
   })
   it('does not submit a second switch while the first request is pending', async () => {
     const { gateway } = await setup()

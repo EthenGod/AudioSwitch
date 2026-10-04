@@ -58,16 +58,21 @@ async fn read_reply(reader: impl AsyncRead + Unpin, limit: usize) -> Result<Valu
 
 async fn exchange_request(path: &str, request: &[u8], connect_wait: Duration, reply_wait: Duration) -> Result<Value, String> {
     // ClientOptions defaults to SECURITY_IDENTIFICATION, preventing server impersonation.
+    // The C# server owns one instance and recreates it after each reply. Both
+    // BUSY and NOT_FOUND can be transient between preflight and the next request.
+    // Retry opening only: once connected, never resend a possibly executed request.
+    let mut missing = false;
     let mut pipe = timeout(connect_wait, async {
         loop {
             match ClientOptions::new().open(path) {
                 Ok(pipe) => return Ok(pipe),
-                Err(error) if error.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => sleep(Duration::from_millis(50)).await,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => return Err("未连接到声间后台。请先打开原版声间，再点击重试。".to_string()),
+                Err(error) if error.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => { missing = false; sleep(Duration::from_millis(50)).await; },
+                Err(error) if error.kind() == io::ErrorKind::NotFound => { missing = true; sleep(Duration::from_millis(50)).await; },
                 Err(_) => return Err("无法连接声间后台，请确认它运行在当前 Windows 用户和会话中。".to_string()),
             }
         }
-    }).await.map_err(|_| "后台暂忙，请稍后重试。".to_string())??;
+    }).await.map_err(|_| if missing { "未连接到声间后台。请先打开原版声间，再点击重试。".to_string() }
+        else { "后台暂忙，请稍后重试。".to_string() })??;
     // Timeout drops the pending overlapped I/O and pipe handle. No detached worker remains.
     timeout(reply_wait, async {
         pipe.write_all(request).await.map_err(|_| "后台连接已中断，请重试。".to_string())?;
@@ -81,7 +86,8 @@ pub async fn read_snapshot() -> Result<Value, String> {
 
 pub async fn send(request: &Value, mutation: bool) -> Result<Value, String> {
     let mut bytes = serde_json::to_vec(request).map_err(|_| "无法编码后台请求。".to_string())?;
-    if bytes.len() > 1024 * 1024 { return Err("请求过大。".into()); }
+    // An at-most 1 MiB configuration is JSON-escaped inside the wire request.
+    if bytes.len() > 4 * 1024 * 1024 { return Err("请求过大。".into()); }
     bytes.push(b'\n');
     exchange_request(&pipe_name()?, &bytes, Duration::from_millis(1800), Duration::from_secs(if mutation { 20 } else { 4 })).await
 }
@@ -137,6 +143,35 @@ mod tests {
         let result = exchange_request(&path, &bytes, Duration::from_secs(1), Duration::from_secs(1)).await.unwrap();
         assert_eq!(result["OperationError"], "预设冲突，未保存");
         serve.await.unwrap();
+    }
+    #[tokio::test]
+    async fn reconnects_when_single_instance_server_recreates_pipe_between_requests() {
+        let path = test_path();
+        let first = ServerOptions::new().first_pipe_instance(true).create(&path).unwrap();
+        let server_path = path.clone();
+        let (gap_tx, gap_rx) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let mut first = first;
+            first.connect().await.unwrap();
+            let mut line = String::new();
+            BufReader::new(&mut first).read_line(&mut line).await.unwrap();
+            first.write_all(b"{\"PanelApiVersion\":1}\n").await.unwrap();
+            drop(first);
+            gap_tx.send(()).unwrap();
+            sleep(Duration::from_millis(70)).await;
+            let mut next = ServerOptions::new().first_pipe_instance(true).create(&server_path).unwrap();
+            next.connect().await.unwrap();
+            let mut line = String::new();
+            BufReader::new(&mut next).read_line(&mut line).await.unwrap();
+            assert_eq!(line.as_bytes(), REQUEST); // Only one request is written after reconnect.
+            next.write_all(b"{\"PanelApiVersion\":1}\n").await.unwrap();
+        });
+        exchange(&path, Duration::from_secs(1), Duration::from_secs(1)).await.unwrap();
+        gap_rx.await.unwrap();
+        let result = exchange(&path, Duration::from_secs(1), Duration::from_secs(1)).await;
+        if result.is_err() { server.abort(); }
+        assert_eq!(result.unwrap()["PanelApiVersion"], 1);
+        server.await.unwrap();
     }
     #[tokio::test]
     async fn bounds_and_invalid_replies() {

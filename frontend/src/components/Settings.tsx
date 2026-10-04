@@ -3,9 +3,10 @@ import type { PreferenceKey, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
 import { SettingRow, ToggleRow } from './shared'
 
-export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onStartup, onUnavailable }: {
+export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onStartup, onUnavailable, onBackup }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; desktop?: boolean; onPreference: (key: PreferenceKey, value: boolean) => void
   onStartup: (value: boolean) => void; onUnavailable: (name: string) => void
+  onBackup: (mode: 'import' | 'export') => void
 }) {
   const prefs = snapshot.Preferences
   return <>
@@ -15,13 +16,13 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
       <ToggleRow title="开机自启" description={desktop ? snapshot.StartupMessage || '显示后台读取的自启状态，本阶段不修改。' : '正式版中登录 Windows 后只启动托盘；原型不会修改启动项。'} value={snapshot.StartupEnabled} disabled={busy || readOnly || (desktop && !snapshot.StartupAvailable)} onChange={onStartup} />
       <ToggleRow title="自动更新" description="空闲时下载，下次启动安装；游戏模式下暂缓。" value={prefs.AutoUpdateEnabled} disabled={busy || readOnly} onChange={v => onPreference('AutoUpdateEnabled', v)} />
     </section>
-    <div className="section-heading"><h2>备份与维护</h2><span className="section-caption">将在后续阶段接入</span></div>
+    <div className="section-heading"><h2>备份与维护</h2><span className="section-caption">{desktop && !snapshot.CanManageBackup ? '导入导出需要新版后台' : desktop ? '备份包含完整预设' : '仅演示操作流程'}</span></div>
     <section className="maintenance-grid">{[
       { title: '导出备份', description: '保留设备偏好与音效预设', Icon: Upload },
       { title: '导入设置', description: '从已有备份恢复配置', Icon: Download },
       { title: '检查更新', description: '查看版本说明与可用更新', Icon: RefreshCw },
       { title: '文件检查', description: '检查必要运行文件是否完整', Icon: ShieldCheck },
-    ].map(({ title, description, Icon }) => <button className="maintenance-item" key={title} onClick={() => onUnavailable(title)}><Icon size={19} /><div><strong>{title}</strong><p>{description}</p><span>暂未接入</span></div><ArrowUpRight size={15} /></button>)}</section>
+    ].map(({ title, description, Icon }, index) => <button className="maintenance-item" key={title} disabled={busy || (index < 2 && desktop && (readOnly || !snapshot.CanManageBackup))} onClick={() => index < 2 ? onBackup(index === 0 ? 'export' : 'import') : onUnavailable(title)}><Icon size={19} /><div><strong>{title}</strong><p>{description}</p><span>{index < 2 ? desktop ? snapshot.CanManageBackup ? '配置文件' : '需要新版后台' : '模拟预览' : '暂未接入'}</span></div><ArrowUpRight size={15} /></button>)}</section>
     <div className="about-line"><img src="/mark.svg" width="30" height="30" alt="" /><div><strong>声间 <span>Audio Switch</span></strong><p>v0.11.1 · {desktop ? readOnly ? '兼容只读模式' : '第三阶段桌面版' : '界面预览'}</p></div><Button variant="ghost" size="sm" onClick={() => onUnavailable('Dolby 高级编辑器')}>Dolby 编辑器 · 暂未接入</Button></div>
   </>
 }

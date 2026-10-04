@@ -142,6 +142,7 @@ namespace AudioSwitch
         public DeviceRule? DeviceRule { get; set; }
         public string Message { get; set; }
         public string ConfigurationJson { get; set; }
+        public string ExpectedConfigurationRevision { get; set; }
     }
 
     public sealed class Reply
@@ -155,6 +156,8 @@ namespace AudioSwitch
         public string Error { get; set; }
         public string Warning { get; set; }
         public string ConfigurationJson { get; set; }
+        public string ConfigurationRevision { get; set; }
+        public ImportPreviewInfo ImportPreview { get; set; }
         public string BackupPath { get; set; }
         public AudioState State { get; set; }
         public List<Arrival> Pending { get; set; }
@@ -164,6 +167,15 @@ namespace AudioSwitch
         public int PromptPid { get; set; }
         public bool DolbyApplying { get; set; }
         public DeviceSettingsInfo DeviceSettings { get; set; }
+    }
+
+    public sealed class ImportPreviewInfo
+    {
+        public int Devices { get; set; }
+        public int Profiles { get; set; }
+        public int Rules { get; set; }
+        public int DolbyProfiles { get; set; }
+        public int OfflineDevices { get; set; }
     }
 
     public sealed class DeviceProfile

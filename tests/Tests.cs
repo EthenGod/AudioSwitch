@@ -38,6 +38,7 @@ namespace AudioSwitch
                 RunSelectionTests();
                 RunProfileTests();
                 PanelProfileTests.Run(Check);
+                PanelImportTests.Run(Check);
                 RunPriorityTests();
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();

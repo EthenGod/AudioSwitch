@@ -1,7 +1,7 @@
 fn main() {
     tauri_build::try_build(
         tauri_build::Attributes::new().app_manifest(
-            tauri_build::AppManifest::new().commands(&["read_snapshot", "read_device_settings", "panel_action"]),
+            tauri_build::AppManifest::new().commands(&["read_snapshot", "read_device_settings", "panel_action", "export_backup", "choose_import", "confirm_import", "discard_import"]),
         ),
     ).expect("Tauri build configuration failed");
 }

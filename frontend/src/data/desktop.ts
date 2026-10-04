@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, Preferences, Snapshot } from './types'
+import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
 const invalid = () => new Error('后台返回的设备状态不完整，请确认后台版本后重试。')
@@ -73,6 +73,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     StartupEnabled: boolean(startup.Enabled), StartupMessage: optionalText(startup.Message),
     StartupAvailable: startup.Available === true, StartupCommand: startup.RegisteredCommand == null ? null : string(startup.RegisteredCommand),
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
+    CanManageBackup: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 2,
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
 }
@@ -109,6 +110,15 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   let snapshot: Snapshot | null = null
   const detailReads = new Map<string, Promise<DeviceDetails>>()
   let writing = false, uncertain = false
+  async function backupCall<T>(operation: () => Promise<T>, mutation = false): Promise<T> {
+    if (!snapshot?.CanManageBackup) throw new OperationFailure('当前后台暂不支持导入导出，请使用新版后台。')
+    if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请勿重复提交。')
+    if (uncertain) throw new OperationFailure('上次操作结果尚未确认，请先刷新状态。', undefined, true)
+    writing = true
+    try { return await operation() }
+    catch (error) { const result = failure(error, mutation); uncertain ||= result.requiresRefresh; throw result }
+    finally { writing = false }
+  }
   const mutate = async (action: Record<string, unknown>): Promise<Snapshot> => {
     if (!snapshot?.CanWrite) throw new OperationFailure('当前后台只支持只读，请使用第三阶段后台。')
     if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请勿重复提交。')
@@ -144,6 +154,35 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   }
   return {
     mode: 'desktop',
+    exportBackup: () => backupCall(async () => {
+      const raw = await call('export_backup', {})
+      if (raw === null) return null
+      const path = string(object(raw).Path)
+      if (!path) throw new Error('未收到导出文件位置，请检查后重试。')
+      return { Path: path }
+    }),
+    chooseImport: () => backupCall(async () => {
+      const raw = await call('choose_import', {})
+      if (raw === null) return null
+      const value = object(raw)
+      const result: ImportPreview = { Token: string(value.Token), FileName: string(value.FileName), Devices: 0, Profiles: 0, Rules: 0, DolbyProfiles: 0, OfflineDevices: 0 }
+      if (!result.Token || !result.FileName) throw invalid()
+      for (const key of ['Devices', 'Profiles', 'Rules', 'DolbyProfiles', 'OfflineDevices'] as const) {
+        if (typeof value[key] !== 'number' || !Number.isSafeInteger(value[key]) || value[key] < 0) throw invalid()
+        result[key] = value[key]
+      }
+      return result
+    }),
+    discardImport: async token => { try { await call('discard_import', { token }) } catch (error) { throw failure(error) } },
+    confirmImport: token => backupCall(async () => {
+      const raw = object(await call('confirm_import', { token }))
+      const actual = mapSnapshot(raw); snapshot = actual
+      if (raw.OperationError) throw new OperationFailure(optionalText(raw.OperationError), actual)
+      if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true || typeof raw.BackupPath !== 'string' || !raw.BackupPath) {
+        throw new OperationFailure('后台未确认完整导入结果，请刷新检查，勿重复导入。', actual, true)
+      }
+      return { snapshot: actual, BackupPath: raw.BackupPath }
+    }, true),
     read() {
       if (writing || detailReads.size) return Promise.reject(new OperationFailure('正在处理操作，请稍后刷新。'))
       // StrictMode and focus events share a single in-flight read.

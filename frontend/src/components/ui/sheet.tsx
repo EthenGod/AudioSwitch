@@ -7,12 +7,12 @@ import { cn } from '@/lib/utils'
 export const Sheet = Dialog.Root
 export const SheetTitle = Dialog.Title
 export const SheetDescription = Dialog.Description
-export function SheetContent({ children, className, closeDisabled = false, ...props }: Dialog.Popup.Props & { closeDisabled?: boolean }) {
+export function SheetContent({ children, className, closeDisabled = false, closeLabel = '关闭设备设置', ...props }: Dialog.Popup.Props & { closeDisabled?: boolean; closeLabel?: string }) {
   return <Dialog.Portal>
     <Dialog.Backdrop className="sheet-backdrop" />
     <Dialog.Popup className={cn('sheet-content', className)} {...props}>
       {children}
-      <Dialog.Close disabled={closeDisabled} render={<Button variant="ghost" size="icon" className="sheet-close" aria-label="关闭设备设置" />}><X /></Dialog.Close>
+      <Dialog.Close disabled={closeDisabled} render={<Button variant="ghost" size="icon" className="sheet-close" aria-label={closeLabel} />}><X /></Dialog.Close>
     </Dialog.Popup>
   </Dialog.Portal>
 }

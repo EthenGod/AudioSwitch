@@ -231,3 +231,11 @@ h1 { margin: 0; font-size: 25px; line-height: 1.25; letter-spacing: -.7px; font-
   .priority-row > svg { display: none; } .priority-row .device-description { max-width: 140px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+.backup-content > p { line-height: 1.7; }
+.backup-path { overflow-wrap: anywhere; font-size: 13px; }
+.backup-summary { display: grid; gap: 14px; font-size: 13px; }
+.backup-summary > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.backup-summary dd { margin: 0; font-variant-numeric: tabular-nums; }
+.maintenance-item:disabled { opacity: .5; cursor: not-allowed; }
+.sheet-footer > div { flex-wrap: wrap; }
