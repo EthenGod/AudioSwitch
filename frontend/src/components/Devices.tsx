@@ -29,7 +29,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
       <div className="device-table" role="table" aria-label="音频设备">
         <div className="device-table-head" role="row"><span role="columnheader">设备名称</span><span role="columnheader">默认角色 / 状态</span><span role="columnheader" className="text-right">操作</span></div>
         {visible.map(device => {
-          const current = snapshot.Defaults[`${device.Flow}:1`] === device.Id
+          const current = (snapshot.CanWrite ? (snapshot.Preferences.IncludeCommunications ? [0, 1, 2] as const : [0, 1] as const) : [1] as const).every(role => snapshot.Defaults[`${device.Flow}:${role}`] === device.Id)
           return <div role="row" key={device.Id} className={`device-row ${current ? 'is-current' : ''}`} data-device-id={device.Id}>
             <div role="cell"><DeviceIdentity device={device} /></div>
             <div role="cell"><RoleBadges device={device} snapshot={snapshot} /></div>

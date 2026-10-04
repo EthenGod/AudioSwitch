@@ -1,6 +1,6 @@
 # 声间 · Audio Switch
 
-> `refactor/ui` 分支新增独立的 [新前端](frontend/README.md)：浏览器使用模拟数据，Tauri 桌面版只读取现有后台状态。运行 `.\frontend\dev.ps1 -Command dev` 预览，或 `.\frontend\desktop.ps1 -Command build` 构建只读桌面版。原有 Windows 程序、音频操作与发布流程仍按下文使用，本阶段没有替换它们。
+> `refactor/ui` 分支新增独立的 [新前端](frontend/README.md)：浏览器使用模拟数据，Tauri 桌面版已接入主面板操作；旧后台保持只读。第三阶段自动验证及待完成的实机验收见 [STAGE-3.md](frontend/STAGE-3.md)。构建输出在 `staging/`，没有替换日常使用的 `bin/` 或旧发布流程。
 
 用于 Windows 10 / 11 x64 的轻量音频设备管理工具。支持浅色和深色原生界面，前端按需启动，关闭窗口时整个界面进程退出。
 

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "read-only",
-  "description": "Only the local main window can read a backend snapshot. No shell, filesystem, updater or audio mutations.",
+  "description": "Local panel commands only. No generic IPC, shell, filesystem or updater.",
   "windows": ["main"],
-  "permissions": ["allow-read-snapshot"]
+  "permissions": ["allow-read-snapshot", "allow-read-device-settings", "allow-panel-action"]
 }

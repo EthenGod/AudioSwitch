@@ -1,29 +1,35 @@
-# 声间 · 新前端与只读桌面面板
+# 声间 · 新前端与桌面面板
 
-React + TypeScript + Tailwind + shadcn（Base UI）。浏览器中使用模拟数据；Tauri 2 桌面窗口只读取现有后台的真实状态，不执行切换或保存。
+React + TypeScript + Tailwind + shadcn（Base UI）。浏览器使用内存模拟数据；Tauri 2 桌面窗口通过现有 C# 后台读取状态并执行主面板操作。
 
-## 桌面版（第二阶段）
+## 桌面版（第三阶段，实机操作待验收）
 
-先按平时的方式启动原版声间后台，再在仓库根目录执行：
+在仓库根目录构建，不覆盖日常使用的 `bin/`：
 
 ```powershell
+.\build.ps1 -Test -OutputDirectory staging
 .\frontend\desktop.ps1 -Command build
-.\staging\ui-target\release\audio-switch-panel.exe
 ```
 
-已构建时直接双击上述 EXE 即可。它是独立只读面板，未替换 `bin/AudioSwitch.exe`，没有加入旧更新包。只读窗口不会替你启动后台，因为原后台启动时可能应用原有优先级和音效规则。
+试用真实操作时，先从托盘退出原版后台，再手动打开 `staging/AudioSwitch.exe`，然后打开 `staging/ui-target/release/audio-switch-panel.exe`。测试后台启动会沿用原有配置、启动优先级和音效规则；不要同时运行两份后台。试用结束后可退出测试后台，按原方式打开 `bin/AudioSwitch.exe`。本阶段不替换日常程序、不加入旧更新包。面板不会替你启动后台。
 
-本机已准备 Node 24.19.0、Rust 1.99.0 MSVC、微软 C++ Build Tools / Windows SDK 和 WebView2。Rust 位于 `staging/ui-toolchain/`，脚本只临时设置当前进程的环境变量，不更改全局 PATH。其他机器需自行安装 [Tauri Windows 前置工具](https://v2.tauri.app/start/prerequisites/)。
+连接旧后台时自动保持只读；需要新后台返回面板接口版本才能开放操作。当前已接入设备切换、基础预设与白名单保存、排序、优先级／询问／通话联动、主题、游戏模式、自动更新开关和开机自启。开机自启登记的是当前运行后台的路径；在 `staging` 试用期间不要把测试路径误作日常自启路径。
+
+“仅保存”不切换设备、不写音量或音效、不取消 Dolby 任务；由后台保留最新 Dolby 对象。预设被其他窗口修改时会拒绝覆盖。音量／空间音效读取失败或设备离线时保留原字段，仍可编辑白名单规则。优先级开启和排序沿用原有立即选择设备的行为，界面会说明。
+
+窗口打开、手动刷新或重新获得焦点时读取缓存；不周期轮询，编辑草稿期间也不因焦点变化刷新。操作使用后台返回的实际结果，不提前显示成功。超时或断线后不自动重试，先刷新确认实际状态。Dolby 是异步任务，路由成功不代表 Dolby 已应用完成；可刷新查看后台提示。
+
+本机使用独立 Node 24.19.0、Rust 1.99.0 MSVC、微软 C++ Build Tools / Windows SDK 和 WebView2。Rust 位于 `staging/ui-toolchain/`，脚本仅临时设置当前进程环境，不改全局 PATH。其他机器前置条件见 [Tauri Windows 文档](https://v2.tauri.app/start/prerequisites/)。
 
 ```powershell
-.\frontend\desktop.ps1 -Command dev    # 联动 Vite 的桌面开发模式
-.\frontend\desktop.ps1 -Command test   # 只读通信测试，不要求真实后台
+.\frontend\desktop.ps1 -Command dev
+.\frontend\desktop.ps1 -Command test   # 隔离命名管道和参数测试，不连接真实后台
 .\frontend\desktop.ps1 -Command check
 ```
 
-桌面窗口打开、点击“刷新状态”或重新获得焦点时读取一次后台缓存；没有周期轮询。连接失败时移除过期显示并提供重试，窗口持续前台时需手动刷新。设备切换、后台开关、预设保存和排序均禁用；深浅主题仅改变本次窗口。关闭窗口会退出面板与所属 WebView2 进程；开发模式下 Vite/Cargo 开发工具需在终端单独退出。
+Rust 只注册 `read_snapshot`、`read_device_settings`、`panel_action`；操作采用固定白名单，没有任意文件、进程或 IPC 请求权限。关闭窗口释放面板及其 WebView2 进程；开发模式的 Vite/Cargo 工具需在终端单独退出。
 
-数据映射在 `src/data/desktop.ts`，原生端仅注册无参数 `read_snapshot`，固定发送 `{"Action":"snapshot"}`。没有任意请求、文件读写或启动进程的网页权限。详细边界、实测结果和内存见 [STAGE-2.md](STAGE-2.md)。
+本阶段结果和未完成的实机项目见 [STAGE-3.md](STAGE-3.md)。[STAGE-2.md](STAGE-2.md) 保留上阶段只读及内存实测记录，不代表本阶段已验证真实写入。
 
 ## 启动
 
@@ -51,21 +57,21 @@ React + TypeScript + Tailwind + shadcn（Base UI）。浏览器中使用模拟�
 
 | 原有功能 | 原型位置 | 当前可验证内容 |
 | --- | --- | --- |
-| 主面板设备列表、输出／输入筛选 | 声音设备 | 紧凑列表、搜索、默认角色、模拟切换 |
+| 主面板设备列表、输出／输入筛选 | 声音设备 | 紧凑列表、搜索、默认角色、桌面真实切换／浏览器模拟切换 |
 | 设备设置 | 每行设置按钮、摘要右侧按钮 | 抽屉草稿、音量、空间音效、白名单；仅保存／取消 |
 | 设备优先级对话框 | 自动切换 | 输入／输出独立排序，上下移动；保留离线设备 |
-| 接入询问、通话联动、优先级 | 自动切换 | 模拟开关；通话联动关闭后切换不写角色 2 |
-| 深色模式、游戏模式、开机自启 | 应用设置 | 只改变本次预览状态 |
-| 自动更新开关 | 应用设置 | 模拟开关，无更新检查或下载 |
+| 接入询问、通话联动、优先级 | 自动切换 | 桌面真实开关；通话联动关闭后切换不写角色 2 |
+| 深色模式、游戏模式、开机自启 | 应用设置 | 桌面保存真实偏好／浏览器仅改变预览状态 |
+| 自动更新开关 | 应用设置 | 桌面保存后台更新偏好；浏览器模拟 |
 | 导入／导出、检查更新、文件检查 | 应用设置 → 备份与维护 | 可点击说明，明确“暂未接入”，不执行操作 |
 | Dolby 编辑器、设备接入提示窗 | 抽屉占位／后续阶段 | 未迁移，不执行 Dolby 或系统调用 |
 
 ## 模拟数据边界
 
 - `src/data/types.ts` 定义异步 `AudioGateway`，页面组件不直接读写设备。`PreviewGateway` 只为原型额外提供场景切换。
-- 浏览器模式选用 `src/data/mock.ts`，所有状态存在内存，不连接真实后台；Tauri 模式选用单独的只读适配器。
+- 浏览器模式选用 `src/data/mock.ts`，所有状态存在内存，不连接真实后台；Tauri 模式选用单独的桌面适配器。
 - ID、输入／输出、三个默认角色和预设 `null` 含义参照现有 C# 模型。`Volume: null` 表示不写音量，`0` 是零音量；`SpatialFormat: null` 表示不写空间音效，空字符串表示关闭。Windows Sonic 的 GUID 为明确标注的示例值，不能用于真实后台。
-- `Online`、`Connection`、`Kind` 为展示数据，按输入／输出分组的 `DeviceOrder` 为视图结构。桌面适配器将后台的端点列表转换为分组 ID 列表；离线顺序、同名设备、三个默认角色和 null 均单独处理。只读阶段不发送任何预设，因此不会覆盖 Dolby 字段；下一阶段写入前需扩充完整契约。
+- `Online`、`Connection`、`Kind` 为展示数据，按输入／输出分组的 `DeviceOrder` 为视图结构。桌面适配器将后台的端点列表转换为分组 ID 列表；离线顺序、同名设备、三个默认角色和 null 均单独处理。基础保存使用独立窄接口，仅发送音量、空间音效、规则及编辑前基线；后台合并最新 Dolby 字段。
 - “刷新示例”重新读取当前内存状态，不丢失修改。浏览器刷新会重置全部预览；切换底部预览场景会重置示例数据并保留当前主题。
 - 场景包括常规（含离线设备）、空设备、同名设备、长名称、延迟加载、连接错误。错误页“重试”恢复常规场景。
 
@@ -86,4 +92,6 @@ npx --package @playwright/cli playwright-cli -s=audio-ui close
 
 ## 后续边界
 
-第二阶段验收后再接入主面板真实操作；其余界面和发布兼容分别验收。`dist-desktop/` 使用稳定资源文件名，避免把历史浏览器产物一起嵌入；构建不批量清空输出。没有自动提交、发布或合并步骤。
+第三阶段实机验收后再进入其余界面迁移；发布兼容另行验收。`dist-desktop/` 使用稳定资源文件名，避免把历史浏览器产物一起嵌入；构建不批量清空输出。没有自动提交、发布或合并步骤。
+
+桌面隔离验收脚本 `scripts/verify-operations.js` 必须在专用测试面板中运行：它临时拦截所有 IPC，验证生产界面的写操作反馈，结束后恢复通信并重载。截图文件名含 `fixture`，不代表真实音频实测。原 `verify-desktop.js` 仅用于旧后台只读兼容验收。

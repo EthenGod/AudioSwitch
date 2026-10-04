@@ -222,7 +222,7 @@ namespace AudioSwitch
                         InstanceLocation.RequireSame(Application.ExecutablePath, request.StartupExecutablePath);
                         StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
                         break;
-                    case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); break;
+                    case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
                         UpdateGameMode();
@@ -246,6 +246,11 @@ namespace AudioSwitch
                     case "refresh": RefreshAudio(true, true); break;
                     case "show": ShowFrontend(false); break;
                     case "deviceSettings": settings = ReadDeviceSettings(request.DeviceId); break;
+                    case "saveBasicDeviceSettings":
+                        PanelProfile.SaveBasic(preferences, tracker.Current, request, SavePreferences);
+                        preferencesSaved = true;
+                        presetWarnings.Remove(request.DeviceId);
+                        break;
                     case "saveDeviceSettings":
                         var info = ReadDeviceSettings(request.DeviceId);
                         if (request.DeviceRule.HasValue && !Enum.IsDefined(typeof(DeviceRule), request.DeviceRule.Value))
@@ -311,10 +316,11 @@ namespace AudioSwitch
                         RefreshAudio(false);
                         DevicePriority.Reorder(preferences, request.Flow, request.DeviceOrder);
                         SavePreferences(); preferencesSaved = true;
+                        priorityError = null;
                         ApplyPriority(DevicePriority.Targets(tracker.Current, tracker.Current, preferences, request.Flow));
                         break;
-                    case "ask": preferences.AskOnConnect = request.Value; SavePreferences(); if (!request.Value) tracker.Pending.RemoveAll(p => !p.IsDisconnection); break;
-                    case "communications": preferences.IncludeCommunications = request.Value; SavePreferences(); break;
+                    case "ask": preferences.AskOnConnect = request.Value; SavePreferences(); preferencesSaved = true; if (!request.Value) tracker.Pending.RemoveAll(p => !p.IsDisconnection); break;
+                    case "communications": preferences.IncludeCommunications = request.Value; SavePreferences(); preferencesSaved = true; break;
                     default: throw new InvalidOperationException("未知操作。");
                 }
             }
@@ -322,10 +328,11 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
+                if (request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 1, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+                Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,
                 FrontendPid = frontend != null && !frontend.HasExited ? frontend.Id : 0 }));

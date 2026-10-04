@@ -38,6 +38,12 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    async readDevice(id) {
+      await delay(); const selected = device(id)
+      return { CurrentVolume: selected.Online ? 50 : null, VolumeError: selected.Online ? '' : '设备离线，保留已有预设。',
+        Spatial: selected.Flow === 0 ? { Supported: true, CurrentFormat: '', Options: [{ Id: '', Name: '关闭空间音效' }, { Id: SONIC_FORMAT, Name: 'Windows Sonic（示例选项）' }] } : null,
+        SpatialError: '' }
+    },
     async read() {
       await delay(scenario === 'loading' ? Math.max(latency, 1800) : latency)
       if (scenario === 'error') throw new Error('模拟连接中断。点击重试可恢复示例数据。')

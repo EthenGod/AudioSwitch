@@ -134,6 +134,9 @@ namespace AudioSwitch
         public string Token { get; set; }
         public bool Value { get; set; }
         public DeviceProfile Profile { get; set; }
+        // Optimistic check for the basic editor; Dolby remains owned by the backend.
+        public DeviceProfile ExpectedProfile { get; set; }
+        public DeviceRule? ExpectedDeviceRule { get; set; }
         public int Flow { get; set; }
         public List<string> DeviceOrder { get; set; }
         public DeviceRule? DeviceRule { get; set; }
@@ -143,6 +146,9 @@ namespace AudioSwitch
 
     public sealed class Reply
     {
+        public int PanelApiVersion { get; set; }
+        public string OperationError { get; set; }
+        public bool PreferencesSaved { get; set; }
         public BackgroundUpdateState Update { get; set; }
         public StartupState Startup { get; set; }
         public string BackendExecutablePath { get; set; }

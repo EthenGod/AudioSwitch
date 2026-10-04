@@ -29,13 +29,24 @@ export interface Snapshot {
   StartupEnabled: boolean
   BackendWarning?: string
   StartupMessage?: string
+  StartupAvailable?: boolean
+  StartupCommand?: string | null
+  CanWrite?: boolean
+  DolbyApplying?: boolean
 }
-/** Only the mock implementation permits mutations in stage 2. */
+export interface DeviceDetails {
+  CurrentVolume: number | null
+  VolumeError: string
+  Spatial: { Supported: boolean; CurrentFormat: string; Options: { Id: string; Name: string }[] } | null
+  SpatialError: string
+}
+/** The desktop implementation permits only the stage 3 command allowlist. */
 export interface AudioGateway {
   readonly mode: 'preview' | 'desktop'
   read(): Promise<Snapshot>
+  readDevice(id: string): Promise<DeviceDetails>
   switchDevice(id: string): Promise<Snapshot>
-  saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule): Promise<Snapshot>
+  saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule, expectedProfile?: DeviceProfile | null, expectedRule?: DeviceRule): Promise<Snapshot>
   setPreference(key: PreferenceKey, value: boolean): Promise<Snapshot>
   setStartup(value: boolean): Promise<Snapshot>
   reorder(flow: Flow, ids: string[]): Promise<Snapshot>

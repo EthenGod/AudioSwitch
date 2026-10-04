@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { DesktopGateway, Device, DeviceProfile, DeviceRule, Flow, Preferences, Snapshot } from './types'
+import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
 const invalid = () => new Error('后台返回的设备状态不完整，请确认后台版本后重试。')
@@ -71,21 +71,104 @@ export function mapSnapshot(value: unknown): Snapshot {
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
     StartupEnabled: boolean(startup.Enabled), StartupMessage: optionalText(startup.Message),
+    StartupAvailable: startup.Available === true, StartupCommand: startup.RegisteredCommand == null ? null : string(startup.RegisteredCommand),
+    CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
+    DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
 }
 
-export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () => invoke('read_snapshot')): DesktopGateway {
+export class OperationFailure extends Error {
+  constructor(message: string, public snapshot?: Snapshot, public requiresRefresh = false) { super(message) }
+}
+function failure(error: unknown, mutation = false): OperationFailure {
+  if (error instanceof OperationFailure) return error
+  if (error instanceof Error) return new OperationFailure(error.message, undefined, mutation)
+  if (error && typeof error === 'object' && 'message' in error) {
+    return new OperationFailure(String(error.message), undefined, 'requiresRefresh' in error && error.requiresRefresh === true)
+  }
+  return new OperationFailure(String(error), undefined, mutation)
+}
+export function mapDeviceDetails(value: unknown): DeviceDetails {
+  const reply = object(value)
+  if (reply.OperationError || !reply.DeviceSettings) throw new Error(optionalText(reply.OperationError ?? reply.Error) || '无法读取设备设置，请重试。')
+  const details = object(reply.DeviceSettings)
+  const volume = details.CurrentVolume
+  if (volume !== null && (typeof volume !== 'number' || !Number.isInteger(volume) || volume < 0 || volume > 100)) throw invalid()
+  let spatial: DeviceDetails['Spatial'] = null
+  if (details.Spatial !== null) {
+    const entry = object(details.Spatial)
+    spatial = { Supported: boolean(entry.Supported), CurrentFormat: string(entry.CurrentFormat),
+      Options: array(entry.Options).map(value => { const item = object(value); return { Id: string(item.Id), Name: string(item.Name) } }) }
+  }
+  return { CurrentVolume: volume as number | null, VolumeError: optionalText(details.VolumeError), Spatial: spatial, SpatialError: optionalText(details.SpatialError) }
+}
+
+export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () => invoke('read_snapshot'),
+  call: (command: string, args: Record<string, unknown>) => Promise<unknown> = invoke): DesktopGateway {
   let pending: Promise<Snapshot> | null = null
-  const readonly = async (): Promise<Snapshot> => { throw new Error('当前为只读连接，尚未接入真实设置操作。') }
+  let snapshot: Snapshot | null = null
+  const detailReads = new Map<string, Promise<DeviceDetails>>()
+  let writing = false, uncertain = false
+  const mutate = async (action: Record<string, unknown>): Promise<Snapshot> => {
+    if (!snapshot?.CanWrite) throw new OperationFailure('当前后台只支持只读，请使用第三阶段后台。')
+    if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请勿重复提交。')
+    if (uncertain) throw new OperationFailure('上次操作结果尚未确认，请先刷新状态。', undefined, true)
+    writing = true
+    try {
+      const raw = object(await call('panel_action', { action }))
+      const actual = mapSnapshot(raw); snapshot = actual
+      if (raw.OperationError) throw new OperationFailure(optionalText(raw.OperationError), actual)
+      if (!actual.CanWrite || !Object.hasOwn(raw, 'OperationError')) throw new OperationFailure('后台未确认操作结果，请刷新后检查。', actual, true)
+      let matched = true
+      if (action.kind === 'preference') matched = actual.Preferences[action.key as keyof Preferences] === action.value
+      if (action.kind === 'startup') matched = actual.StartupEnabled === action.value
+      if (action.kind === 'switch') {
+        const device = actual.Devices.find(d => d.Id === action.id)
+        matched = !!device?.Online && (actual.Preferences.IncludeCommunications ? [0, 1, 2] as const : [0, 1] as const)
+          .every(role => actual.Defaults[`${device!.Flow}:${role}`] === action.id)
+      }
+      if (action.kind === 'saveBasic') {
+        const saved = actual.Preferences.DeviceProfiles[action.id as string], requested = action.profile as DeviceProfile
+        matched = !!saved && saved.Volume === requested.Volume && saved.SpatialFormat === requested.SpatialFormat
+          && (actual.Preferences.DeviceRules[action.id as string] ?? 0) === action.rule
+      }
+      if (action.kind === 'reorder') {
+        const order = actual.Preferences.DeviceOrder[action.flow as Flow], requested = action.ids as string[]
+        matched = requested.every((id, index) => order[index] === id)
+      }
+      if (!matched) throw new OperationFailure('后台当前状态与请求不一致，请检查实际结果后再操作。', actual)
+      return actual
+    } catch (error) {
+      const result = failure(error, true); uncertain = result.requiresRefresh; throw result
+    } finally { writing = false }
+  }
   return {
     mode: 'desktop',
     read() {
+      if (writing || detailReads.size) return Promise.reject(new OperationFailure('正在处理操作，请稍后刷新。'))
       // StrictMode and focus events share a single in-flight read.
-      if (!pending) pending = Promise.resolve().then(readSnapshot).then(mapSnapshot)
-        .catch(error => { throw error instanceof Error ? error : new Error(String(error)) })
+      if (!pending) pending = Promise.resolve().then(readSnapshot).then(mapSnapshot).then(value => { snapshot = value; uncertain = false; return value })
+        .catch(error => { throw failure(error) })
         .finally(() => { pending = null })
       return pending
     },
-    switchDevice: readonly, saveDevice: readonly, setPreference: readonly, setStartup: readonly, reorder: readonly,
+    readDevice(id) {
+      const existing = detailReads.get(id)
+      if (existing) return existing
+      if (writing || pending || detailReads.size) return Promise.reject(new OperationFailure('正在读取其他状态，请关闭设置后重试。'))
+      const request = Promise.resolve().then(() => call('read_device_settings', { id })).then(mapDeviceDetails)
+        .catch(error => { throw failure(error) }).finally(() => { detailReads.delete(id) })
+      detailReads.set(id, request)
+      return request
+    },
+    switchDevice: id => mutate({ kind: 'switch', id }),
+    saveDevice: (id, profile, rule, expectedProfile, expectedRule) => {
+      if (!snapshot?.CanWrite) return Promise.reject(new OperationFailure('当前后台只支持只读，请使用第三阶段后台。'))
+      if (expectedProfile === undefined || expectedRule === undefined) return Promise.reject(new OperationFailure('缺少原预设，请重新打开设备设置。'))
+      return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule })
+    },
+    setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
+    setStartup: value => mutate({ kind: 'startup', value, expectedCommand: snapshot?.StartupCommand ?? null }),
+    reorder: (flow, ids) => mutate({ kind: 'reorder', flow, ids }),
   }
 }
