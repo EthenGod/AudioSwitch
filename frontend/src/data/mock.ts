@@ -1,4 +1,4 @@
-import type { Device, DeviceProfile, DeviceRule, Flow, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
+import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -31,6 +31,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
   let scenario: Scenario = 'normal'
   let importToken = ''
   let importSequence = 0
+  let maintenance: MaintenanceJob | null = null, maintenanceSequence = 0, finishAt = 0
   const delay = (ms = latency) => new Promise<void>(resolve => setTimeout(resolve, ms))
   const copy = () => structuredClone(state)
   const device = (id: string) => {
@@ -40,6 +41,24 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    async startMaintenance(kind) {
+      if (maintenance?.Status === 'running') throw new Error('正在检查，请先取消。')
+      maintenance = { Token: `demo-check-${++maintenanceSequence}`, Kind: kind, Status: 'running', Message: '正在演示检查流程…' }
+      finishAt = Date.now() + Math.max(latency * 3, 600)
+      return structuredClone(maintenance)
+    },
+    async readMaintenance(token) {
+      if (!maintenance || token !== maintenance.Token) throw new Error('检查已失效。')
+      if (maintenance.Status === 'running' && Date.now() >= finishAt) maintenance = maintenance.Kind === 'update'
+        ? { ...maintenance, Status: 'available', CurrentVersion: '0.11.1', LatestVersion: 'v0.12.0（示例）', Notes: '示例更新说明：改善界面操作。\n这不是实际发布信息。', Message: '模拟发现新版本，未连接 GitHub。' }
+        : { ...maintenance, Status: 'passed', Directory: '示例后台目录（未读取本机文件）', Entries: ['示例通过：AudioSwitch.exe', '示例通过：AudioSwitch.exe.config', '示例通过：vendor/svcl/svcl.exe'], Message: '模拟检查通过，未读取本机文件。' }
+      return structuredClone(maintenance)
+    },
+    async cancelMaintenance(token) {
+      if (!maintenance || token !== maintenance.Token) throw new Error('检查已失效。')
+      if (maintenance.Status === 'running') maintenance = { ...maintenance, Status: 'cancelled', Message: '模拟检查已取消。' }
+      return structuredClone(maintenance)
+    },
     async exportBackup() { await delay(); return { Path: '模拟预览：没有生成文件' } },
     async chooseImport() {
       await delay(); importToken = `preview-${++importSequence}`

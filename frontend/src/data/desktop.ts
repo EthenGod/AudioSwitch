@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, Preferences, Snapshot } from './types'
+import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
 const invalid = () => new Error('后台返回的设备状态不完整，请确认后台版本后重试。')
@@ -74,6 +74,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     StartupAvailable: startup.Available === true, StartupCommand: startup.RegisteredCommand == null ? null : string(startup.RegisteredCommand),
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
     CanManageBackup: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 2,
+    CanCheckMaintenance: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 3,
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
 }
@@ -104,6 +105,18 @@ export function mapDeviceDetails(value: unknown): DeviceDetails {
   return { CurrentVolume: volume as number | null, VolumeError: optionalText(details.VolumeError), Spatial: spatial, SpatialError: optionalText(details.SpatialError) }
 }
 
+export function mapMaintenance(value: unknown): MaintenanceJob {
+  const raw = object(value), status = string(raw.Status)
+  if (raw.Kind !== 'update' && raw.Kind !== 'files') throw invalid()
+  const statuses = raw.Kind === 'update' ? ['running', 'available', 'current', 'ahead', 'unavailable', 'cancelled', 'error'] : ['running', 'passed', 'failed', 'cancelled', 'error']
+  if (!statuses.includes(status)) throw invalid()
+  const result: MaintenanceJob = { Token: string(raw.Token), Kind: raw.Kind, Status: status as MaintenanceJob['Status'], Message: string(raw.Message),
+    CurrentVersion: optionalText(raw.CurrentVersion), LatestVersion: optionalText(raw.LatestVersion), Notes: optionalText(raw.Notes), Directory: optionalText(raw.Directory),
+    Entries: raw.Entries == null ? [] : array(raw.Entries).map(string) }
+  if (!result.Token || !result.Message || (['available', 'current', 'ahead'].includes(status) && (!result.CurrentVersion || !result.LatestVersion))
+    || (['passed', 'failed'].includes(status) && (!result.Directory || !result.Entries?.length))) throw invalid()
+  return result
+}
 export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () => invoke('read_snapshot'),
   call: (command: string, args: Record<string, unknown>) => Promise<unknown> = invoke): DesktopGateway {
   let pending: Promise<Snapshot> | null = null
@@ -154,6 +167,19 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   }
   return {
     mode: 'desktop',
+    async startMaintenance(kind) {
+      if (!snapshot?.CanCheckMaintenance) throw new OperationFailure('当前后台不支持新面板检查，请使用新版后台。')
+      if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请稍后检查。')
+      writing = true
+      try { const job = mapMaintenance(await call('start_maintenance', { kind })); if (job.Kind !== kind) throw invalid(); return job }
+      catch (error) { throw failure(error) } finally { writing = false }
+    },
+    async readMaintenance(token) {
+      try { const job = mapMaintenance(await call('read_maintenance', { token })); if (job.Token !== token) throw invalid(); return job } catch (error) { throw failure(error) }
+    },
+    async cancelMaintenance(token) {
+      try { const job = mapMaintenance(await call('cancel_maintenance', { token })); if (job.Token !== token || job.Status === 'running') throw new Error('尚未确认检查结束，请稍后再取消。'); return job } catch (error) { throw failure(error) }
+    },
     exportBackup: () => backupCall(async () => {
       const raw = await call('export_backup', {})
       if (raw === null) return null

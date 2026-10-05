@@ -33,6 +33,7 @@ export interface Snapshot {
   StartupCommand?: string | null
   CanWrite?: boolean
   CanManageBackup?: boolean
+  CanCheckMaintenance?: boolean
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {
@@ -43,6 +44,12 @@ export interface DeviceDetails {
 }
 export interface ImportPreview {
   Token: string; FileName: string; Devices: number; Profiles: number; Rules: number; DolbyProfiles: number; OfflineDevices: number
+}
+export type MaintenanceKind = 'update' | 'files'
+export interface MaintenanceJob {
+  Token: string; Kind: MaintenanceKind
+  Status: 'running' | 'available' | 'current' | 'ahead' | 'unavailable' | 'passed' | 'failed' | 'cancelled' | 'error'
+  Message: string; CurrentVersion?: string; LatestVersion?: string; Notes?: string; Directory?: string; Entries?: string[]
 }
 /** The desktop implementation permits only explicit panel commands. */
 export interface AudioGateway {
@@ -58,6 +65,9 @@ export interface AudioGateway {
   chooseImport(): Promise<ImportPreview | null>
   confirmImport(token: string): Promise<{ snapshot: Snapshot; BackupPath: string }>
   discardImport(token: string): Promise<void>
+  startMaintenance(kind: MaintenanceKind): Promise<MaintenanceJob>
+  readMaintenance(token: string): Promise<MaintenanceJob>
+  cancelMaintenance(token: string): Promise<MaintenanceJob>
 }
 export interface PreviewGateway extends AudioGateway {
   readonly mode: 'preview'

@@ -3,10 +3,11 @@ import type { PreferenceKey, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
 import { SettingRow, ToggleRow } from './shared'
 
-export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onStartup, onUnavailable, onBackup }: {
+export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onStartup, onUnavailable, onBackup, onMaintenance }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; desktop?: boolean; onPreference: (key: PreferenceKey, value: boolean) => void
   onStartup: (value: boolean) => void; onUnavailable: (name: string) => void
   onBackup: (mode: 'import' | 'export') => void
+  onMaintenance: (kind: 'update' | 'files') => void
 }) {
   const prefs = snapshot.Preferences
   return <>
@@ -22,7 +23,7 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
       { title: '导入设置', description: '从已有备份恢复配置', Icon: Download },
       { title: '检查更新', description: '查看版本说明与可用更新', Icon: RefreshCw },
       { title: '文件检查', description: '检查必要运行文件是否完整', Icon: ShieldCheck },
-    ].map(({ title, description, Icon }, index) => <button className="maintenance-item" key={title} disabled={busy || (index < 2 && desktop && (readOnly || !snapshot.CanManageBackup))} onClick={() => index < 2 ? onBackup(index === 0 ? 'export' : 'import') : onUnavailable(title)}><Icon size={19} /><div><strong>{title}</strong><p>{description}</p><span>{index < 2 ? desktop ? snapshot.CanManageBackup ? '配置文件' : '需要新版后台' : '模拟预览' : '暂未接入'}</span></div><ArrowUpRight size={15} /></button>)}</section>
+    ].map(({ title, description, Icon }, index) => <button className="maintenance-item" key={title} disabled={busy || (desktop && (index < 2 ? readOnly || !snapshot.CanManageBackup : !snapshot.CanCheckMaintenance))} onClick={() => index < 2 ? onBackup(index === 0 ? 'export' : 'import') : onMaintenance(index === 2 ? 'update' : 'files')}><Icon size={19} /><div><strong>{title}</strong><p>{description}</p><span>{desktop ? (index < 2 ? snapshot.CanManageBackup : snapshot.CanCheckMaintenance) ? index < 2 ? '配置文件' : '只读检查' : '需要新版后台' : '模拟预览'}</span></div><ArrowUpRight size={15} /></button>)}</section>
     <div className="about-line"><img src="/mark.svg" width="30" height="30" alt="" /><div><strong>声间 <span>Audio Switch</span></strong><p>v0.11.1 · {desktop ? readOnly ? '兼容只读模式' : '第三阶段桌面版' : '界面预览'}</p></div><Button variant="ghost" size="sm" onClick={() => onUnavailable('Dolby 高级编辑器')}>Dolby 编辑器 · 暂未接入</Button></div>
   </>
 }

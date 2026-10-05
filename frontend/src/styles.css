@@ -239,3 +239,7 @@ h1 { margin: 0; font-size: 25px; line-height: 1.25; letter-spacing: -.7px; font-
 .backup-summary dd { margin: 0; font-variant-numeric: tabular-nums; }
 .maintenance-item:disabled { opacity: .5; cursor: not-allowed; }
 .sheet-footer > div { flex-wrap: wrap; }
+.maintenance-content > p { margin: 16px 0; line-height: 1.7; }
+.maintenance-progress { display: flex; gap: 10px; align-items: center; }
+.maintenance-notes { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.maintenance-entries { padding-left: 18px; line-height: 1.9; overflow-wrap: anywhere; }

@@ -3,5 +3,5 @@
   "identifier": "read-only",
   "description": "Local panel commands only. No generic IPC, shell, filesystem or updater.",
   "windows": ["main"],
-  "permissions": ["allow-read-snapshot", "allow-read-device-settings", "allow-panel-action", "allow-export-backup", "allow-choose-import", "allow-confirm-import", "allow-discard-import"]
+  "permissions": ["allow-read-snapshot", "allow-read-device-settings", "allow-panel-action", "allow-export-backup", "allow-choose-import", "allow-confirm-import", "allow-discard-import", "allow-start-maintenance", "allow-read-maintenance", "allow-cancel-maintenance"]
 }

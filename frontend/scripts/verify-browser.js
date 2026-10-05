@@ -68,8 +68,8 @@ async (page) => {
   await page.getByRole('button', { name: '应用设置', exact: true }).click()
   assert(await page.locator('main').evaluate(el => el.scrollTop) === 0, 'navigation resets content scroll')
   await capture('output/playwright/app-settings-dark.png')
-  await page.getByRole('button', { name: /文件检查/ }).click()
-  assert(await page.getByText(/文件检查暂未接入/).isVisible(), 'maintenance action is explicitly unavailable')
+  await page.getByRole('button', { name: /Dolby 编辑器/ }).click()
+  assert(await page.getByText(/Dolby 高级编辑器暂未接入/).isVisible(), 'Dolby editor remains explicitly unavailable')
   await dismiss()
   await page.getByRole('button', { name: '声音设备', exact: true }).click()
   for (const scenario of ['empty', 'duplicate', 'long', 'loading', 'error']) {

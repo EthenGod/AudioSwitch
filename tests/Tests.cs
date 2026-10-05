@@ -19,6 +19,11 @@ namespace AudioSwitch
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--maintenance-test-worker")
+            {
+                PanelMaintenance.Main(token => { token.WaitHandle.WaitOne(); token.ThrowIfCancellationRequested(); return null; });
+                return 0;
+            }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             try
@@ -39,6 +44,7 @@ namespace AudioSwitch
                 RunProfileTests();
                 PanelProfileTests.Run(Check);
                 PanelImportTests.Run(Check);
+                PanelMaintenanceTests.Run(Check);
                 RunPriorityTests();
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();

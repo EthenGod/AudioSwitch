@@ -3,6 +3,8 @@
 mod pipe;
 mod actions;
 mod backup;
+mod maintenance;
+use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -107,10 +109,22 @@ async fn confirm_import(token: String, bridge: tauri::State<'_, Bridge>) -> Resu
     }
     Ok(reply)
 }
+#[tauri::command]
+async fn start_maintenance(kind: maintenance::Kind, bridge: tauri::State<'_, Bridge>, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
+    let path = maintenance::backend_path(&pipe::read_snapshot().await?)?;
+    Ok(jobs.start(path, kind).await?)
+}
+#[tauri::command]
+fn read_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.read(&token)?) }
+#[tauri::command]
+async fn cancel_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.cancel(&token).await?) }
 fn main() {
     tauri::Builder::default()
         .manage(Bridge::default())
-        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import])
+        .manage(maintenance::Maintenance::default())
+        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); } })
+        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance])
         .run(tauri::generate_context!())
         .expect("无法启动声间面板");
 }

@@ -19,6 +19,7 @@ namespace AudioSwitch
         private static void Main(string[] args)
         {
             if (args.Contains("--dolby-worker")) { DolbyWorker.Main(); return; }
+            if (args.Length == 1 && args[0] == "--panel-maintenance") { PanelMaintenance.Main(); return; }
             SetProcessDPIAware();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
