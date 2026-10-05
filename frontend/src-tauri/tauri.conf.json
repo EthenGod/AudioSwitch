@@ -18,7 +18,7 @@
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'",
       "devCsp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:5173 ws://127.0.0.1:5173; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'",
-      "capabilities": ["read-only"]
+      "capabilities": ["read-only", "device-prompt"]
     }
   },
   "bundle": { "active": false, "icon": ["../../assets/AudioSwitch.ico"] }

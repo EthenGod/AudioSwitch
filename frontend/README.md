@@ -95,6 +95,10 @@ npx --package @playwright/cli playwright-cli -s=audio-ui close
 
 ## 后续边界
 
+设备提示可单独预览：`http://127.0.0.1:4173/?view=prompt`（加 `&light` 切浅色，`&disconnected` 看断开）。真实桌面入口为 `staging/ui-target/release/audio-switch-panel.exe --prompt`，可传 `--owner=后台PID`；仅连接已运行后台。普通关闭保留待办，“保持当前选择”仅处理当前提示，待办清空或所属进程退出则退出窗口。无后台或结果不确定时提供手动刷新，不重复发送写入。
+
+`scripts/verify-prompt-browser.js` 验证模拟提示和缩放；`scripts/verify-prompt-owner.ps1` 用临时等待进程验证所属进程退出后的窗口释放，不启动音频后台。提示的实际插拔、音频操作与跨显示器验收见根目录 MANUAL-TESTS.md；日常自动弹窗、面板实例复用仍在第五阶段统一接入。
+
 第四阶段按导入／导出、维护检查、设备提示、Dolby 编辑器分别验收；发布兼容另行处理。`dist-desktop/` 使用稳定资源文件名，避免把历史浏览器产物一起嵌入；构建不批量清空输出。没有自动提交、发布或合并步骤。
 
 桌面隔离验收脚本 `scripts/verify-operations.js` 必须在专用测试面板中运行：它临时拦截所有 IPC，验证生产界面的写操作反馈，结束后恢复通信并重载。截图文件名含 `fixture`，不代表真实音频实测。原 `verify-desktop.js` 仅用于旧后台只读兼容验收。

@@ -4,6 +4,7 @@ mod pipe;
 mod actions;
 mod backup;
 mod maintenance;
+mod prompt;
 use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -119,12 +120,74 @@ async fn start_maintenance(kind: maintenance::Kind, bridge: tauri::State<'_, Bri
 fn read_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.read(&token)?) }
 #[tauri::command]
 async fn cancel_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.cancel(&token).await?) }
+#[tauri::command]
+async fn read_prompt_snapshot(bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    let reply = pipe::read_snapshot().await?;
+    let pid = reply["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。".to_string())?;
+    session.bind(pid)?;
+    if !reply["Pending"].is_array() { return Err("提示状态不完整，请重试。".to_string().into()); }
+    if reply["State"].is_object() { bridge.uncertain.store(false, Ordering::SeqCst); }
+    Ok(reply)
+}
+#[tauri::command]
+async fn prompt_action(action: prompt::Action, bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作，请勿重复提交。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let reply = pipe::read_snapshot().await?;
+    let pid = reply["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。".to_string())?;
+    session.bind(pid)?;
+    send_mutation(&action.request(&reply)?, &bridge).await
+}
+#[tauri::command]
+fn close_prompt(window: tauri::WebviewWindow) -> Result<(), String> { window.close().map_err(|e| e.to_string()) }
+#[tauri::command]
+fn open_prompt_panel(window: tauri::WebviewWindow) -> Result<(), String> {
+    // Fixed executable, no caller-supplied arguments or paths. The old backend's
+    // show command opens WinForms until the stage 5 launch migration.
+    std::process::Command::new(std::env::current_exe().map_err(|e| e.to_string())?).spawn().map_err(|e| e.to_string())?;
+    window.close().map_err(|e| e.to_string())
+}
 fn main() {
+    let is_prompt = std::env::args().any(|arg| arg == "--prompt");
+    let session = prompt::Session::default();
+    if is_prompt {
+        if let Some(owner) = std::env::args().find_map(|arg| arg.strip_prefix("--owner=").map(str::to_owned)) {
+            let Ok(pid) = owner.parse::<u32>() else { return };
+            if pid == 0 || session.bind(pid).is_err() { return; }
+        }
+    }
+    let mut context = tauri::generate_context!();
+    if is_prompt {
+        let config = &mut context.config_mut().app.windows[0];
+        config.label = "prompt".into(); config.title = "声间 · 设备提示".into();
+        config.width = 400.0; config.height = 380.0; config.min_width = Some(320.0); config.min_height = Some(300.0);
+        config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
+    }
     tauri::Builder::default()
         .manage(Bridge::default())
+        .manage(session)
         .manage(maintenance::Maintenance::default())
+        .setup(move |app| {
+            if is_prompt {
+                if let Some(window) = app.get_webview_window("prompt") {
+                    if let Some(monitor) = window.primary_monitor()? {
+                        let area = monitor.work_area(); let size = window.outer_size()?;
+                        let margin = (12.0 * monitor.scale_factor()) as i32;
+                        window.set_position(tauri::PhysicalPosition::new(area.position.x + (area.size.width as i32 - size.width as i32 - margin).max(0), area.position.y + (area.size.height as i32 - size.height as i32 - margin).max(0)))?;
+                    }
+                    let app = app.handle().clone();
+                    std::thread::spawn(move || loop {
+                        std::thread::sleep(std::time::Duration::from_millis(250));
+                        let Some(window) = app.get_webview_window("prompt") else { break };
+                        if app.state::<prompt::Session>().exited() { let _ = window.close(); break; }
+                    });
+                }
+            }
+            Ok(())
+        })
         .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); } })
-        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance])
-        .run(tauri::generate_context!())
+        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel])
+        .run(context)
         .expect("无法启动声间面板");
 }

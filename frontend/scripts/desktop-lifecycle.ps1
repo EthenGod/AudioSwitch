@@ -1,6 +1,7 @@
 param(
     [ValidateSet('Open', 'Sample', 'Close')][string]$Command = 'Sample',
-    [switch]$DebugBrowser
+    [switch]$DebugBrowser,
+    [switch]$Prompt
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot)
@@ -28,7 +29,8 @@ if ($Command -eq 'Open') {
             if (Get-NetTCPConnection -LocalPort 9223 -State Listen -ErrorAction SilentlyContinue) { throw '9223 已占用，不启动调试。' }
             $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9223 --remote-debugging-address=127.0.0.1'
         }
-        $panel = Start-Process -FilePath $exe -WindowStyle Hidden -PassThru
+        if ($Prompt) { $panel = Start-Process -FilePath $exe -ArgumentList '--prompt' -WindowStyle Hidden -PassThru }
+        else { $panel = Start-Process -FilePath $exe -WindowStyle Hidden -PassThru }
     } finally { $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $previousDebug }
     [PSCustomObject]@{ Pid=$panel.Id; StartTicks=$panel.StartTime.Ticks; Executable=$exe; Before=$before; ConfigurationBefore=$hashBefore; DebugBrowser=[bool]$DebugBrowser; Opened=(Get-Date).ToString('o') } |
         ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $recordPath -Encoding utf8
