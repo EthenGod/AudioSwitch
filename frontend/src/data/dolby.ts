@@ -51,3 +51,12 @@ export function mapDolbyRead(value: unknown): DolbyRead {
   if (p.Status === 'ready' && !profile) throw new Error('Dolby 未返回有效方案，原草稿已保留。')
   return { Token:p.Token, Status:p.Status, Message:p.Message, ...(profile ? { Profile:profile } : {}) }
 }
+export interface DolbyOperation {
+  Token: string; DeviceId: string; Status: 'running' | 'cancelling' | 'applied' | 'warning' | 'error' | 'cancelled'; Message: string
+}
+export const dolbyRunning = (job: DolbyOperation | null) => job?.Status === 'running' || job?.Status === 'cancelling'
+export function mapDolbyOperation(value: unknown, token: string): DolbyOperation {
+  const job = value as DolbyOperation | null
+  if (!job || job.Token !== token || !job.DeviceId || typeof job.Message !== 'string' || !['running','cancelling','applied','warning','error','cancelled'].includes(job.Status)) throw new Error('后台未确认本次 Dolby 结果，请重新检查状态，勿重复应用。')
+  return { Token:job.Token, DeviceId:job.DeviceId, Status:job.Status, Message:job.Message }
+}

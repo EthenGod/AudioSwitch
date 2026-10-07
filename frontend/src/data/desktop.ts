@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { dolbyProfile, mapDolbyRead, type DolbyProfile } from './dolby'
+import { dolbyProfile, mapDolbyRead, mapDolbyOperation, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
@@ -74,6 +74,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
     DolbyProfiles: dolbyProfiles, CanEditDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 4,
+    CanApplyDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 5,
     StartupEnabled: boolean(startup.Enabled), StartupMessage: optionalText(startup.Message),
     StartupAvailable: startup.Available === true, StartupCommand: startup.RegisteredCommand == null ? null : string(startup.RegisteredCommand),
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
@@ -171,6 +172,23 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   }
   return {
     mode: 'desktop',
+    async startDolbyApply(id, profile, expected, token) {
+      if (!snapshot?.CanApplyDolby) throw new OperationFailure('当前后台不支持新的 Dolby 应用结果。')
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      writing = true
+      try {
+        const requested = dolbyProfile(profile), raw = object(await call('start_dolby_apply', { id, profile:requested, expected:dolbyProfile(expected), token }))
+        const actual = mapSnapshot(raw); snapshot = actual
+        if (raw.OperationError) throw new OperationFailure(String(raw.OperationError), actual)
+        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true || JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure('保存结果尚未确认，请检查本次应用状态。', actual, true)
+        const operation = mapDolbyOperation(raw.DolbyOperation, token)
+        if (operation.DeviceId !== id) throw invalid()
+        return { snapshot:actual, operation }
+      } catch (error) { const result = failure(error, true); uncertain ||= result.requiresRefresh; throw result }
+      finally { writing = false }
+    },
+    async readDolbyApply(token) { try { return mapDolbyOperation(await call('read_dolby_apply', { token }), token) } catch (e) { throw failure(e) } },
+    async cancelDolbyApply(token) { try { return mapDolbyOperation(await call('cancel_dolby_apply', { token }), token) } catch (e) { throw failure(e) } },
     async saveDolby(id, profile, expected) {
       if (!snapshot?.CanEditDolby) throw new OperationFailure('当前后台不支持新 Dolby 编辑器。')
       if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求。')

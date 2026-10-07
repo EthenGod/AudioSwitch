@@ -128,3 +128,31 @@
 改动范围：前端 `DolbySheet`／`data/dolby`、设备设置入口、设置页说明、gateway、样式及测试；Rust `dolby.rs`、注册与权限；C# `Models`、`PanelProfile`、`TrayHost` 必要接口及回归测试。未修改 `DolbyNative`、`DolbyProfiles`、`DolbyWorker`、`DolbyEqualizer` 音效实现、日常 bin 或发布入口。依赖仅为已有 windows-sys 启用 JobObjects 特性，未升级包。
 
 产物：`frontend/output/playwright/dolby-*.png`、`stage44-dolby.log`，`frontend/output/desktop/stage44-lifecycle.json`，`staging/stage44-readonly-capture.json` 和隔离 fixture。输出不提交。本小项停止，确认后再做 4.4b，不自动提交、合并或发布。
+
+## 4.4b 实施范围（2026-10-08）
+
+- 新增当前在线输出的“保存并应用 Dolby”，不顺带切换设备、音量或空间音效。
+- 先保存并验证编辑基线，再入原 Dolby 队列；独立记录正在应用、已完成、警告、失败、正在取消和已停止。
+- 取消仅针对本次任务，等待原 worker 恢复检查；保留后来自动任务。取消晚于完成时明确提示。
+- 仅在任务运行期间检查持有句柄的面板进程；退出后取消本次任务，结束即释放监视资源。关闭界面不增加常驻服务。
+- 浏览器保持纯模拟；测试覆盖冲突、重复提交、取消竞态、错误恢复说明、所有者退出、深浅色和缩放。真实音效写入与完整桌面联调单独验收。
+
+## 4.4b 交付记录（2026-10-08）
+
+代码与自动验证完成：新增保存并应用、独立任务结果、取消等待、面板退出取消保护。应用仅针对当前在线输出的 Dolby，不经过路由／基础音效写入入口；仅保存仍保留原有行为。失败或关闭后在主面板保留本次结果。真实音效写入、实际恢复以及完整桌面与新版后台联调仍待验收，没有将其写成通过。
+
+| 验证 | 结果与边界 |
+| --- | --- |
+| C# | 553 项通过，比 4.4a 增加 80 项；覆盖保存失败不开始、重复／过期标记、当前输出、成功／警告／空结果／失败、取消等待、恢复失败文本、取消晚到、保留后来自动任务，以及真实隔离 owner 进程退出后的取消信号。队列执行器使用模拟结果，不调用 Dolby 原生写入；普通回归包含真实端点只读枚举。保留既有 CS1690 警告。 |
+| 前端 | 85 项通过，新增 9 项。覆盖异步完成、重复点击、保存与应用分离、错误保留草稿和结果提示、取消等待、提交期间关闭、丢失响应后的同标记查询、卸载取消、当前设备限制和旧后台禁用。类型检查和生产构建通过。 |
+| Rust | 24 项普通测试通过，2 项之前的只读 worker 集成测试本轮未运行。新增当前输出／能力／参数／固定进程所有者／任务归属／错误结果检查。权限仅向主面板开放三条窄命令。 |
+| 浏览器 | 应用流程 30 项、原 Dolby 编辑流程 42 项通过，共 72 项。深浅色、1100×740 与 980×680 的 100/125/150/200% 等效缩放、按钮可见、取消与关闭等待、焦点恢复、精确 EQ 和仅保存；无运行错误，仅本地资源。查看了深浅色截图。修正了主面板提示条盖住抽屉取消按钮的问题。 |
+| 构建／退出 | 网页和 Tauri release 构建通过；桌面无后台中文提示可读。面板及 WebView2 共 7 个进程正常退出，活动配置哈希不变。最终复核记录见 stage44b-lifecycle.json。 |
+
+测试中发现原有备份失败断言把早先一次序列化文本作为比较基线，运行时 JSON 字段顺序变化造成误报。只修改该测试为逐字比较本次操作前后的文件；实际备份／配置实现未改。
+
+本轮未启动真实托盘，未执行实际 Dolby 写入、切换或真实配置保存。任务 owner 退出测试使用独立测试子进程，不能代替真实面板应用中退出的全链路验收。实际设备切换、取消后的独立读回、跨屏 DPI，以及先前 4.1／4.2a／4.3／4.4a 的待验项继续保留。4.2b 更新安装／修复仍等第五阶段发布兼容。
+
+涉及文件：C# 新增 PanelDolbyApply.cs、Models／TrayHost 的必要接口，DolbyWorker.cs 内仅扩展队列所属任务回调和定向取消；未修改 DolbyWorker.Run／Main、DolbyProfiles、DolbyNative、DolbyEqualizer 或音频路由实现。前端新增 useDolbyApply、任务类型与 gateway、编辑器按钮和结果、提示条层级；Rust 新增 dolby_apply.rs、命令和权限。另含对应测试、浏览器脚本、README、CONFIGURATION 和 MANUAL-TESTS。无新增依赖，未修改日常 bin／旧发布入口，未提交、合并或发布。
+
+产物：staging/stage44b-csharp.log、stage44b-rust.log、stage44b-desktop-build.log；frontend/output/playwright/stage44b-apply.log、stage44b-editor.log、dolby-apply-dark.png、dolby-apply-light.png；frontend/output/desktop/stage44b-no-backend.png、stage44b-lifecycle.json。输出不提交。本小项结束后等待确认，再安排剩余实机验收或第五阶段具体清单。

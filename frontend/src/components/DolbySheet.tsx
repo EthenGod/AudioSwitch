@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Device, Snapshot, UiGateway } from '@/data/types'
 import { dolbyProfile, emptyDolby, frequencies, toTen, toTwenty, type DolbyProfile, type DolbyRead } from '@/data/dolby'
 import { OperationFailure } from '@/data/desktop'
+import { useDolbyApply } from './useDolbyApply'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from './ui/sheet'
@@ -52,17 +53,19 @@ export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onCha
   </div>
 }
 
-export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSaved, onFailure }: {
+export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSaved, onFailure, onResult }: {
   device: Device; snapshot: Snapshot; gateway: UiGateway; readOnly: boolean; onClose: () => void
   onSaved: (snapshot: Snapshot) => void; onFailure: (error: OperationFailure) => void
+  onResult?: (text: string, error: boolean) => void
 }) {
   const desktop = gateway.mode === 'desktop', supported = !desktop || !!snapshot.CanEditDolby
-  const [baseline] = useState(() => structuredClone(snapshot.DolbyProfiles?.[device.Id] ?? null))
+  const [baseline, setBaseline] = useState(() => structuredClone(snapshot.DolbyProfiles?.[device.Id] ?? null))
   const [enabled, setEnabled] = useState(baseline !== null), [draft, setDraft] = useState<DolbyProfile>(() => baseline ?? emptyDolby())
   const [job, setJob] = useState<DolbyRead | null>(null), [starting, setStarting] = useState(false), [saving, setSaving] = useState(false), [closing, setClosing] = useState(false)
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [uncertain, setUncertain] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null), current = useRef<DolbyRead | null>(null), alive = useRef(true), lock = useRef(false), saveLock = useRef(false), closeRequested = useRef(false), cancelling = useRef(false)
-  const running = job?.Status === 'running', blocked = saving || starting || running || closing || readOnly || !supported || uncertain
+  const application = useDolbyApply(gateway, device.Id, next => { setBaseline(structuredClone(next.DolbyProfiles?.[device.Id] ?? null)); onSaved(next) }, onClose, onFailure, onSaved, onResult)
+  const running = job?.Status === 'running', blocked = saving || starting || running || closing || readOnly || !supported || uncertain || application.busy || application.uncertain
   function accept(value: DolbyRead, fill = true) {
     current.current = value
     if (!alive.current) return
@@ -77,6 +80,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSav
     return () => { active = false; clearTimeout(timer) }
   }, [job, running, closing, error, gateway])
   async function stop(close: boolean) {
+    if (application.busy) { await application.cancel(close); return }
     if (saveLock.current) return
     cancelling.current = true
     if (lock.current) { if (close) { closeRequested.current = true; setClosing(true) }; return }
@@ -108,7 +112,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSav
   }
   return <Sheet open onOpenChange={open => { if (!open) void stop(true) }}><SheetContent className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
     <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? ' · 离线' : ''}</SheetDescription></header>
-    <div className="sheet-preview">{desktop ? '仅保存设备预设，不立即应用 Dolby' : '界面预览，操作不会改变系统设置'}</div>
+    <div className="sheet-preview">{desktop ? '仅保存不改变音效；保存并应用会写入当前输出的 Dolby 设置' : '界面预览，操作不会改变系统设置'}</div>
     <div className="sheet-scroll">
       {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台。</p>}
       <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
@@ -120,6 +124,18 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSav
       <div className="volume-toggle"><label htmlFor="use-dolby">此设备成为输出时自动应用 Dolby 方案</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
       <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} /></fieldset>
     </div>
-    <footer className="sheet-footer"><p>仅保存留待下次使用。立即应用暂未接入。</p><div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>取消</Button>{running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>取消读取</Button>}<Button disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存 Dolby' : '仅保存 Dolby（模拟）'}</Button></div></footer>
+    <footer className="sheet-footer">
+      {application.job && <p role={['error','warning'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
+      {application.error && <p role="alert">{application.error}</p>}
+      <p>立即应用仅限当前输出，不切换设备，不应用音量或 Windows 空间音效。</p>
+      <div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>{application.job ? '关闭' : '取消'}</Button>
+        {running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>取消读取</Button>}
+        {application.busy && <Button variant="outline" onClick={() => void application.cancel()}>取消应用</Button>}
+        {application.error && application.busy && <Button variant="outline" onClick={application.retry}>检查本次应用</Button>}
+        <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存 Dolby' : '仅保存 Dolby（模拟）'}</Button>
+        <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? '保存并应用 Dolby' : '保存并应用 Dolby（模拟）'}</Button>
+      </div>
+      {desktop && !snapshot.CanApplyDolby && <p>当前后台不支持此处立即应用，可继续仅保存。</p>}
+    </footer>
   </SheetContent></Sheet>
 }

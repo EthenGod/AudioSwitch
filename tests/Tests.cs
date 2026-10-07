@@ -19,6 +19,7 @@ namespace AudioSwitch
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--dolby-owner-fixture") { Console.OpenStandardInput().ReadByte(); return 0; }
             if (args.Length == 1 && args[0] == "--maintenance-test-worker")
             {
                 PanelMaintenance.Main(token => { token.WaitHandle.WaitOne(); token.ThrowIfCancellationRequested(); return null; });
@@ -44,6 +45,7 @@ namespace AudioSwitch
                 RunProfileTests();
                 PanelProfileTests.Run(Check);
                 PanelDolbyTests.Run(Check);
+                PanelDolbyApplyTests.Run(Check);
                 PanelImportTests.Run(Check);
                 PanelMaintenanceTests.Run(Check);
                 RunPriorityTests();
@@ -1598,9 +1600,12 @@ namespace AudioSwitch
             Check(failed, "oversized backup is rejected");
             string blocked = Path.Combine(folder, "blocked"); Directory.CreateDirectory(blocked);
             string blockedPath = Path.Combine(blocked, "settings.json"); PreferenceStore.Save(blockedPath, current);
+            // Compare the actual file before this attempt; JSON property order can
+            // change after the runtime populates its reflection caches.
+            string blockedBefore = File.ReadAllText(blockedPath);
             File.WriteAllText(Path.Combine(blocked, "backups"), "a file prevents backup creation");
             failed = false; try { PreferenceStore.Import(blockedPath, exported, current, out backup); } catch (IOException) { failed = true; }
-            Check(failed && File.ReadAllText(blockedPath) == exported, "backup write failure aborts import without touching active config");
+            Check(failed && File.ReadAllText(blockedPath) == blockedBefore, "backup write failure aborts import without touching active config");
         }
         private static void TestAutomaticUpdateNotice()
         {

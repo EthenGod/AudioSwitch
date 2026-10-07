@@ -1,5 +1,5 @@
 // IDs, roles and nullable profile semantics mirror src/Models.cs.
-import type { DolbyProfile, DolbyRead } from './dolby'
+import type { DolbyOperation, DolbyProfile, DolbyRead } from './dolby'
 // Online/Connection/Kind are preview presentation metadata, not a new wire contract.
 export type Flow = 0 | 1
 export type Role = 0 | 1 | 2
@@ -26,6 +26,7 @@ export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeC
 export interface Snapshot {
   DolbyProfiles?: Record<string, DolbyProfile | null>
   CanEditDolby?: boolean
+  CanApplyDolby?: boolean
   Devices: Device[]
   Defaults: Partial<Record<`${Flow}:${Role}`, string>>
   Preferences: Preferences
@@ -56,6 +57,9 @@ export interface MaintenanceJob {
 }
 /** The desktop implementation permits only explicit panel commands. */
 export interface AudioGateway {
+  startDolbyApply(id: string, profile: DolbyProfile, expected: DolbyProfile | null, token: string): Promise<{ snapshot: Snapshot; operation: DolbyOperation }>
+  readDolbyApply(token: string): Promise<DolbyOperation>
+  cancelDolbyApply(token: string): Promise<DolbyOperation>
   saveDolby(id: string, profile: DolbyProfile | null, expected: DolbyProfile | null): Promise<Snapshot>
   startDolbyRead(id: string): Promise<DolbyRead>
   readDolby(token: string): Promise<DolbyRead>

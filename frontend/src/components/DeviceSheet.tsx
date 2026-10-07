@@ -9,10 +9,11 @@ import { DeviceIdentity } from './shared'
 import { DolbySheet } from './DolbySheet'
 import { OperationFailure } from '@/data/desktop'
 
-export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway, saveError, onClose, onSave, onDolbySaved, onDolbyFailure }: {
+export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway, saveError, onClose, onSave, onDolbySaved, onDolbyFailure, onDolbyResult }: {
   device: Device; snapshot: Snapshot; busy: boolean; readOnly?: boolean; gateway: UiGateway; saveError?: string; onClose: () => void
   onSave: (profile: DeviceProfile, rule: DeviceRule, expectedProfile: DeviceProfile | null, expectedRule: DeviceRule) => Promise<boolean>
   onDolbySaved: (snapshot: Snapshot) => void; onDolbyFailure: (error: OperationFailure) => void
+  onDolbyResult?: (text: string, error: boolean) => void
 }) {
   const desktop = gateway.mode === 'desktop'
   const [dolbyOpen, setDolbyOpen] = useState(false)
@@ -58,7 +59,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
         {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong><p>独立方案、强度与均衡器</p></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
       </div>
       <footer className="sheet-footer"><p>{readOnly ? '当前只读，不提供保存或应用操作。' : desktop ? '下次切换时应用预设；保留已有 Dolby 设置。' : '仅保存在本次预览中，刷新页面后重置。'}</p><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
-      {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} />}
+      {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} onResult={onDolbyResult} />}
     </SheetContent>
   </Sheet>
 }

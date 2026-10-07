@@ -21,6 +21,7 @@ namespace AudioSwitch
         private readonly DeviceEventBatch debounce;
         private readonly PipeServer server;
         private readonly DolbyQueue dolby;
+        private readonly PanelDolbyApply panelDolby;
         private readonly BackgroundUpdate updates;
         private readonly Timer updateIdleTimer = new Timer { Interval = 30000 };
         private readonly UpdateActivity updateActivity = new UpdateActivity();
@@ -53,6 +54,7 @@ namespace AudioSwitch
                     presetWarnings[key] = (device == null ? "设备" : device.Name) + "：" + (result.Error ?? result.Warning);
                 }
             });
+            panelDolby = new PanelDolbyApply(dolby);
             tray = new NotifyIcon { Text = "声间 · 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
             tray.DoubleClick += delegate { ShowFrontend(false); };
             tray.BalloonTipClicked += delegate { ShowFrontend(true); };
@@ -212,12 +214,19 @@ namespace AudioSwitch
             DeviceSettingsInfo settings = null;
             string backupPath = null;
             bool preferencesSaved = false;
+            PanelDolbyOperation dolbyOperation = null;
             var beforePreferences = Wire.Decode<Preferences>(Wire.Encode(preferences));
             try
             {
                 switch (request.Action)
                 {
                     case "snapshot": break;
+                    case "readDolbyApply": return new Reply { DolbyOperation = panelDolby.Read(request.Token) };
+                    case "cancelDolbyApply": return new Reply { DolbyOperation = panelDolby.Cancel(request.Token) };
+                    case "saveAndApplyDolby":
+                        dolbyOperation = panelDolby.Start(preferences, audio.Read(), request, delegate { SavePreferences(); preferencesSaved = true; });
+                        presetWarnings.Remove("dolby:" + request.DeviceId);
+                        break;
                     case "startup":
                         InstanceLocation.RequireSame(Application.ExecutablePath, request.StartupExecutablePath);
                         StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
@@ -340,10 +349,10 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 4, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 5, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,
@@ -468,6 +477,7 @@ namespace AudioSwitch
             exiting = true;
             updateIdleTimer.Stop(); updates.Dispose(); ReleaseUpdateActivity();
             dolby.Stop();
+            panelDolby.Dispose();
             debounce.Stop();
             if (frontend != null && !frontend.HasExited) frontend.CloseMainWindow();
             if (promptFrontend != null && !promptFrontend.HasExited) promptFrontend.CloseMainWindow();
@@ -481,6 +491,7 @@ namespace AudioSwitch
                 disposed = true;
                 exiting = true;
                 if (dolby != null) dolby.Stop();
+                if (panelDolby != null) panelDolby.Dispose();
                 if (server != null) server.Dispose();
                 if (audio != null) audio.Dispose();
                 if (debounce != null) debounce.Dispose();

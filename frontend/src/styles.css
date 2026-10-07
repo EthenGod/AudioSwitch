@@ -15,6 +15,7 @@
 .dolby-eq input[type=range] { width: 100%; }
 .dolby-views { margin-top: 14px; }
 .dolby-sheet .sheet-description { overflow-wrap: anywhere; }
+.dolby-sheet .sheet-footer p[role] { max-height: 4.5em; overflow: auto; overflow-wrap: anywhere; line-height: 1.5; color: var(--foreground); }
 .dolby-sheet .sheet-scroll > p { margin: 10px 0; line-height: 1.6; }
 .dolby-sheet .sheet-scroll > .volume-toggle { margin: 16px 0; }
 @media (max-width: 600px) { .dolby-eq { grid-template-columns: repeat(2,minmax(0,1fr)); } .dolby-grid { grid-template-columns: 1fr; } }
@@ -195,7 +196,7 @@ h1 { margin: 0; font-size: 25px; line-height: 1.25; letter-spacing: -.7px; font-
 .empty-state p, .loading-state p, .error-state p { font-size: 12px; margin: 0 0 5px; line-height: 1.8; }
 .loading-state, .error-state { min-height: 340px; }
 .skeleton-row { width: 90%; max-width: 480px; height: 45px; border-radius: 7px; background: var(--muted); }
-.toast { position: fixed; z-index: 80; right: 24px; bottom: 49px; max-width: min(480px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 15px; border: 1px solid var(--border); background: var(--card); box-shadow: 0 6px 32px #0003; border-radius: 9px; color: var(--accent); }
+.toast { position: fixed; z-index: 40; right: 24px; bottom: 49px; max-width: min(480px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 15px; border: 1px solid var(--border); background: var(--card); box-shadow: 0 6px 32px #0003; border-radius: 9px; color: var(--accent); }
 .toast > span { color: var(--foreground); font-size: 12px; line-height: 1.7; }
 .toast-error { color: var(--danger); }
 .sheet-backdrop { position: fixed; inset: 0; background: #0008; z-index: 50; transition: opacity 150ms; }

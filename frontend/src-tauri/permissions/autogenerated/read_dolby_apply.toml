@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-dolby-apply"
+description = "Enables the read_dolby_apply command without any pre-configured scope."
+commands.allow = ["read_dolby_apply"]
+
+[[permission]]
+identifier = "deny-read-dolby-apply"
+description = "Denies the read_dolby_apply command without any pre-configured scope."
+commands.deny = ["read_dolby_apply"]

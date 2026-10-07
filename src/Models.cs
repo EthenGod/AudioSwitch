@@ -128,6 +128,7 @@ namespace AudioSwitch
     {
         public string UpdatePath { get; set; }
         public string StartupExecutablePath { get; set; }
+        public int OwnerPid { get; set; }
         public string ExpectedStartupCommand { get; set; }
         public string Action { get; set; }
         public string DeviceId { get; set; }
@@ -149,6 +150,7 @@ namespace AudioSwitch
 
     public sealed class Reply
     {
+        public PanelDolbyOperation DolbyOperation { get; set; }
         public int PanelApiVersion { get; set; }
         public string OperationError { get; set; }
         public bool PreferencesSaved { get; set; }

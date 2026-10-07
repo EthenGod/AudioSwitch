@@ -6,6 +6,7 @@ mod backup;
 mod maintenance;
 mod prompt;
 mod dolby;
+mod dolby_apply;
 use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -170,6 +171,30 @@ async fn start_dolby_read(id: String, bridge: tauri::State<'_, Bridge>, reader: 
 fn read_dolby(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.read(&token)?) }
 #[tauri::command]
 async fn cancel_dolby_read(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.cancel(&token).await?) }
+#[tauri::command]
+async fn start_dolby_apply(id: String, profile: dolby::Profile, expected: Option<dolby::Profile>, token: String, bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let request = dolby_apply::request(&pipe::read_snapshot().await?, &id, &profile, &expected, &token)?;
+    session.bind(&token);
+    let reply = send_mutation(&request, &bridge).await?;
+    if reply["OperationError"].is_null() && (reply["PreferencesSaved"] != true || dolby_apply::operation(&reply, &token).is_err()) {
+        bridge.uncertain.store(true, Ordering::SeqCst);
+        return Err(BridgeError { message:"后台未确认保存与应用状态，请检查本次结果，勿重复应用。".into(), requires_refresh:true });
+    }
+    Ok(reply)
+}
+#[tauri::command]
+async fn read_dolby_apply(token: String, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    session.require(&token)?;
+    Ok(dolby_apply::operation(&pipe::send(&json!({"Action":"readDolbyApply","Token":token}), false).await?, &token)?)
+}
+#[tauri::command]
+async fn cancel_dolby_apply(token: String, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    session.require(&token)?;
+    // Acknowledge cancellation only. The UI keeps waiting for the worker's final result.
+    Ok(dolby_apply::operation(&pipe::send(&json!({"Action":"cancelDolbyApply","Token":token}), false).await?, &token)?)
+}
 fn main() {
     let is_prompt = std::env::args().any(|arg| arg == "--prompt");
     let session = prompt::Session::default();
@@ -191,6 +216,7 @@ fn main() {
         .manage(session)
         .manage(maintenance::Maintenance::default())
         .manage(dolby::Reader::default())
+        .manage(dolby_apply::Session::default())
         .setup(move |app| {
             if is_prompt {
                 if let Some(window) = app.get_webview_window("prompt") {
@@ -210,7 +236,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
-        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read])
+        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
         .run(context)
         .expect("无法启动声间面板");
 }

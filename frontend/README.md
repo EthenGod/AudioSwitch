@@ -95,7 +95,7 @@ npx --package @playwright/cli playwright-cli -s=audio-ui close
 
 ## 后续边界
 
-4.4a 已提供输出设备设置中的「编辑 Dolby 方案」：电影／自定义方案、三态开关、强度、10 点 dB 与 20 段原始值，读取当前方案以及仅保存。需要接口版本 4 后台；离线设备可编辑保存，但读取必须是当前输出。浏览器模拟结果留在内存中。保存并应用和应用取消反馈尚未接入，不能把保存成功当成音效已应用。
+4.4a 已提供输出设备设置中的「编辑 Dolby 方案」：电影／自定义方案、三态开关、强度、10 点 dB 与 20 段原始值，读取当前方案以及仅保存。需要接口版本 4 后台；离线设备可编辑保存，但读取必须是当前输出。浏览器模拟结果留在内存中。4.4b 的保存并应用需接口版本 5，且设备必须是当前在线输出；它仅应用 Dolby，不切换设备或应用基础预设。界面跟踪本次任务，区分已保存、正在应用、成功、失败和取消等待。关闭面板后后台通过持有的进程句柄取消本次任务，继续沿用原 worker 的恢复保护。真实写入和恢复仍待实机验证。
 
 `scripts/verify-dolby-browser.js` 验证浏览器编辑、精确曲线与缩放。Windows PowerShell 执行 `scripts/verify-dolby-capture.ps1` 可只读调用 staging 原辅助进程，不启动托盘、不保存配置。Rust 隔离生命周期测试需先用 .NET Framework 编译器将 `scripts/dolby-reader-fixture.cs` 编译到 `staging/dolby-reader-fixture/AudioSwitch.exe`（引用 System.Web.Extensions.dll），再显式运行 `dolby::tests::isolated_capture_cancel_and_window_close -- --ignored`；该假程序不加载音频或 Dolby 库。
 

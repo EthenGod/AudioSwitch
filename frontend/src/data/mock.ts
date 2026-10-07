@@ -1,5 +1,5 @@
 import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
-import { dolbyProfile, emptyDolby, type DolbyRead } from './dolby'
+import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -29,6 +29,7 @@ function initial(): Snapshot {
 /** All state lives in this closure. No network, filesystem, storage or native API. */
 export function createMockGateway(latency = 260): PreviewGateway {
   let state = initial()
+  let application: DolbyOperation | null = null, applicationReady = 0
   let dolbyRead: DolbyRead | null = null, dolbySequence = 0, dolbyReady = 0
   let scenario: Scenario = 'normal'
   let importToken = ''
@@ -43,6 +44,23 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    async startDolbyApply(id, profile, expected, token) {
+      if (dolbyRunning(application)) throw new Error('正在模拟应用。')
+      if (!device(id).Online || device(id).Flow !== 0 || state.Defaults['0:1'] !== id) throw new Error('请选择当前在线输出设备。')
+      const snapshot = await this.saveDolby(id, profile, expected)
+      application = { Token:token, DeviceId:id, Status:'running', Message:'示例方案已保存，正在模拟应用…' }; applicationReady = Date.now() + 1200
+      return { snapshot, operation:structuredClone(application) }
+    },
+    async readDolbyApply(token) {
+      if (!application || application.Token !== token) throw new Error('示例应用记录已失效。')
+      if (dolbyRunning(application) && Date.now() >= applicationReady) application = { ...application, Status:application.Status === 'cancelling' ? 'cancelled' : 'applied', Message:application.Status === 'cancelling' ? '模拟应用已停止，未修改系统设置。' : '模拟应用完成，未修改系统设置。' }
+      return structuredClone(application)
+    },
+    async cancelDolbyApply(token) {
+      if (!application || application.Token !== token) throw new Error('示例应用记录已失效。')
+      if (dolbyRunning(application)) { application = { ...application, Status:'cancelling', Message:'正在模拟停止与恢复检查…' }; applicationReady = Date.now() + 350 }
+      return structuredClone(application)
+    },
     async saveDolby(id, profile, expected) {
       await delay(); if (device(id).Flow !== 0) throw new Error('请选择输出设备。')
       if (JSON.stringify(state.DolbyProfiles?.[id] ?? null) !== JSON.stringify(expected)) throw new Error('方案已变化，请重新打开。')
