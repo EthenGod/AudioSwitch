@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { dolbyProfile, mapDolbyRead, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
@@ -52,11 +53,13 @@ export function mapSnapshot(value: unknown): Snapshot {
     defaults[key as keyof typeof defaults] = id
   }
   const profiles: Record<string, DeviceProfile> = Object.create(null)
+  const dolbyProfiles: Record<string, DolbyProfile | null> = Object.create(null)
   for (const [id, value] of Object.entries(object(prefs.DeviceProfiles))) {
     const profile = object(value), volume = profile.Volume, spatial = profile.SpatialFormat
     if (volume !== null && (typeof volume !== 'number' || !Number.isInteger(volume) || volume < 0 || volume > 100)) throw invalid()
     if (spatial !== null && typeof spatial !== 'string') throw invalid()
     profiles[id] = { Volume: volume as number | null, SpatialFormat: spatial as string | null }
+    dolbyProfiles[id] = dolbyProfile(profile.Dolby)
   }
   const rules: Record<string, DeviceRule> = Object.create(null)
   for (const [id, rule] of Object.entries(object(prefs.DeviceRules))) {
@@ -70,6 +73,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   }
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
+    DolbyProfiles: dolbyProfiles, CanEditDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 4,
     StartupEnabled: boolean(startup.Enabled), StartupMessage: optionalText(startup.Message),
     StartupAvailable: startup.Available === true, StartupCommand: startup.RegisteredCommand == null ? null : string(startup.RegisteredCommand),
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
@@ -167,6 +171,33 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   }
   return {
     mode: 'desktop',
+    async saveDolby(id, profile, expected) {
+      if (!snapshot?.CanEditDolby) throw new OperationFailure('当前后台不支持新 Dolby 编辑器。')
+      if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求。')
+      if (uncertain) throw new OperationFailure('请先刷新确认上次结果。', undefined, true)
+      writing = true
+      try {
+        const requested = dolbyProfile(profile), raw = object(await call('save_dolby', { id, profile:requested, expected:dolbyProfile(expected) }))
+        const actual = mapSnapshot(raw); snapshot = actual
+        if (raw.OperationError) throw new OperationFailure(String(raw.OperationError), actual)
+        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true) throw new OperationFailure('后台尚未确认保存，请刷新检查。', actual, true)
+        if (JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure('后台保存结果与请求不一致，请刷新检查。', actual, true)
+        return actual
+      } catch (error) { const result = failure(error, true); uncertain ||= result.requiresRefresh; throw result }
+      finally { writing = false }
+    },
+    async startDolbyRead(id) {
+      if (!snapshot?.CanEditDolby) throw new OperationFailure('当前后台不支持读取 Dolby。')
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      writing = true
+      try { return mapDolbyRead(await call('start_dolby_read', { id })) } catch (error) { throw failure(error) } finally { writing = false }
+    },
+    async readDolby(token) {
+      try { const job = mapDolbyRead(await call('read_dolby', { token })); if (job.Token !== token) throw invalid(); return job } catch (e) { throw failure(e) }
+    },
+    async cancelDolbyRead(token) {
+      try { const job = mapDolbyRead(await call('cancel_dolby_read', { token })); if (job.Token !== token || job.Status === 'running') throw new Error('尚未确认读取结束，请再次取消。'); return job } catch (e) { throw failure(e) }
+    },
     async startMaintenance(kind) {
       if (!snapshot?.CanCheckMaintenance) throw new OperationFailure('当前后台不支持新面板检查，请使用新版后台。')
       if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请稍后检查。')

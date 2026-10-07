@@ -43,6 +43,7 @@ namespace AudioSwitch
                 RunSelectionTests();
                 RunProfileTests();
                 PanelProfileTests.Run(Check);
+                PanelDolbyTests.Run(Check);
                 PanelImportTests.Run(Check);
                 PanelMaintenanceTests.Run(Check);
                 RunPriorityTests();

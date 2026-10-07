@@ -1,6 +1,24 @@
 @import 'tailwindcss';
 @custom-variant dark (&:is(.dark *));
 
+.dolby-controls, .dolby-eq { border: 0; padding: 0; margin: 12px 0 0; min-width: 0; }
+.dolby-controls:disabled { opacity: .65; }
+.dolby-fields > label { display: block; margin: 12px 0 6px; }
+.dolby-fields > select { width: 100%; }
+.dolby-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+.dolby-grid label { display: grid; gap: 6px; min-width: 0; }
+.dolby-strength { display: grid; grid-template-columns: 1fr 90px 16px; align-items: center; gap: 8px; margin: 8px 0; }
+.dolby-strength input[type=checkbox], .dolby-eq-toggle input { margin-right: 8px; accent-color: var(--primary); }
+.dolby-fields input[type=number] { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px; padding: 6px; background: var(--card); color: var(--foreground); }
+.dolby-eq { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px 8px; }
+.dolby-eq label { min-width: 0; display: grid; gap: 8px; font-size: 11px; color: var(--muted-foreground); }
+.dolby-eq input[type=range] { width: 100%; }
+.dolby-views { margin-top: 14px; }
+.dolby-sheet .sheet-description { overflow-wrap: anywhere; }
+.dolby-sheet .sheet-scroll > p { margin: 10px 0; line-height: 1.6; }
+.dolby-sheet .sheet-scroll > .volume-toggle { margin: 16px 0; }
+@media (max-width: 600px) { .dolby-eq { grid-template-columns: repeat(2,minmax(0,1fr)); } .dolby-grid { grid-template-columns: 1fr; } }
+
 .prompt-shell { height: 100dvh; display: flex; flex-direction: column; background: var(--background); color: var(--foreground); }
 .prompt-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .prompt-header > span { display: flex; align-items: center; gap: 8px; font-weight: 600; }

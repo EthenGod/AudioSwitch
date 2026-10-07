@@ -95,6 +95,10 @@ npx --package @playwright/cli playwright-cli -s=audio-ui close
 
 ## 后续边界
 
+4.4a 已提供输出设备设置中的「编辑 Dolby 方案」：电影／自定义方案、三态开关、强度、10 点 dB 与 20 段原始值，读取当前方案以及仅保存。需要接口版本 4 后台；离线设备可编辑保存，但读取必须是当前输出。浏览器模拟结果留在内存中。保存并应用和应用取消反馈尚未接入，不能把保存成功当成音效已应用。
+
+`scripts/verify-dolby-browser.js` 验证浏览器编辑、精确曲线与缩放。Windows PowerShell 执行 `scripts/verify-dolby-capture.ps1` 可只读调用 staging 原辅助进程，不启动托盘、不保存配置。Rust 隔离生命周期测试需先用 .NET Framework 编译器将 `scripts/dolby-reader-fixture.cs` 编译到 `staging/dolby-reader-fixture/AudioSwitch.exe`（引用 System.Web.Extensions.dll），再显式运行 `dolby::tests::isolated_capture_cancel_and_window_close -- --ignored`；该假程序不加载音频或 Dolby 库。
+
 设备提示可单独预览：`http://127.0.0.1:4173/?view=prompt`（加 `&light` 切浅色，`&disconnected` 看断开）。真实桌面入口为 `staging/ui-target/release/audio-switch-panel.exe --prompt`，可传 `--owner=后台PID`；仅连接已运行后台。普通关闭保留待办，“保持当前选择”仅处理当前提示，待办清空或所属进程退出则退出窗口。无后台或结果不确定时提供手动刷新，不重复发送写入。
 
 `scripts/verify-prompt-browser.js` 验证模拟提示和缩放；`scripts/verify-prompt-owner.ps1` 用临时等待进程验证所属进程退出后的窗口释放，不启动音频后台。提示的实际插拔、音频操作与跨显示器验收见根目录 MANUAL-TESTS.md；日常自动弹窗、面板实例复用仍在第五阶段统一接入。

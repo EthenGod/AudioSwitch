@@ -136,6 +136,8 @@ namespace AudioSwitch
         public DeviceProfile Profile { get; set; }
         // Optimistic check for the basic editor; Dolby remains owned by the backend.
         public DeviceProfile ExpectedProfile { get; set; }
+        public DolbyProfile DolbyProfile { get; set; }
+        public DolbyProfile ExpectedDolbyProfile { get; set; }
         public DeviceRule? ExpectedDeviceRule { get; set; }
         public int Flow { get; set; }
         public List<string> DeviceOrder { get; set; }

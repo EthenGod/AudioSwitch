@@ -1,4 +1,5 @@
 import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
+import { dolbyProfile, emptyDolby, type DolbyRead } from './dolby'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -28,6 +29,7 @@ function initial(): Snapshot {
 /** All state lives in this closure. No network, filesystem, storage or native API. */
 export function createMockGateway(latency = 260): PreviewGateway {
   let state = initial()
+  let dolbyRead: DolbyRead | null = null, dolbySequence = 0, dolbyReady = 0
   let scenario: Scenario = 'normal'
   let importToken = ''
   let importSequence = 0
@@ -41,6 +43,25 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    async saveDolby(id, profile, expected) {
+      await delay(); if (device(id).Flow !== 0) throw new Error('请选择输出设备。')
+      if (JSON.stringify(state.DolbyProfiles?.[id] ?? null) !== JSON.stringify(expected)) throw new Error('方案已变化，请重新打开。')
+      state.DolbyProfiles ??= {}; state.DolbyProfiles[id] = dolbyProfile(profile); return copy()
+    },
+    async startDolbyRead(id) {
+      await delay(); if (state.Defaults['0:1'] !== id) throw new Error('请先选择此设备作为当前输出。')
+      if (dolbyRead?.Status === 'running') throw new Error('正在读取。')
+      dolbyReady = Date.now() + 800; dolbyRead = { Token:`preview-dolby-${++dolbySequence}`, Status:'running', Message:'正在模拟读取…' }; return structuredClone(dolbyRead)
+    },
+    async readDolby(token) {
+      if (!dolbyRead || dolbyRead.Token !== token) throw new Error('读取已失效。')
+      if (dolbyRead.Status === 'running' && Date.now() >= dolbyReady) dolbyRead = { Token:token, Status:'ready', Message:'已填入示例方案，未读取实际 Dolby。', Profile:{ ...emptyDolby(), MainProfile:4, SubProfile:4, Enabled:true, Eq:[-27,16,26,56,77,60,43,26,25,24,23,40,56,77,51,21,-22,-31,-42,-66] } }
+      return structuredClone(dolbyRead)
+    },
+    async cancelDolbyRead(token) {
+      if (!dolbyRead || dolbyRead.Token !== token) throw new Error('读取已失效。')
+      dolbyRead = { Token:token, Status:'cancelled', Message:'模拟读取已取消。' }; return structuredClone(dolbyRead)
+    },
     async startMaintenance(kind) {
       if (maintenance?.Status === 'running') throw new Error('正在检查，请先取消。')
       maintenance = { Token: `demo-check-${++maintenanceSequence}`, Kind: kind, Status: 'running', Message: '正在演示检查流程…' }

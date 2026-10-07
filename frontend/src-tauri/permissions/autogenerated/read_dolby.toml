@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-dolby"
+description = "Enables the read_dolby command without any pre-configured scope."
+commands.allow = ["read_dolby"]
+
+[[permission]]
+identifier = "deny-read-dolby"
+description = "Denies the read_dolby command without any pre-configured scope."
+commands.deny = ["read_dolby"]

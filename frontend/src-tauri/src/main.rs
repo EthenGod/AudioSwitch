@@ -5,6 +5,7 @@ mod actions;
 mod backup;
 mod maintenance;
 mod prompt;
+mod dolby;
 use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -148,6 +149,27 @@ fn open_prompt_panel(window: tauri::WebviewWindow) -> Result<(), String> {
     std::process::Command::new(std::env::current_exe().map_err(|e| e.to_string())?).spawn().map_err(|e| e.to_string())?;
     window.close().map_err(|e| e.to_string())
 }
+#[tauri::command]
+async fn save_dolby(id: String, profile: Option<dolby::Profile>, expected: Option<dolby::Profile>, bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let snapshot = pipe::read_snapshot().await?;
+    let reply = send_mutation(&dolby::save_request(&snapshot, &id, &profile, &expected)?, &bridge).await?;
+    if reply["OperationError"].is_null() && reply["PreferencesSaved"] != true {
+        bridge.uncertain.store(true, Ordering::SeqCst);
+        return Err(BridgeError { message:"后台尚未确认保存，请刷新检查。".into(), requires_refresh:true });
+    }
+    Ok(reply)
+}
+#[tauri::command]
+async fn start_dolby_read(id: String, bridge: tauri::State<'_, Bridge>, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    Ok(reader.start(&pipe::read_snapshot().await?, &id).await?)
+}
+#[tauri::command]
+fn read_dolby(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.read(&token)?) }
+#[tauri::command]
+async fn cancel_dolby_read(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.cancel(&token).await?) }
 fn main() {
     let is_prompt = std::env::args().any(|arg| arg == "--prompt");
     let session = prompt::Session::default();
@@ -168,6 +190,7 @@ fn main() {
         .manage(Bridge::default())
         .manage(session)
         .manage(maintenance::Maintenance::default())
+        .manage(dolby::Reader::default())
         .setup(move |app| {
             if is_prompt {
                 if let Some(window) = app.get_webview_window("prompt") {
@@ -186,8 +209,8 @@ fn main() {
             }
             Ok(())
         })
-        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); } })
-        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel])
+        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
+        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read])
         .run(context)
         .expect("无法启动声间面板");
 }
