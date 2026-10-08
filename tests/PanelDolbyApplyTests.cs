@@ -41,7 +41,12 @@ namespace AudioSwitch
                         Reject(() => panel.Cancel("stale"), check, "stale cancel cannot affect current task");
                         if (scenario == "cancel") { panel.Cancel(request.Token); check(active.IsCancellationRequested && panel.Running, "cancel waits for worker restore before terminal result"); }
                         if (scenario == "superseded") { queue.Observe("next", new DolbyProfile { Enabled = true }); panel.Cancel(request.Token); }
-                        if (scenario == "owner") { owner.StandardInput.Close(); check(owner.WaitForExit(1500), "isolated UI owner exits"); panel.CheckOwner(); check(active.IsCancellationRequested && panel.Running, "owner exit signals cancellation while worker restores"); }
+                        if (scenario == "owner") {
+                            owner.StandardInput.Close(); check(owner.WaitForExit(1500), "isolated UI owner exits");
+                            var ownerWait = Stopwatch.StartNew();
+                            while (!active.IsCancellationRequested && ownerWait.ElapsedMilliseconds < 1500) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
+                            check(active.IsCancellationRequested && panel.Running, "real owner timer signals cancellation while worker restores");
+                        }
                         release.Set();
                         if (scenario == "late") { var wait = Stopwatch.StartNew(); while (callbacks.IsEmpty && wait.ElapsedMilliseconds < 1500) Thread.Sleep(5); panel.Cancel(request.Token); }
                         Drain(callbacks, () => !queue.Applying);

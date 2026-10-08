@@ -156,3 +156,22 @@
 涉及文件：C# 新增 PanelDolbyApply.cs、Models／TrayHost 的必要接口，DolbyWorker.cs 内仅扩展队列所属任务回调和定向取消；未修改 DolbyWorker.Run／Main、DolbyProfiles、DolbyNative、DolbyEqualizer 或音频路由实现。前端新增 useDolbyApply、任务类型与 gateway、编辑器按钮和结果、提示条层级；Rust 新增 dolby_apply.rs、命令和权限。另含对应测试、浏览器脚本、README、CONFIGURATION 和 MANUAL-TESTS。无新增依赖，未修改日常 bin／旧发布入口，未提交、合并或发布。
 
 产物：staging/stage44b-csharp.log、stage44b-rust.log、stage44b-desktop-build.log；frontend/output/playwright/stage44b-apply.log、stage44b-editor.log、dolby-apply-dark.png、dolby-apply-light.png；frontend/output/desktop/stage44b-no-backend.png、stage44b-lifecycle.json。输出不提交。本小项结束后等待确认，再安排剩余实机验收或第五阶段具体清单。
+
+## 4.4c 只读桌面联调（2026-10-08）
+
+用户明确要求“这轮只做无音频写入的验证”。本轮没有启动 TrayHost，不执行启动优先级、自动音效、配置保存、设备切换或 Dolby 写入。新增测试程序内的只读入口，通过正式命名管道向正式 Tauri 面板提供真实设备及配置读取；入口拒绝全部写请求。它不是正式托盘后台，不能据此宣布完整后台联调通过。
+
+| 验证 | 结果与边界 |
+| --- | --- |
+| 实际桌面读取 | 7 项断言通过：真实设备设置、原 worker 读取当前 Dolby 并填入草稿、只读入口拒绝保存且保留编辑器、原维护 worker 检查 staging 必要文件。另通过桌面查询 GitHub 正式版，返回当前／最新均为 v0.11.1；没有下载安装或修复。无 WebView 运行错误，已查看 Dolby 和文件检查截图。 |
+| 取消与窗口退出 | 使用不引用音频库的等待夹具，桌面读取取消和维护取消两项通过。分别确认维护／Dolby 读取辅助进程正在运行后正常关闭面板；两次各 9 个面板、WebView2 及辅助进程均退出。夹具验证实际进程退出机制，不代表真实驱动阻塞或应用恢复已经验收。正常读取会话关闭后 7 个界面进程也全部退出。 |
+| 前后读回 | 两次只读会话的活动配置 SHA-256、默认角色及可读取的音量／空间音效记录一致；实际 Dolby 捕获在会话前后逐项一致。不可读设备的错误也保留在审计中，不将其记为读取成功。未执行恢复写入。 |
+| 自动测试 | C# 553 项、前端 85 项通过，类型检查、网页及 Tauri release 构建通过。所有者退出测试改用真实 Windows Forms 定时器触发取消，执行器仍为隔离模拟。没有重复运行上一项的 Rust 24 项和浏览器 72 项，不把此前结果算作本轮新增实测。 |
+
+修正一个提示问题：取消结果可能包含恢复失败，不能显示绿色成功提示；现在保留警示样式和无障碍警告，并补充对应断言。除此以外新增内容均为只读验证工具、测试及说明，未改生产后台、音频核心、配置格式、依赖、日常 bin 或发布入口。
+
+脚本：`readonly-session.ps1`、`readonly-wait-worker.cs`、`verify-readonly-desktop.js`、`verify-update-desktop.js`、`verify-readonly-cancel.js`、`verify-readonly-capture-start.js`。只读服务位于 `tests/PanelReadOnlyHost.cs`，仅 Tests.exe 能启动。使用方法见 MANUAL-TESTS.md 的 4.4c。
+
+记录：`staging/stage44c-csharp.log`、`stage44c-desktop-build.log`、`stage44c-dolby-before.json`／`stage44c-dolby-after.json`、`stage44c-readonly-session.json`／`stage44c-wait-session.json`（指向完整审计）；`frontend/output/desktop/stage44c-*.log`、`stage44c-*.png`、`stage44c-*-lifecycle.json` 与 `stage44c-*-owner.json`。输出不提交；本次测试进程均已退出。
+
+仍待验收：正式 TrayHost 与面板完整联调、真实配置保存／导入及恢复、真实 Dolby 应用／取消／恢复、USB／蓝牙插拔、睡眠唤醒和跨显示器 DPI。此前各小项的这些待验内容不因只读验证而关闭。第五阶段仅整理 [实施清单](STAGE-5.md)，本轮不实施发布替换、不提交或合并。

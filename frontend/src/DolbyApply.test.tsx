@@ -35,10 +35,12 @@ describe('Dolby save and apply', () => {
   })
   it('cancel acknowledgement does not close until restoration has settled', async () => {
     let done = false
-    const { onClose } = await setup(snapshot => ({ startDolbyApply:async (_i,_p,_e,t)=>({snapshot,operation:operation(t)}), cancelDolbyApply:async t=>operation(t,'cancelling','正在恢复检查'), readDolbyApply:async t=>operation(t,done?'cancelled':'cancelling',done?'取消后恢复未通过核验':'正在恢复检查') }))
+    const { onClose, onResult } = await setup(snapshot => ({ startDolbyApply:async (_i,_p,_e,t)=>({snapshot,operation:operation(t)}), cancelDolbyApply:async t=>operation(t,'cancelling','正在恢复检查'), readDolbyApply:async t=>operation(t,done?'cancelled':'cancelling',done?'取消后恢复未通过核验':'正在恢复检查') }))
     fireEvent.click(button()); await screen.findByText('已保存，尚未应用完成'); fireEvent.click(screen.getByRole('button',{name:'关闭'}))
     await screen.findByText('正在恢复检查'); expect(onClose).not.toHaveBeenCalled(); expect(button()).toBeDisabled()
     done = true; await waitFor(()=>expect(onClose).toHaveBeenCalledOnce())
+    expect(onResult).toHaveBeenCalledWith('取消后恢复未通过核验',true)
+    expect(screen.getByRole('alert')).toHaveTextContent('取消后恢复未通过核验')
   })
   it('closing during submission cancels the returned task without duplicate saving', async () => {
     let finish!: (r:{snapshot:Snapshot;operation:DolbyOperation})=>void, token = ''

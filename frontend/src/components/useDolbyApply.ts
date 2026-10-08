@@ -13,7 +13,8 @@ export function useDolbyApply(gateway: UiGateway, id: string, onSaved: (s: Snaps
     if (!alive.current) return
     setJob(value)
     if (!dolbyRunning(value)) {
-      const report = () => callbacks.current.onResult?.(value.Message, value.Status === 'error' || value.Status === 'warning')
+      // A stopped job may carry a rollback failure; never present it as success.
+      const report = () => callbacks.current.onResult?.(value.Message, value.Status !== 'applied')
       report()
       // One snapshot after completion; never use a global busy flag as proof of success.
       void gateway.read().then(s => { if (alive.current && current.current?.Token === value.Token) { callbacks.current.onSettled(s); report() } }).catch(() => {})

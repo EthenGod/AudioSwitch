@@ -125,7 +125,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSav
       <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} /></fieldset>
     </div>
     <footer className="sheet-footer">
-      {application.job && <p role={['error','warning'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
+      {application.job && <p role={['error','warning','cancelled'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
       {application.error && <p role="alert">{application.error}</p>}
       <p>立即应用仅限当前输出，不切换设备，不应用音量或 Windows 空间音效。</p>
       <div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>{application.job ? '关闭' : '取消'}</Button>

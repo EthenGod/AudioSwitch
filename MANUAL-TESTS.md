@@ -259,3 +259,27 @@
 - 应用期间从系统切换输出，确认停止旧设备写入；恢复只允许原设备仍为当前输出。保存／导入／其他窗口请求中断任务时，旧编辑器应显示已停止，不无限等待。
 - 模拟断线、响应丢失及快速连点：不自动重复提交，可读取同一标记的结果；未确认前阻止继续写入。整体退出仍可触发后台取消保护。
 - 取消不撤销已经保存的配置。测试结束恢复原配置、Dolby 和音频状态并独立读回；记录整个桌面链路、跨屏 DPI 及实际恢复结果。之前 4.1／4.2a／4.3／4.4a 的待验项继续保留。
+
+## refactor/ui 第四阶段 4.4c 无音频写入的桌面联调
+
+不启动正式托盘后台。若原后台已运行，应先由用户退出；脚本会拒绝已有实例。根目录执行：
+
+```powershell
+.\build.ps1 -Test -OutputDirectory staging
+.\frontend\desktop.ps1 -Command build
+.\frontend\scripts\readonly-session.ps1 -Command Open
+# 手动打开 staging/ui-target/release/audio-switch-panel.exe
+# 完成检查并关闭面板后：
+.\frontend\scripts\readonly-session.ps1 -Command Close
+```
+
+- 确认页面出现“只读联调入口”说明。测试入口仅允许状态、设备设置和导出内容读取，拒绝全部保存、切换、应用和其他写请求；不创建 TrayHost 或 Dolby 写入队列，配置只解析、不迁移。
+- 在当前输出设置中读取 Dolby，确认只填入草稿；保存应收到只读拒绝，草稿仍保留。维护页面运行文件检查和更新查询，后者需要联网，但不下载安装。对应桌面脚本为 `verify-readonly-desktop.js`、`verify-update-desktop.js`，使用 Playwright CLI 的 `run-code --filename` 连接实际 Tauri WebView 后运行。
+- 会话关闭生成 `staging/readonly-session-<token>.json`，记录配置哈希是否一致、前后默认角色、可读取的音量／空间音效及读取错误。脚本比较记录；变化时仅报错，不尝试写回。Dolby 使用 `verify-dolby-capture.ps1` 在前后分别捕获并另存结果核对，不以配置哈希代替驱动读回。
+- 入口最多存活 10 分钟。提前退出须运行 Close；它只通知记录的准确 PID／路径／启动时间匹配的测试进程正常退出，不停止其他程序。
+
+测试“任务运行中关闭窗口”时，先把 `frontend/scripts/readonly-wait-worker.cs` 用 .NET Framework C# 编译器（引用 `System.Web.Extensions.dll`，x64）编译到 `staging/readonly-wait-fixture/AudioSwitch.exe`，再用 `-Command Open -WaitingWorker`。这是不引用音频库的等待程序，Dolby 请求只接受 Profile=null；不执行真实读取或写入。
+
+- 用 `verify-readonly-cancel.js` 检查 Dolby 读取和维护任务取消，并保留一个运行中的维护任务；用 `verify-readonly-capture-start.js` 单独启动等待中的 Dolby 读取。
+- 每次先按完整路径及父 PID 确认辅助进程已启动，再正常关闭面板，检查对应面板、WebView2 和辅助进程全部退出。最后 Close 核对会话审计。不能仅凭窗口消失判断进程已退出。
+- 等待程序验证取消和进程释放机制，不验证真实驱动阻塞、正式后台自动规则或 Dolby 写入恢复。第四阶段其他实机项目继续待验。
