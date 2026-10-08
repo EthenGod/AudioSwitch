@@ -33,7 +33,22 @@ Rust 只注册状态查询、主面板操作、四个备份命令和维护任务
 
 主面板实机结果和剩余人工项目见 [STAGE-3.md](STAGE-3.md)，导入／导出及后续迁移见 [STAGE-4.md](STAGE-4.md)。[STAGE-2.md](STAGE-2.md) 保留只读及内存实测记录。
 
-需要避免后台启动音效时，可使用测试程序提供的只读联调入口，见 [MANUAL-TESTS.md 的 4.4c](../MANUAL-TESTS.md)。已通过实际桌面的 Dolby 读取、更新／文件检查和隔离等待任务退出验证；入口拒绝保存、切换和应用，不代表正式托盘完整联调或真实写入已经验收。第五阶段仅准备了 [发布兼容清单](STAGE-5.md)，尚未替换启动／更新入口。
+需要避免后台启动音效时，可使用测试程序提供的只读联调入口，见 [MANUAL-TESTS.md 的 4.4c](../MANUAL-TESTS.md)。已通过实际桌面的 Dolby 读取、更新／文件检查和隔离等待任务退出验证；入口拒绝保存、切换和应用，不代表正式托盘完整联调或真实写入已经验收。第五阶段现推进独立候选包，尚未替换启动／更新入口，见 [发布兼容清单](STAGE-5.md)。
+
+## 独立候选包（5.1）
+
+在项目根目录用 PowerShell 7 执行 `./frontend/candidate-package.ps1`（可选 `-NodePath`）。脚本新建唯一 `staging/ui-candidate-<标记>/`，重新构建后台及桌面前端，归集 npm／Rust／标准库及 WebView2 Loader 许可，再生成、检查并解压候选 ZIP；不启动后台、不改 bin、不自动提交或发布。需要已有的 Node／Rust／C++ 编译环境及已安装的锁定依赖；不自动安装或替换全局工具。
+
+包名为 `AudioSwitch-UI-CANDIDATE-v<版本>-win-x64.zip`，共 14 个文件：原 8 文件、新面板、三份前端／Rust 许可、候选使用说明和格式 1 的校验清单。它不兼容旧更新器，不能作为原正式附件发布。解压后的 `audio-switch-panel.exe` 可独立打开；托盘仍启动旧界面，接入真实后台后的操作仍是真实操作。
+
+```powershell
+./frontend/scripts/verify-candidate.ps1 -ArchivePath '候选ZIP完整路径'
+./frontend/scripts/test-candidate.ps1 -ArchivePath '候选ZIP完整路径'
+```
+
+验证器可加 `-ExtractTo '本项目staging内尚不存在的目录'`，先验证固定路径、数量、大小及摘要，再创建新目录解压并核对两份 EXE 的 x64 平台和版本。已有目录或文件不覆盖，失败产物不自动清理。只检查 ZIP 时不会执行程序；摘要是包内一致性检查，不是来源认证。同一批输入文件重复打包的 ZIP 一致，不承诺编译器生成的 EXE 跨机器逐字一致。
+
+候选说明给出 WebView2 缺失时的手动处理方式；本轮没有卸载系统 Runtime 来验证缺失环境，也不自动下载 Runtime。原生启动错误提示与入口迁移归入 5.2。详见 [第五阶段记录](STAGE-5.md)。
 
 ## 启动
 

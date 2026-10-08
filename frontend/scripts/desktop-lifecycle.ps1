@@ -1,7 +1,8 @@
 param(
     [ValidateSet('Open', 'Sample', 'Close')][string]$Command = 'Sample',
     [switch]$DebugBrowser,
-    [switch]$Prompt
+    [switch]$Prompt,
+    [string]$ExecutablePath
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot)
@@ -9,6 +10,12 @@ $exe = Join-Path $root 'staging\ui-target\release\audio-switch-panel.exe'
 $output = Join-Path $root 'frontend\output\desktop'
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $recordPath = Join-Path $output 'lifecycle.json'
+if ($ExecutablePath) {
+    $candidate = (Resolve-Path -LiteralPath $ExecutablePath).Path
+    $staging = [IO.Path]::GetFullPath((Join-Path $root 'staging')) + [IO.Path]::DirectorySeparatorChar
+    if (!$candidate.StartsWith($staging, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($candidate) -cne 'audio-switch-panel.exe') { throw '只接受本项目 staging 内的候选面板。' }
+    $exe = $candidate
+}
 $configPath = Join-Path $env:LOCALAPPDATA 'AudioSwitch\settings.json'
 function ConfigurationHash {
     if (Test-Path -LiteralPath $configPath) { return (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash }

@@ -1,6 +1,6 @@
 # 前端来源与第三方许可
 
-声间自有前端代码沿用仓库根目录的 GPL-3.0-only 许可。本目录为独立界面原型，未加入现有 EXE 发布包。
+声间自有前端代码沿用仓库根目录的 GPL-3.0-only 许可。本目录独立构建；第五阶段使用单独候选包，未加入原有正式发布流程。
 
 ## 设计参考
 
@@ -36,7 +36,7 @@ SOFTWARE.
 
 ## npm 运行依赖
 
-第二阶段新增 `@tauri-apps/api`、构建用 `@tauri-apps/cli` 及 Rust Tauri 2 外壳。Tauri 使用 MIT / Apache-2.0 双许可，原文见 [Tauri 仓库](https://github.com/tauri-apps/tauri)。Rust 依赖及校验值锁定于 `src-tauri/Cargo.lock`；目前仅本机构建验收，不生成安装器、不并入原有发布包。正式分发时在第五阶段补齐 Rust 间接依赖的随包许可归集。前端许可脚本会收集新增 API 包的完整许可文字。
+第二阶段新增 `@tauri-apps/api`、构建用 `@tauri-apps/cli` 及 Rust Tauri 2 外壳。Tauri 使用 MIT / Apache-2.0 双许可，原文见 [Tauri 仓库](https://github.com/tauri-apps/tauri)。Rust 依赖及校验值锁定于 `src-tauri/Cargo.lock`。第五阶段的 `candidate-package.ps1` 从离线 Windows x64 Cargo 元数据归集依赖完整许可、NOTICE 和源码归档地址，包含构建依赖，写入 `THIRD-PARTY-RUST.txt`；缺失的上游许可原文及 Loader 许可见 [licenses/README.md](licenses/README.md)，未识别的缺失许可会阻止打包。前端许可脚本收集 API 包等 npm 运行依赖及 shadcn 的完整许可文字，候选包保留为 `THIRD-PARTY-FRONTEND.txt`。不生成安装器、不并入原有发布包；正式分发仍须提供与构建对应的完整项目源码。
 
 React / React DOM、Base UI、class-variance-authority、clsx、tailwind-merge 使用其随包提供的 MIT 许可；Lucide 使用随包提供的 ISC 许可及其保留说明。完整版本及间接依赖固定于 `package-lock.json`。
 

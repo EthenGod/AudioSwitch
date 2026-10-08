@@ -283,3 +283,13 @@
 - 用 `verify-readonly-cancel.js` 检查 Dolby 读取和维护任务取消，并保留一个运行中的维护任务；用 `verify-readonly-capture-start.js` 单独启动等待中的 Dolby 读取。
 - 每次先按完整路径及父 PID 确认辅助进程已启动，再正常关闭面板，检查对应面板、WebView2 和辅助进程全部退出。最后 Close 核对会话审计。不能仅凭窗口消失判断进程已退出。
 - 等待程序验证取消和进程释放机制，不验证真实驱动阻塞、正式后台自动规则或 Dolby 写入恢复。第四阶段其他实机项目继续待验。
+
+## refactor/ui 第五阶段 5.1 独立候选包
+
+- PowerShell 7 在根目录运行 `frontend/candidate-package.ps1`。确认输出只在新的 staging 目录，原 bin、release.ps1、更新器与配置未改；前后端源码版本不一致必须停止。此命令会构建程序，不会启动后台。
+- 使用 `frontend/scripts/test-candidate.ps1 -ArchivePath '候选ZIP完整路径'`：有效包、中文及特殊字符目录、重复打包摘要、拒绝覆盖、坏包／缺失／多余／重复／越界／大小／摘要／版本校验。异常包不运行程序，测试产物保留在 staging，不能批量清理。
+- 候选 ZIP 固定 14 个文件，原 8 个文件保留，新增面板、许可及说明。确认未带入测试 EXE、用户配置、Node／Rust 工具链、系统 WebView2 或 Dolby DLL。源码版本、两份 EXE 和清单版本一致；前端许可含 npm、Rust 间接依赖、标准库和 WebView2 Loader。
+- 无后台时从验证目录手动启动 `audio-switch-panel.exe`，确认中文连接提示与重试可用，页面加载不依赖开发服务器；不要为了此项而启动会执行音效规则的后台。可用 `verify-candidate-desktop.js` 连接实际 WebView 做同样检查。
+- `desktop-lifecycle.ps1` 的 Open／Sample／Close 均传同一个 `-ExecutablePath '候选面板完整路径'`，按准确路径和启动时间记录本次面板及子进程。关闭后全部释放，活动配置哈希不变。不要将隔离面板占用记为真实后台全链路性能。
+- 可运行候选后台 `--check-files --quiet` 做只读旧运行文件检查；不加 quiet 会进入修复路径。完整候选包仍须由新验证器检查，旧检查器不会覆盖新增文件。
+- 本机已有 WebView2，只核对系统 DLL 依赖及缺失 Runtime 的使用说明。无 Runtime 的全新机器、原生安装引导、真实托盘拉起新面板和旧版升级通道留到 5.2／5.3；真实音效写入、恢复及硬件测试仍需另外验收。
