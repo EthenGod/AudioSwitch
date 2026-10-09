@@ -11,7 +11,7 @@ impl Session {
         let mut owner = self.owner.lock().map_err(|_| "无法读取后台状态。")?;
         if let Some((original, handle)) = owner.as_ref() {
             if *original != pid || unsafe { WaitForSingleObject(handle.as_raw_handle(), 0) } != WAIT_TIMEOUT {
-                return Err("所属后台已退出，请关闭提示。".into());
+                return Err("所属后台已退出，请重新打开界面。".into());
             }
         } else {
             let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
@@ -28,6 +28,15 @@ impl Session {
 #[derive(serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Action { Selected { token: String, id: String }, Previous { token: String }, Current { token: String } }
+
+pub fn panel_opened(reply: &Value) -> Result<(), String> {
+    let error = if reply.get("OperationError").is_some() { reply["OperationError"].as_str() } else { reply["Error"].as_str() };
+    if let Some(error) = error { return Err(error.to_string()); }
+    if reply["FrontendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).is_none() {
+        return Err("后台尚未确认面板已打开，请重试。".into());
+    }
+    Ok(())
+}
 impl Action {
     pub fn request(&self, snapshot: &Value) -> Result<Value, String> {
         if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 1 { return Err("当前后台仅支持查看，请更新后台后再操作。".into()); }
@@ -57,6 +66,21 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn panel_open_requires_confirmed_process_and_preserves_launch_error() {
+        assert!(panel_opened(&json!({"FrontendPid":0})).is_err());
+        assert!(panel_opened(&json!({"FrontendPid":u64::MAX})).is_err());
+        assert_eq!(panel_opened(&json!({"FrontendPid":42,"OperationError":"文件校验失败"})), Err("文件校验失败".into()));
+        assert!(panel_opened(&json!({"FrontendPid":42,"OperationError":null,"Error":"unrelated audio read failure"})).is_ok());
+    }
+    #[test] fn bound_owner_cannot_be_replaced_or_reused() {
+        let session = Session::default();
+        assert!(!session.exited());
+        assert!(session.bind(0).is_err());
+        session.bind(std::process::id()).unwrap();
+        session.bind(std::process::id()).unwrap();
+        assert!(!session.exited());
+        assert!(session.bind(u32::MAX).is_err());
+    }
     fn snapshot() -> Value { json!({"PanelApiVersion":3,"Preferences":{"IncludeCommunications":false},"Pending":[{"Token":"t","Flow":0,"PreviousDefaults":{"0:0":"a","0:1":"a","0:2":"gone"},"DisconnectedDevices":[]}],"State":{"Devices":[{"Id":"a","Flow":0},{"Id":"b","Flow":1}]}}) }
     #[test] fn selection_checks_token_flow_and_online_id() {
         for (token, id) in [("old", "a"), ("t", "b"), ("t", "gone")] { assert!(Action::Selected {token:token.into(),id:id.into()}.request(&snapshot()).is_err()); }

@@ -2,6 +2,8 @@
 
 `frontend/` 浏览器预览不连接真实配置；其模拟设置仅保存在页面内存，浏览器刷新后重置。Tauri 面板通过后台处理真实操作，后台版本过旧时禁用不支持的功能。导入／导出仅处理原生选择框选定的备份文件，活动配置仍由 C# PreferenceStore 统一管理。没有新增配置版本或真实配置字段。WebView2 会在独立的 `%LOCALAPPDATA%\io.github.ethengod.audioswitch.panel\` 下维护浏览器运行缓存，与本章 AudioSwitch 活动配置无关。数据边界见 `frontend/README.md`。
 
+5.2 候选目录由托盘校验后启动新面板／提示，选择依据是同目录候选文件，不新增“使用新界面”配置。窗口绑定后台进程，关闭界面不改变配置；后台启动时仍执行原有已启用的音频规则。候选清单不是用户配置，不迁移、导入或导出到 settings.json；旧发布目录继续使用旧界面，更新安装兼容仍待后续阶段。
+
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
 `AudioSwitch.exe.config` 是 .NET 运行时文件，不存放用户设置。

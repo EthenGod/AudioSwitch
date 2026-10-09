@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace AudioSwitch
@@ -30,15 +29,12 @@ namespace AudioSwitch
         private bool activityReleased;
         private DateTime updateBusyUntil = DateTime.UtcNow.AddSeconds(15);
         private Preferences preferences;
-        private Process frontend;
-        private Process promptFrontend;
+        private readonly FrontendWindows frontends = new FrontendWindows(Application.ExecutablePath);
         private bool exiting;
         private bool disposed;
         private string audioError;
         private string priorityError;
         private readonly Dictionary<string, string> presetWarnings = new Dictionary<string, string>();
-        [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
-        [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
         internal TrayHost(bool show, string updateIssue = null, Preferences startupPreferences = null)
         {
             var handle = dispatcher.Handle;
@@ -355,8 +351,7 @@ namespace AudioSwitch
             return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 5, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
-                PromptPid = promptFrontend != null && !promptFrontend.HasExited ? promptFrontend.Id : 0,
-                FrontendPid = frontend != null && !frontend.HasExited ? frontend.Id : 0 }));
+                PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));
         }
         private void SwitchTo(string id, bool quietAutomatic = false)
         {
@@ -419,20 +414,7 @@ namespace AudioSwitch
         }
         private void ShowFrontend(bool prompt)
         {
-            if (prompt)
-            {
-                if (promptFrontend != null && !promptFrontend.HasExited) return;
-                if (promptFrontend != null) promptFrontend.Dispose();
-                promptFrontend = Process.Start(new ProcessStartInfo(Application.ExecutablePath, "--prompt --owner=" + Process.GetCurrentProcess().Id) { UseShellExecute = false });
-                return;
-            }
-            if (frontend != null && !frontend.HasExited)
-            {
-                if (!prompt) { ShowWindow(frontend.MainWindowHandle, 9); SetForegroundWindow(frontend.MainWindowHandle); }
-                return;
-            }
-            if (frontend != null) frontend.Dispose();
-            frontend = Process.Start(new ProcessStartInfo(Application.ExecutablePath, prompt ? "--prompt" : "--ui") { UseShellExecute = false });
+            frontends.Show(prompt);
         }
         private static Preferences LoadPreferences()
         {
@@ -479,8 +461,7 @@ namespace AudioSwitch
             dolby.Stop();
             panelDolby.Dispose();
             debounce.Stop();
-            if (frontend != null && !frontend.HasExited) frontend.CloseMainWindow();
-            if (promptFrontend != null && !promptFrontend.HasExited) promptFrontend.CloseMainWindow();
+            frontends.Close();
             base.ExitThreadCore();
         }
         protected override void Dispose(bool disposing)
@@ -503,8 +484,7 @@ namespace AudioSwitch
                     tray.Dispose();
                 }
                 dispatcher.Dispose();
-                if (frontend != null) frontend.Dispose();
-                if (promptFrontend != null) promptFrontend.Dispose();
+                frontends.Dispose();
             }
             base.Dispose(disposing);
         }

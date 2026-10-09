@@ -21,9 +21,10 @@ impl From<String> for BridgeError {
 }
 
 #[tauri::command]
-async fn read_snapshot(bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+async fn read_snapshot(bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
     let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作，请稍后刷新。".to_string()))?;
     let result = pipe::read_snapshot().await?;
+    if let Some(pid) = result["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0) { session.bind(pid)?; }
     // A successful reply proves the single-threaded backend finished earlier requests.
     if result["State"].is_object() { bridge.uncertain.store(false, Ordering::SeqCst); }
     Ok(result)
@@ -144,10 +145,12 @@ async fn prompt_action(action: prompt::Action, bridge: tauri::State<'_, Bridge>,
 #[tauri::command]
 fn close_prompt(window: tauri::WebviewWindow) -> Result<(), String> { window.close().map_err(|e| e.to_string()) }
 #[tauri::command]
-fn open_prompt_panel(window: tauri::WebviewWindow) -> Result<(), String> {
-    // Fixed executable, no caller-supplied arguments or paths. The old backend's
-    // show command opens WinForms until the stage 5 launch migration.
-    std::process::Command::new(std::env::current_exe().map_err(|e| e.to_string())?).spawn().map_err(|e| e.to_string())?;
+async fn open_prompt_panel(window: tauri::WebviewWindow, session: tauri::State<'_, prompt::Session>) -> Result<(), String> {
+    let snapshot = pipe::read_snapshot().await?;
+    let pid = snapshot["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。")?;
+    session.bind(pid)?;
+    let reply = pipe::send(&json!({"Action":"show"}), false).await?;
+    prompt::panel_opened(&reply)?;
     window.close().map_err(|e| e.to_string())
 }
 #[tauri::command]
@@ -198,7 +201,7 @@ async fn cancel_dolby_apply(token: String, session: tauri::State<'_, dolby_apply
 fn main() {
     let is_prompt = std::env::args().any(|arg| arg == "--prompt");
     let session = prompt::Session::default();
-    if is_prompt {
+    {
         if let Some(owner) = std::env::args().find_map(|arg| arg.strip_prefix("--owner=").map(str::to_owned)) {
             let Ok(pid) = owner.parse::<u32>() else { return };
             if pid == 0 || session.bind(pid).is_err() { return; }
@@ -211,7 +214,7 @@ fn main() {
         config.width = 400.0; config.height = 380.0; config.min_width = Some(320.0); config.min_height = Some(300.0);
         config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
     }
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .manage(Bridge::default())
         .manage(session)
         .manage(maintenance::Maintenance::default())
@@ -225,18 +228,25 @@ fn main() {
                         let margin = (12.0 * monitor.scale_factor()) as i32;
                         window.set_position(tauri::PhysicalPosition::new(area.position.x + (area.size.width as i32 - size.width as i32 - margin).max(0), area.position.y + (area.size.height as i32 - size.height as i32 - margin).max(0)))?;
                     }
-                    let app = app.handle().clone();
-                    std::thread::spawn(move || loop {
-                        std::thread::sleep(std::time::Duration::from_millis(250));
-                        let Some(window) = app.get_webview_window("prompt") else { break };
-                        if app.state::<prompt::Session>().exited() { let _ = window.close(); break; }
-                    });
                 }
             }
+            let app = app.handle().clone();
+            let label = if is_prompt { "prompt" } else { "main" };
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_millis(250));
+                let Some(window) = app.get_webview_window(label) else { break };
+                if app.state::<prompt::Session>().exited() { let _ = window.close(); break; }
+            });
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
         .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
-        .run(context)
-        .expect("无法启动声间面板");
+        .run(context);
+    if result.is_err() {
+        // This native message also works when WebView2 cannot create any web UI.
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+        let message: Vec<u16> = "声间面板无法启动。请确认完整候选包已解压，并已安装 Microsoft Edge WebView2 Runtime。可按包内 CANDIDATE-README.txt 的说明修复后重试。后台仍可从托盘退出。\0".encode_utf16().collect();
+        let title: Vec<u16> = "无法打开声间面板\0".encode_utf16().collect();
+        unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+    }
 }
