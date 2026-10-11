@@ -47,7 +47,8 @@ namespace AudioSwitch
                     var check = checkFiles == null ? FileIntegrity.Check(AppDomain.CurrentDomain.BaseDirectory) : checkFiles();
                     cancel.ThrowIfCancellationRequested();
                     result.Status = check.Passed ? "passed" : "failed"; result.Directory = check.Directory; result.Entries = check.Entries.ToArray();
-                    result.Message = check.Passed ? "后台运行必需文件检查通过。" : "发现文件缺损或无法读取；本次只检查，没有修改文件。";
+                    result.Message = check.Passed ? (check.Candidate ? "候选整包文件检查通过。" : "后台运行必需文件检查通过。") :
+                        (check.Candidate ? "候选整包检查未通过，请重新解压完整候选包到独立目录；本次没有修改文件。" : "发现文件缺损或无法读取；本次只检查，没有修改文件。");
                 }
                 else throw new InvalidOperationException("不支持此检查操作。");
             }

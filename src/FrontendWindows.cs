@@ -15,13 +15,26 @@ namespace AudioSwitch
     internal static class PanelLaunch
     {
         internal static readonly string[] Files = { "AudioSwitch.exe", "AudioSwitch.exe.config", "vendor/svcl/svcl.exe", "vendor/svcl/readme.txt", "vendor/svcl/svcl.chm", "LICENSE", "NOTICE.txt", "THIRD_PARTY.md", "audio-switch-panel.exe", "THIRD-PARTY-FRONTEND.txt", "THIRD-PARTY-RUST.txt", "THIRD-PARTY-RUST-STDLIB.html", "CANDIDATE-README.txt" };
+        internal const string LegacyUpdateBlocked = "此目录包含新界面候选文件，不能用旧格式更新或局部修复。请将完整候选包重新解压到独立目录；整包升级尚未接入。";
+        internal static bool IsCandidate(string directory)
+        {
+            // Surviving notices also identify a damaged candidate with both launch files missing.
+            return Files.Skip(8).Concat(new[] { "candidate-manifest.json" }).Any(name => {
+                string path = Path.Combine(directory, name);
+                return File.Exists(path) || Directory.Exists(path);
+            });
+        }
+        internal static void RequireLegacyDirectory(string directory)
+        {
+            if (IsCandidate(directory)) throw new InvalidDataException(LegacyUpdateBlocked);
+        }
+        internal static void Validate(string directory, string version) { Validate(directory, version, ValidateExecutable); }
         internal static ProcessStartInfo Select(string backend, bool prompt, int owner)
         {
             if (owner <= 0) throw new ArgumentException("后台进程无效。");
             string directory = Path.GetDirectoryName(Path.GetFullPath(backend));
             string panel = Path.Combine(directory, "audio-switch-panel.exe");
-            string manifest = Path.Combine(directory, "candidate-manifest.json");
-            bool modern = File.Exists(panel) || File.Exists(manifest);
+            bool modern = IsCandidate(directory);
             if (modern) {
                 try { Validate(directory, AppVersion.Number, ValidateExecutable); }
                 catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整候选包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }

@@ -51,8 +51,14 @@ namespace AudioSwitch
             return item;
         }
         internal string Payload(PendingUpdate item) { return Path.Combine(dataRoot, "updates", item.WorkId, "payload"); }
+        internal UpdateRelease Check(CancellationToken cancel)
+        {
+            PanelLaunch.RequireLegacyDirectory(Path.GetDirectoryName(target));
+            return AppUpdate.Check(cancel);
+        }
         internal string Prepare(UpdateRelease release, CancellationToken cancel)
         {
+            PanelLaunch.RequireLegacyDirectory(Path.GetDirectoryName(target));
             if (downloadWork == null) downloadWork = Path.Combine(dataRoot, "updates", Guid.NewGuid().ToString("N"));
             return AppUpdate.PrepareInDirectory(release, cancel, null, downloadWork);
         }
@@ -72,6 +78,8 @@ namespace AudioSwitch
         }
         internal void Stage(UpdateRelease release, string payload)
         {
+            PanelLaunch.RequireLegacyDirectory(Path.GetDirectoryName(target));
+            PanelLaunch.RequireLegacyDirectory(payload);
             if (release.Version <= AppUpdate.ParseVersion(AppVersion.Number)) throw new InvalidDataException("不能缓存相同或旧版本。");
             string id = new DirectoryInfo(Path.GetDirectoryName(payload)).Name;
             var item = new PendingUpdate { Format = 1, Target = target, Version = release.Version.ToString(3), Tag = release.Tag,
@@ -102,6 +110,8 @@ namespace AudioSwitch
         {
             issue = null;
             if (suspended) return false;
+            // Leave any older pending record untouched, including its attempted flag.
+            if (PanelLaunch.IsCandidate(Path.GetDirectoryName(target))) { issue = PanelLaunch.LegacyUpdateBlocked; return false; }
             try
             {
                 var item = Read();

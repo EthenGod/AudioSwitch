@@ -75,6 +75,8 @@ namespace AudioSwitch
         {
             string work = Path.GetDirectoryName(payload);
             string target = Application.ExecutablePath;
+            PanelLaunch.RequireLegacyDirectory(Path.GetDirectoryName(target));
+            PanelLaunch.RequireLegacyDirectory(payload);
             var plan = new UpdatePlan { Target = target, Payload = payload, Version = release.Version.ToString(3), ParentPid = parentPid,
                 ReadyEvent = "Local\\AudioSwitch-Update-Ready-" + Guid.NewGuid().ToString("N"),
                 Repair = repair, Automatic = automatic, Background = background, Hashes = (repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
@@ -110,6 +112,8 @@ namespace AudioSwitch
             if (!SamePath(plan.Payload, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "payload"))) throw new InvalidDataException("更新文件目录无效。");
             if (SamePath(Path.GetDirectoryName(plan.Target), plan.Payload)) throw new InvalidDataException("不能覆盖更新来源。");
             RejectLinks(plan.Target); RejectLinks(plan.Payload);
+            PanelLaunch.RequireLegacyDirectory(Path.GetDirectoryName(plan.Target));
+            PanelLaunch.RequireLegacyDirectory(plan.Payload);
             var version = AppUpdate.ParseVersion(plan.Version);
             ValidateVersion(version, plan.Repair);
             if (plan.Repair) { if (!FileIntegrity.Check(plan.Payload).Passed) throw new InvalidDataException("修复包的必要文件校验失败。"); }
@@ -156,6 +160,8 @@ namespace AudioSwitch
         { ApplySelectedFiles(payload, targetDirectory, backup, AppUpdate.Files, afterWrite); }
         internal static void ApplySelectedFiles(string payload, string targetDirectory, string backup, string[] files, Action<string> afterWrite = null)
         {
+            PanelLaunch.RequireLegacyDirectory(targetDirectory);
+            PanelLaunch.RequireLegacyDirectory(payload);
             if (files == null || files.Length == 0 || files.Distinct().Count() != files.Length || files.Any(name => !AppUpdate.Files.Contains(name)))
                 throw new InvalidDataException("待替换文件清单无效。");
             RejectLinks(targetDirectory); RejectLinks(backup);

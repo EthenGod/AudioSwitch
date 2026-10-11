@@ -33,7 +33,7 @@ namespace AudioSwitch
         private bool disposed;
         private int attempts;
         private DateTime retryAfter;
-        internal BackgroundUpdate(AutomaticUpdateStore store, string issue) : this(AppUpdate.Check,
+        internal BackgroundUpdate(AutomaticUpdateStore store, string issue) : this(store.Check,
             store.Prepare, store.Stage, () => DateTime.UtcNow, BlockedVersion(store), issue) { }
         private static Version BlockedVersion(AutomaticUpdateStore store)
         {

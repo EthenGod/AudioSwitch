@@ -219,11 +219,13 @@ namespace AudioSwitch
         }
         internal static string Prepare(UpdateRelease release, CancellationToken cancel, Action<long> progress)
         {
+            PanelLaunch.RequireLegacyDirectory(AppDomain.CurrentDomain.BaseDirectory);
             string work = Path.Combine(Program.DataDirectory, "updates", Guid.NewGuid().ToString("N"));
             return PrepareInDirectory(release, cancel, progress, work);
         }
         internal static string PrepareInDirectory(UpdateRelease release, CancellationToken cancel, Action<long> progress, string work)
         {
+            PanelLaunch.RequireLegacyDirectory(Path.Combine(work, "payload"));
             using (UpdateStorage.CacheLease(Path.GetDirectoryName(work)))
                 return PrepareLocked(release, cancel, progress, work);
         }
@@ -263,6 +265,7 @@ namespace AudioSwitch
         }
         internal static void Extract(string zip, string destination, CancellationToken cancel, bool replaceAttempt = false)
         {
+            PanelLaunch.RequireLegacyDirectory(destination);
             using (var archive = ZipFile.OpenRead(zip))
             {
                 // Only the fixed distribution files are allowed; no arbitrary paths, settings, or DLLs.
@@ -283,6 +286,7 @@ namespace AudioSwitch
         }
         internal static void ValidatePayload(string directory, Version version)
         {
+            PanelLaunch.RequireLegacyDirectory(directory);
             foreach (var name in Files) if (!File.Exists(Path.Combine(directory, name))) throw new InvalidDataException("更新文件缺失：" + name);
             var assembly = AssemblyName.GetAssemblyName(Path.Combine(directory, "AudioSwitch.exe"));
             if (assembly.Name != "AudioSwitch" || assembly.ProcessorArchitecture != ProcessorArchitecture.Amd64 || assembly.Version.ToString(3) != version.ToString(3))

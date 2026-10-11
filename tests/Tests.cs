@@ -62,6 +62,7 @@ namespace AudioSwitch
                 AutoUpdatePreferenceTests.Run(Check);
                 IntegrityTests.Run(Check);
                 FrontendLaunchTests.Run(Check);
+                CandidateUpdateTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
                 {

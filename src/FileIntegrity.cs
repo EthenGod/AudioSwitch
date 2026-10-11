@@ -12,6 +12,7 @@ namespace AudioSwitch
     internal sealed class IntegrityResult
     {
         internal bool Passed = true;
+        internal bool Candidate;
         internal readonly List<string> Entries = new List<string>();
         internal readonly List<string> FailedFiles = new List<string>();
         internal string Directory;
@@ -19,10 +20,11 @@ namespace AudioSwitch
         {
             get
             {
-                return (Passed ? "运行必需文件检查通过。" : "运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。") +
+                return (Candidate ? (Passed ? "候选整包文件检查通过。" : "候选整包文件检查未通过，暂不能继续启动。请重新解压完整候选包到独立目录。") :
+                    (Passed ? "运行必需文件检查通过。" : "运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。")) +
                     "\r\n\r\n检查目录：" + Directory + "\r\n\r\n" + String.Join("\r\n", Entries) +
                     (Passed ? "" : "\r\n\r\n正式发布页：" + AppUpdate.ReleasesUrl) +
-                    "\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。用户设置和开机自启登记不受影响。" +
+                    (Candidate ? "\r\n\r\n候选包的面板、说明和许可文件均须完整；本次检查不会修复或替换文件。" : "\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。") + "用户设置和开机自启登记不受影响。" +
                     "\r\n检查用于发现文件缺损，不用于验证发布者身份。";
             }
         }
@@ -62,7 +64,15 @@ namespace AudioSwitch
 
         internal static IntegrityResult Check(string directory)
         {
-            var result = new IntegrityResult { Directory = directory };
+            var result = new IntegrityResult { Directory = directory, Candidate = PanelLaunch.IsCandidate(directory) };
+            if (result.Candidate)
+            {
+                try {
+                    PanelLaunch.Validate(directory, AppVersion.Number);
+                    result.Entries.Add("通过：候选清单及全部 13 个配套文件（长度、摘要、面板版本和平台）");
+                }
+                catch (Exception ex) { result.Fail("候选整包检查失败：" + ex.Message); }
+            }
             try
             {
                 string exe = Path.Combine(directory, "AudioSwitch.exe");
