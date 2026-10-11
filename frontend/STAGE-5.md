@@ -44,6 +44,15 @@
 - 用隔离目录验证拒绝操作不写目标文件、备份或更新记录；重新打包并验证真实候选 EXE 的只读检查、损坏检查及中文结果。
 - 本项不实现整包安装或在线修复。后续 5.3b 补齐过渡版与新包的双格式下载／安装事务、进程退出及失败恢复；随后接入前端安装／修复流程。每个小项独立汇报后等待确认。
 
+### 5.3b 实施清单（2026-10-11）
+
+- 保留每次正式发布的 `AudioSwitch-v<版本>-win-x64.zip` 8 文件过渡资产，供只查 latest 的旧客户端安装；新增独立 `AudioSwitch-Desktop-v<版本>-win-x64.zip`。新更新器优先选择 Desktop，若所选新包不完整则报错，不能悄悄改装旧格式。
+- 新格式固定 14 文件：原 8 个、面板、三份前端／Rust 许可、`DESKTOP-README.txt`、`desktop-manifest.json`；清单格式 `AudioSwitch.Desktop` / 1。候选包仍是独立验证格式，禁止自动安装，不能靠改 ZIP 名混入。
+- 允许严格限定的同版本迁移：旧目录 → Desktop；Desktop → Desktop 仍要求更高版本，同版本只允许显式完整修复。禁止 Desktop → 旧格式及降级。API／HTML 资产发现、下载、缓存记录和助手任务必须保存包类型，旧记录仍可读。
+- 替换清单随类型固定，整包校验后再备份／替换；替换失败恢复所有已尝试文件，原先不存在的新文件移到本次备份目录保留，并核验恢复。安装前等同目录后台、面板和提示退出，不能结束其他目录或无关 WebView2。
+- 使用隔离文件、假 EXE 和独立测试助手验证资产选择、同版本迁移、旧缓存、完整替换、每个写入点失败、恢复失败、文件占用、退出等待、真实跨进程安装。测试不得启动 TrayHost、修改活动配置或写音频。
+- 本轮实现后台更新通道及隔离验收；React 的下载／安装／修复交互和完整在线修复入口后续单列。正式双资产打包、版本递增、WebView2 前置条件和真实发布升级在后续发布验收落实；不改日常 bin，不发布。
+
 ## 5.4 发布与日常替换前验收
 
 - 补齐第四阶段真实保存／导入恢复、Dolby 应用和取消恢复、实际设备提示、USB／蓝牙插拔、睡眠唤醒及跨屏 DPI；仅在用户允许对应副作用后执行。
@@ -123,3 +132,33 @@
 涉及文件：`FrontendWindows.cs` 复用候选识别／校验；`FileIntegrity.cs`、`FileRepair.cs`、`IntegrityDialog.cs`、`PanelMaintenance.cs` 调整检查与提示；`AppUpdate.cs`、`AutomaticUpdateStore.cs`、`BackgroundUpdate.cs`、`UpdateInstaller.cs` 增加旧流程保护；新增 `tests/CandidateUpdateTests.cs`、`frontend/scripts/test-candidate-runtime.ps1`，扩展测试入口及渲染，更新 README、CONFIGURATION、MANUAL-TESTS、候选说明和本计划。音频核心、用户配置字段、日常程序与自启登记未改。
 
 本小项完成后停止，等待确认再进入 5.3b。整包更新／修复／回滚、过渡版实际发布升级，以及第四阶段有音频写入的恢复／硬件验收仍待完成。没有自动提交、合并或发布。
+
+## 5.3b 交付记录（2026-10-11）
+
+后台双格式更新通道和隔离安装验收完成。新 `UpdatePackage` 固定旧 8 文件和 Desktop 14 文件清单；API 和 HTML 优先选择 Desktop 资产，缺失摘要／地址不符／重复均拒绝。API 已发现 Desktop 时，HTML 回退也必须找该格式，不能静默选择旧包。正式发布仍需同时保留旧名过渡资产，相关发布脚本及版本递增尚未实施。
+
+允许旧目录迁移到同版本 Desktop，禁止 Desktop 同版本普通更新、降级或旧格式覆盖；同版本完整修复仅保留独立助手任务语义，在线修复入口尚未接入。候选格式始终隔离，不能改 ZIP 名后用于更新。Desktop 启动、文件检查均核对完整清单；发现损坏不会执行旧式局部修复。
+
+缓存及安装任务携带包类型；旧缓存记录仍可读，新格式记录绑定 14 个摘要。特别修复两处迁移问题：未写出清单的部分解压可以按已选 Desktop 类型重试；旧更新器安装过渡版留下的同版本已尝试记录不阻止下一步迁移，但 Desktop 迁移失败后仍禁止自动重复尝试。
+
+安装助手等待同目录后台和面板／提示退出，不结束其他目录的同名程序或无关 WebView2。退出等待后再核对准备文件；替换前完整备份，按事先记录的摘要逐个验证来源和目标，结束再核对整包。失败恢复已尝试文件；原先没有的新文件移入本次备份保留，不批量删除。损坏备份导致恢复失败会明确报告，不能启动混合目录或声称恢复成功。
+
+| 验证 | 结果与边界 |
+| --- | --- |
+| C# 普通回归 | 713 项通过，较 5.3a 新增 55 项。覆盖资产与版本／格式选择、HTML 不降回旧包、候选混入、全部 14 文件、额外／重复／越界／链接／过大清单／缺失 ZIP 条目、缓存重试及记录。14 个写入点分别注入失败并验证原目录还原；另测文件占用、来源变化、Desktop 原文件恢复和恢复失败。 |
+| 渲染与跨进程 | 1091 项通过（包含普通回归，不能相加）。真实安装助手 + 隔离假程序完成同版本迁移、更高版本 Desktop 更新、旧格式更新／同版本修复／自动更新。验证所属面板退出，另一个目录的同名假面板继续运行；没有创建音频服务。已查看更新浅色和文件检查深色渲染图，按钮可见、详情可滚动；跨屏 DPI 仍未实测。 |
+| 实际程序文件 | 真实后台和 Tauri 文件组装成独立 Desktop 测试包，生成 8 文件过渡 ZIP 与 14 文件 Desktop ZIP；在独立目录运行正式文件替换事务并保留旧 EXE 备份。安装后的实际后台仅运行 `--check-files --quiet`，整包检查通过；活动配置和隔离用户数据不变。没有启动真实 TrayHost，也没有执行真实重启后的音效规则。 |
+| 构建与候选回归 | C#、前端类型检查／桌面网页构建、Tauri release 构建通过，52 项候选包校验及 13 项实际候选程序只读检查通过。React／Rust 业务源码未变，没有重复其单元测试。测试进程均退出。 |
+
+交付测试目录：`staging/desktop-real-4285c9f7/`，包含安装目录 `installed/`、原程序 `backup/` 和 `result.json`。两个 ZIP 仅供本地验证，不应上传或覆盖日常版本：
+
+- `AudioSwitch-v0.11.1-win-x64.zip`：376,792 字节；SHA-256 `9908ed5a58b3fb27a2ce11707c2d10feba2e9d1ef87892ae410b161ef250761a`。
+- `AudioSwitch-Desktop-v0.11.1-win-x64.zip`：2,470,672 字节；SHA-256 `62aeeb3d1835e7c3d127caf727893011fad084ac774e290d495c5ec01a43748d`。
+
+最新候选源：`staging/ui-candidate-5e2be1def0944096ba1a667d66c180a4/AudioSwitch-UI-CANDIDATE-v0.11.1-win-x64.zip`；SHA-256 `07cc6c6309af1a755b94ceb6028fc16620ee3798f961d00ba067d51fd7238534`。它仍不能自动安装。所有早期构建和测试备份保留。
+
+验证日志：`staging/stage53b-csharp.log`、`stage53b-process-render.log`、`stage53b-package-build.log`、`stage53b-package-tests.log`、`stage53b-runtime.log`；`staging/candidate-tests-7cd01cfe4fa34a90be1aa2c0569120e6/results.json`、`staging/candidate-runtime-tests-94b84b085a274193b421bdc079b79bad/results.json`；本地双包信息见上述 `result.json`。
+
+涉及文件：新增 `src/UpdatePackage.cs` 和 `tests/DesktopUpdateTests.cs`；调整 `AppUpdate`、`AutomaticUpdateStore`、`BackgroundUpdate`、`UpdateInstaller`、`FrontendWindows` 的包格式／安装连接，`FileIntegrity`、`FileRepair`、`PanelMaintenance`、`IntegrityDialog`、`UpdateDialog` 的整包检查及提示；扩展测试入口与跨进程假程序；同步 README、CONFIGURATION、MANUAL-TESTS 和本清单。未改音频路由、Dolby、真实配置、日常 bin、自启、版本号或正式 release.ps1。
+
+未验收范围：通过真实 GitHub 发布从旧正式版连续升级、WebView2 缺失时阻止／引导安装、生产后台退出及重启后的音效行为、实际硬件和音频恢复。新面板的下载进度／取消／安装确认／完整修复入口，以及正式双资产发布脚本仍待后续小项。下一项 5.3c 先补清单再接入这些前端维护操作；本小项停止等待确认，不自动提交、合并或发布。

@@ -63,6 +63,7 @@ namespace AudioSwitch
                 IntegrityTests.Run(Check);
                 FrontendLaunchTests.Run(Check);
                 CandidateUpdateTests.Run(Check);
+                DesktopUpdateTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
                 {
@@ -93,6 +94,9 @@ namespace AudioSwitch
                 if (args.Contains("--render")) AutoUpdatePreferenceTests.Render(Check);
                 if (args.Contains("--render")) IntegrityTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
+                if (args.Contains("--desktop-update-process")) { UpdateTests.ProcessSmoke(Check, false, false, true, true); UpdateTests.ProcessSmoke(Check, false, false, true, false); }
+                var desktopFixture = args.FirstOrDefault(a => a.StartsWith("--desktop-package=", StringComparison.Ordinal));
+                if (desktopFixture != null) DesktopUpdateTests.RealPackage(desktopFixture.Substring("--desktop-package=".Length), Check);
                 if (args.Contains("--repair-process")) UpdateTests.ProcessSmoke(Check, true);
                 if (args.Contains("--automatic-process")) { UpdateTests.ProcessSmoke(Check, false, true); UpdateTests.AutomaticInvalidPlan(Check); }
                 Console.WriteLine("PASS: " + passed + " checks");

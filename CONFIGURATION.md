@@ -4,6 +4,10 @@
 
 5.2 候选目录由托盘校验后启动新面板／提示，选择依据是同目录候选文件，不新增“使用新界面”配置。窗口绑定后台进程，关闭界面不改变配置；后台启动时仍执行原有已启用的音频规则。候选清单不是用户配置，不迁移、导入或导出到 settings.json；旧发布目录继续使用旧界面。5.3a 暂停候选目录的旧格式自动下载／安装及局部修复，不改 AutoUpdateEnabled 或游戏模式等偏好，不改已有 pending.json 的安装标记；手动只读版本查询保留。后续按“旧格式过渡版 → 新界面完整包”实现迁移，目前不支持整包升级。
 
+5.3b 增加独立 Desktop 包通道（`AudioSwitch.Desktop` / 1），不会把候选包自动转成正式安装。新包清单与说明分别为 `desktop-manifest.json`、`DESKTOP-README.txt`，与候选文件混用会拒绝。已有配置格式和字段不变；旧目录可迁移到同版本 Desktop，Desktop 自身更新必须版本更高，同版本修复仅允许专门的完整修复任务。旧格式局部修复不得用于 Desktop；完整修复界面尚未接入。
+
+待安装记录继续读取旧 `Format=1` / `PackageFormat=0` 的 8 文件记录（缺省 PackageFormat 视为 0）；Desktop 使用 `Format=2` / `PackageFormat=1` 的 14 文件记录，安装助手也保留包类型，不能靠篡改类型减少校验文件数。旧包已安装成功留下的同版本 Attempted 记录不阻止下一步迁移；同版本 Desktop 迁移失败的 Attempted 记录仍阻止自动重复。下载缓存中的未完成 Desktop 解压可按已选资产类型重新解压；安装目标目录不会因此放宽校验。安装仍只处理固定程序文件和自身备份，不触碰 settings.json 或其备份。
+
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
 `AudioSwitch.exe.config` 是 .NET 运行时文件，不存放用户设置。

@@ -186,7 +186,7 @@ namespace AudioSwitch
                 finally { if (UpdateInstaller.Matches(process, helper)) { process.Kill(); process.WaitForExit(5000); } }
             }
         }
-        internal static void ProcessSmoke(Action<bool, string> check, bool repair = false, bool automatic = false)
+        internal static void ProcessSmoke(Action<bool, string> check, bool repair = false, bool automatic = false, bool desktop = false, bool migration = false)
         {
             Mutex existing;
             if (Mutex.TryOpenExisting("Local\\AudioSwitch-Host-" + Wire.Identity, out existing))
@@ -202,10 +202,13 @@ namespace AudioSwitch
             // A disposable stand-in for the panel and tray. It never creates AudioService or reads user preferences.
             string source = @"using System; using System.IO; using System.IO.Pipes; using System.Diagnostics; using System.Threading; using System.Security.Principal;
 [assembly:System.Reflection.AssemblyVersion(""VERSION"")]
+[assembly:System.Reflection.AssemblyFileVersion(""VERSION"")]
 class Fixture {
  static void Main(string[] args) {
   string identity = WindowsIdentity.GetCurrent().User.Value + ""-"" + Process.GetCurrentProcess().SessionId;
   if (args[0] == ""--parent"") { using(var e=EventWaitHandle.OpenExisting(args[1])) e.WaitOne(25000); return; }
+  if (args[0] == ""--window"") { using(var owner=Process.GetProcessById(Int32.Parse(args[1]))) owner.WaitForExit(25000); Thread.Sleep(800); return; }
+  if (args[0] == ""--hold"") { using(var e=EventWaitHandle.OpenExisting(args[1])) e.WaitOne(30000); return; }
   if (args[0] == ""--host"") {
    using(var mutex = new Mutex(true, ""Local\\AudioSwitch-Host-""+identity)) {
     using(var ready=EventWaitHandle.OpenExisting(args[1])) ready.Set();
@@ -229,7 +232,7 @@ class Fixture {
             foreach (string folder in new[] { target, payload })
             {
                 string cs = Path.Combine(work, folder == target ? "old.cs" : "new.cs");
-                File.WriteAllText(cs, source.Replace("VERSION", folder == target || repair ? AppVersion.Number : "99.0.0"));
+                File.WriteAllText(cs, source.Replace("VERSION", folder == target || repair || migration ? AppVersion.Number : "99.0.0"));
                 string resource = repair && folder == payload ? " /resource:" + UpdateInstaller.Quote(manifest) + ",AudioSwitch.Integrity" : "";
                 using (var compile = Process.Start(new ProcessStartInfo(compiler, "/nologo /utf8output /target:exe /platform:x64 /out:" + UpdateInstaller.Quote(Path.Combine(folder, "AudioSwitch.exe")) + resource + " " + UpdateInstaller.Quote(cs)) {
                     UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, StandardOutputEncoding = System.Text.Encoding.UTF8 }))
@@ -238,6 +241,10 @@ class Fixture {
                     string diagnostic = compile.StandardOutput.ReadToEnd();
                     if (compile.ExitCode != 0) throw new Exception("Cannot compile update fixture: " + diagnostic);
                 }
+            }
+            if (desktop) {
+                DesktopUpdateTests.MakeDesktop(payload, migration ? AppVersion.Number : "99.0.0");
+                if (!migration) DesktopUpdateTests.MakeDesktop(target, AppVersion.Number);
             }
             if (repair)
             {
@@ -260,24 +267,40 @@ class Fixture {
             string readyName = "Local\\AudioSwitch-Update-Ready-" + Guid.NewGuid().ToString("N");
             string hostReadyName = readyName + "-host";
             string originalHash = AppUpdate.Hash(Path.Combine(target, "AudioSwitch.exe"));
+            string foreignDirectory = Path.Combine(work, "foreign");
+            if (desktop) { Directory.CreateDirectory(foreignDirectory); File.Copy(Path.Combine(payload, "audio-switch-panel.exe"), Path.Combine(foreignDirectory, "audio-switch-panel.exe")); }
             using (var ready = new EventWaitHandle(false, EventResetMode.ManualReset, readyName))
             using (var hostReady = new EventWaitHandle(false, EventResetMode.ManualReset, hostReadyName))
+            using (var foreignStop = new EventWaitHandle(false, EventResetMode.ManualReset, readyName + "-foreign"))
             using (var backend = automatic ? null : Process.Start(new ProcessStartInfo(Path.Combine(target, "AudioSwitch.exe"), "--host " + UpdateInstaller.Quote(hostReadyName)) { UseShellExecute = false, CreateNoWindow = true }))
             using (var parent = Process.Start(new ProcessStartInfo(Path.Combine(target, "AudioSwitch.exe"), "--parent " + UpdateInstaller.Quote(readyName)) { UseShellExecute = false, CreateNoWindow = true }))
+            using (var panel = desktop && !migration ? Process.Start(new ProcessStartInfo(Path.Combine(target, "audio-switch-panel.exe"), "--window " + parent.Id) { UseShellExecute = false, CreateNoWindow = true }) : null)
+            using (var foreign = desktop ? Process.Start(new ProcessStartInfo(Path.Combine(foreignDirectory, "audio-switch-panel.exe"), "--hold " + UpdateInstaller.Quote(readyName + "-foreign")) { UseShellExecute = false, CreateNoWindow = true }) : null)
             {
                 Process helperProcess = null;
                 try
                 {
                     if (!automatic) check(hostReady.WaitOne(5000), "isolated fake tray host starts without audio access");
-                    var plan = new UpdatePlan { Target = Path.Combine(target, "AudioSwitch.exe"), Payload = payload, Version = repair ? AppVersion.Number : "99.0.0", ParentPid = parent.Id, ReadyEvent = readyName, Repair = repair,
+                    if (panel != null) {
+                        var owned = UpdateInstaller.RunningCopies(Path.Combine(target, "AudioSwitch.exe"));
+                        try { check(owned.Any(p => p.Id == panel.Id) && !owned.Any(p => p.Id == foreign.Id), "installer tracks same-directory panel and excludes same-name foreign panel"); }
+                        finally { foreach (var process in owned) process.Dispose(); }
+                    }
+                    var plan = new UpdatePlan { Target = Path.Combine(target, "AudioSwitch.exe"), Payload = payload, Version = repair || migration ? AppVersion.Number : "99.0.0", ParentPid = parent.Id, ReadyEvent = readyName, Repair = repair,
                         Automatic = automatic, Background = automatic,
-                        Hashes = (repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
+                        PackageFormat = desktop ? UpdatePackage.Desktop : UpdatePackage.Legacy,
+                        Hashes = (desktop ? UpdatePackage.DesktopFiles : repair ? FileIntegrity.RequiredFiles : AppUpdate.Files).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
                     string planFile = Path.Combine(work, "install.json"); File.WriteAllText(planFile, Wire.Encode(plan));
                     helperProcess = Process.Start(new ProcessStartInfo(helper, (automatic ? "--apply-auto-update " : "--apply-update ") + UpdateInstaller.Quote(planFile)) { UseShellExecute = false, CreateNoWindow = true });
                     check(helperProcess.WaitForExit(30000), "real update helper completes cross-process replacement and restart");
                     check(parent.HasExited && (backend == null || backend.HasExited), "update waits for the exact initiating processes to exit");
                     check(File.Exists(Path.Combine(target, "fixture-started.txt")), "new executable acknowledges startup across processes");
                     check(AppUpdate.Hash(Path.Combine(target, "AudioSwitch.exe")) == plan.Hashes["AudioSwitch.exe"], "installed executable matches verified payload");
+                    if (desktop) {
+                        check(plan.Hashes.All(item => AppUpdate.Hash(Path.Combine(target, item.Key)) == item.Value), "real helper installs all desktop files including manifest");
+                        check((panel == null || panel.HasExited) && !foreign.HasExited, "owned panel exits before replacement and foreign panel remains running");
+                        check(UpdatePackage.IsDesktop(target) && !PanelLaunch.IsCandidate(target), "real helper completes " + (migration ? "same-version bridge migration" : "newer-version desktop upgrade"));
+                    }
                     string saved = Directory.GetDirectories(Path.Combine(target, "update-backups")).Single();
                     check(AppUpdate.Hash(Path.Combine(saved, "AudioSwitch.exe")) == originalHash, "old running executable preserved in complete backup");
                     check(!UpdateInstaller.IsUpdating(), "update mutex is released after helper exits");
@@ -286,10 +309,11 @@ class Fixture {
                 }
                 finally
                 {
-                    foreach (var process in new[] { helperProcess, parent, backend })
+                    foreignStop.Set(); if (foreign != null) foreign.WaitForExit(3000);
+                    foreach (var process in new[] { helperProcess, parent, backend, panel, foreign })
                     {
                         if (process == null) continue;
-                        string expected = process == helperProcess ? helper : Path.Combine(target, "AudioSwitch.exe");
+                        string expected = process == helperProcess ? helper : process == panel ? Path.Combine(target, "audio-switch-panel.exe") : process == foreign ? Path.Combine(foreignDirectory, "audio-switch-panel.exe") : Path.Combine(target, "AudioSwitch.exe");
                         if (UpdateInstaller.Matches(process, expected)) { process.Kill(); process.WaitForExit(5000); }
                     }
                     if (helperProcess != null) helperProcess.Dispose();

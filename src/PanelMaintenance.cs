@@ -38,7 +38,7 @@ namespace AudioSwitch
                     {
                         result.LatestVersion = release.Tag; result.Notes = release.Notes ?? "暂无更新说明。";
                         var current = AppUpdate.ParseVersion(AppVersion.Number);
-                        result.Status = release.Version > current ? "available" : release.Version == current ? "current" : "ahead";
+                        result.Status = AppUpdate.IsAvailable(release) ? "available" : release.Version == current ? "current" : "ahead";
                         result.Message = result.Status == "available" ? "发现新版本。" : result.Status == "current" ? "当前已是最新正式版本。" : "本地版本高于最新正式版，无需更新。";
                     }
                 }
@@ -47,8 +47,8 @@ namespace AudioSwitch
                     var check = checkFiles == null ? FileIntegrity.Check(AppDomain.CurrentDomain.BaseDirectory) : checkFiles();
                     cancel.ThrowIfCancellationRequested();
                     result.Status = check.Passed ? "passed" : "failed"; result.Directory = check.Directory; result.Entries = check.Entries.ToArray();
-                    result.Message = check.Passed ? (check.Candidate ? "候选整包文件检查通过。" : "后台运行必需文件检查通过。") :
-                        (check.Candidate ? "候选整包检查未通过，请重新解压完整候选包到独立目录；本次没有修改文件。" : "发现文件缺损或无法读取；本次只检查，没有修改文件。");
+                    result.Message = check.Passed ? (check.WholePackage ? check.PackageLabel + "文件检查通过。" : "后台运行必需文件检查通过。") :
+                        (check.WholePackage ? check.PackageLabel + "检查未通过，请重新解压完整" + (check.Candidate ? "候选" : "桌面") + "包到独立目录；本次没有修改文件。" : "发现文件缺损或无法读取；本次只检查，没有修改文件。");
                 }
                 else throw new InvalidOperationException("不支持此检查操作。");
             }

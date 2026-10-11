@@ -130,13 +130,13 @@ namespace AudioSwitch
                     var found = await Task.Run(() => AppUpdate.Check(cancel.Token));
                     if (IsDisposed || cancel.IsCancellationRequested) return;
                     if (found == null) { status.Text = "暂未找到可用的正式版本，请打开发布页查看。"; return; }
-                    if (found.Version <= AppUpdate.ParseVersion(AppVersion.Number))
+                    if (!AppUpdate.IsAvailable(found))
                     {
                         status.Text = found.Version == AppUpdate.ParseVersion(AppVersion.Number) ? "当前已是最新正式版本（" + found.Tag + "）。" : "本地版本 v" + AppVersion.Number + " 高于最新正式版 " + found.Tag + "，无需更新。";
                         notes.Text = found.Notes ?? "暂无更新说明。";
                         return;
                     }
-                    release = found; status.Text = "发现新版本 " + release.Tag + "。下载完成后将退出并重新打开声间。";
+                    release = found; status.Text = (release.Version == AppUpdate.ParseVersion(AppVersion.Number) ? "可以安装此版本的新界面。" : "发现新版本 " + release.Tag + "。") + "下载完成后将退出并重新打开声间。";
                     notes.Text = String.IsNullOrWhiteSpace(release.Notes) ? "发布者没有填写更新说明。" : release.Notes;
                     action.Text = "下载并更新";
                 }

@@ -56,7 +56,7 @@ namespace AudioSwitch
         internal void RenderResult(RepairResult result)
         {
             Passed = result.Check.Passed;
-            status.Text = result.Check.Candidate ? (Passed ? "候选整包检查通过。" : "候选整包检查未通过，请重新解压完整候选包。") :
+            status.Text = result.Check.WholePackage ? (Passed ? result.Check.PackageLabel + "检查通过。" : result.Check.PackageLabel + "检查未通过，请重新解压完整包。") :
                 (Passed ? "运行必需文件已齐全，可以正常使用。" : "修复尚未完成，请查看原因后重试。");
             details.Text = result.Message;
             details.Select(0, 0);

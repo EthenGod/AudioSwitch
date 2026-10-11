@@ -22,6 +22,7 @@ namespace AudioSwitch
             var result = new RepairResult { Check = FileIntegrity.Check(directory) };
             if (result.Check.Passed) return result;
             if (result.Check.Candidate) { result.Notes = PanelLaunch.LegacyUpdateBlocked; return result; }
+            if (result.Check.Desktop) { result.Notes = "桌面整包修复入口尚未接入，请重新解压完整桌面包；不会执行旧格式局部修复。"; return result; }
             try
             {
                 cancel.ThrowIfCancellationRequested();
@@ -35,6 +36,7 @@ namespace AudioSwitch
                         if (!held) throw new IOException("正在更新或修复文件，请等待完成后重试。");
                         result.Check = FileIntegrity.Check(directory);
                         if (result.Check.Candidate) { result.Notes = PanelLaunch.LegacyUpdateBlocked; return result; }
+                        if (result.Check.Desktop) { result.Notes = "桌面包不能执行旧格式局部修复，请重新解压完整桌面包。"; return result; }
                         string[] names = result.Check.FailedFiles.Where(name => name != "AudioSwitch.exe").ToArray();
                         if (names.Length > 0)
                         {

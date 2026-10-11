@@ -18,6 +18,8 @@ namespace AudioSwitch
         internal const string LegacyUpdateBlocked = "此目录包含新界面候选文件，不能用旧格式更新或局部修复。请将完整候选包重新解压到独立目录；整包升级尚未接入。";
         internal static bool IsCandidate(string directory)
         {
+            if (UpdatePackage.Exists(directory, "candidate-manifest.json") || UpdatePackage.Exists(directory, "CANDIDATE-README.txt")) return true;
+            if (UpdatePackage.IsDesktop(directory)) return false;
             // Surviving notices also identify a damaged candidate with both launch files missing.
             return Files.Skip(8).Concat(new[] { "candidate-manifest.json" }).Any(name => {
                 string path = Path.Combine(directory, name);
@@ -27,40 +29,44 @@ namespace AudioSwitch
         internal static void RequireLegacyDirectory(string directory)
         {
             if (IsCandidate(directory)) throw new InvalidDataException(LegacyUpdateBlocked);
+            UpdatePackage.RequireTarget(directory, UpdatePackage.Legacy);
         }
-        internal static void Validate(string directory, string version) { Validate(directory, version, ValidateExecutable); }
+        internal static bool IsModern(string directory) { return IsCandidate(directory) || UpdatePackage.IsDesktop(directory); }
+        internal static void Validate(string directory, string version) { Validate(directory, version, ValidateExecutable, UpdatePackage.IsDesktop(directory)); }
         internal static ProcessStartInfo Select(string backend, bool prompt, int owner)
         {
             if (owner <= 0) throw new ArgumentException("后台进程无效。");
             string directory = Path.GetDirectoryName(Path.GetFullPath(backend));
             string panel = Path.Combine(directory, "audio-switch-panel.exe");
-            bool modern = IsCandidate(directory);
+            bool modern = IsModern(directory);
             if (modern) {
-                try { Validate(directory, AppVersion.Number, ValidateExecutable); }
-                catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整候选包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }
+                try { Validate(directory, AppVersion.Number); }
+                catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整" + (UpdatePackage.IsDesktop(directory) ? "桌面" : "候选") + "包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }
             }
             return new ProcessStartInfo(modern ? panel : backend, (prompt ? "--prompt" : modern ? "" : "--ui") + " --owner=" + owner) {
                 UseShellExecute = false, WorkingDirectory = directory
             };
         }
-        internal static void Validate(string directory, string version, Action<string, string> verifyExecutable)
+        internal static void Validate(string directory, string version, Action<string, string> verifyExecutable, bool desktop = false)
         {
-            string path = Path.Combine(directory, "candidate-manifest.json");
+            if (desktop && IsCandidate(directory)) throw new InvalidDataException("正式桌面包不能混入候选文件。");
+            var expectedFiles = desktop ? UpdatePackage.DesktopContent : Files;
+            string path = Path.Combine(directory, desktop ? "desktop-manifest.json" : "candidate-manifest.json");
             RejectLinks(path);
             if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("缺少有效的候选清单。");
             var json = new JavaScriptSerializer { MaxJsonLength = 1024 * 1024, RecursionLimit = 20 };
             var manifest = json.DeserializeObject(File.ReadAllText(path, new UTF8Encoding(false, true))) as Dictionary<string, object>;
-            if (manifest == null || Text(manifest, "Format") != "AudioSwitch.UI.Candidate" || Number(manifest, "FormatVersion") != 1 || Text(manifest, "AppVersion") != version || Text(manifest, "Platform") != "win-x64") throw new InvalidDataException("候选清单版本或平台不匹配。");
+            if (manifest == null || Text(manifest, "Format") != (desktop ? "AudioSwitch.Desktop" : "AudioSwitch.UI.Candidate") || Number(manifest, "FormatVersion") != 1 || Text(manifest, "AppVersion") != version || Text(manifest, "Platform") != "win-x64") throw new InvalidDataException("界面包清单版本或平台不匹配。");
             object rows; if (!manifest.TryGetValue("Files", out rows) || !(rows is object[])) throw new InvalidDataException("候选文件清单无效。");
             var files = (object[])rows;
-            if (files.Length != Files.Length) throw new InvalidDataException("候选文件数量不匹配。");
+            if (files.Length != expectedFiles.Length) throw new InvalidDataException("界面包文件数量不匹配。");
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var row in files) {
                 var item = row as Dictionary<string, object>;
                 if (item == null) throw new InvalidDataException("候选文件记录无效。");
                 string name = Text(item, "Path"), expected = Text(item, "Sha256");
                 long length = Number(item, "Length");
-                if (!Files.Contains(name, StringComparer.Ordinal) || !seen.Add(name) || length <= 0 || length > 64L * 1024 * 1024 || expected == null || expected.Length != 64 || expected.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f'))) throw new InvalidDataException("候选文件路径、大小或摘要无效。");
+                if (!expectedFiles.Contains(name, StringComparer.Ordinal) || !seen.Add(name) || length <= 0 || length > 64L * 1024 * 1024 || expected == null || expected.Length != 64 || expected.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f'))) throw new InvalidDataException("界面包文件路径、大小或摘要无效。");
                 string file = Path.Combine(directory, name); RejectLinks(file);
                 using (var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
                 using (var sha = SHA256.Create()) {
