@@ -66,6 +66,8 @@ Rust 只注册状态查询、主面板操作、四个备份命令和维护任务
 
 ## 启动
 
+5.4a 已对实际 Desktop ZIP 完成隔离文件安装和窗口生命周期验证，清单及内存原始记录见 [发布验收表](RELEASE-READINESS.md)。`launch-session.ps1` 可通过 PackageDirectory／FixturePath／RecordName 指定本轮包、测试入口和独立记录；新增 Idle 用于关闭界面但保留测试入口，NoBrowserDebug 用于不带调试端口采样。测试入口与真实托盘性能不同，正式发布和有音频副作用的实测仍待验。
+
 在仓库根目录执行：
 
 ```powershell

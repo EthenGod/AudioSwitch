@@ -174,18 +174,22 @@ namespace AudioSwitch
         }
         internal static void RealPackage(string candidateDirectory, Action<bool, string> check)
         {
-            // Build an isolated Desktop-format fixture from verified real binaries. Never launch its tray host.
+            // Accept a verified candidate or an actual Desktop release. Never launch its tray host.
             candidateDirectory = Path.GetFullPath(candidateDirectory);
             PanelLaunch.Validate(candidateDirectory, AppVersion.Number);
             string settingsBefore = File.Exists(PreferenceStore.SettingsPath) ? AppUpdate.Hash(PreferenceStore.SettingsPath) : "absent";
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "desktop-real-" + Guid.NewGuid().ToString("N").Substring(0, 8));
             string payload = Path.Combine(root, "payload"), installed = Path.Combine(root, "installed");
             Legacy(installed); Directory.CreateDirectory(payload);
-            foreach (string name in UpdatePackage.DesktopContent.Take(12)) {
+            bool desktopSource = UpdatePackage.IsDesktop(candidateDirectory);
+            foreach (string name in desktopSource ? UpdatePackage.DesktopContent : UpdatePackage.DesktopContent.Take(12)) {
                 string file = Path.Combine(payload, name); Directory.CreateDirectory(Path.GetDirectoryName(file)); File.Copy(Path.Combine(candidateDirectory, name), file);
             }
-            File.WriteAllText(Path.Combine(payload, "DESKTOP-README.txt"), "声间桌面格式隔离验证包。未正式发布，不要覆盖日常程序。音频功能仍需实机验收。需要系统 WebView2；不会自动安装 Runtime。");
-            Manifest(payload, AppVersion.Number);
+            if (desktopSource) File.Copy(Path.Combine(candidateDirectory, "desktop-manifest.json"), Path.Combine(payload, "desktop-manifest.json"));
+            else {
+                File.WriteAllText(Path.Combine(payload, "DESKTOP-README.txt"), "声间桌面格式隔离验证包。未正式发布，不要覆盖日常程序。音频功能仍需实机验收。需要系统 WebView2；不会自动安装 Runtime。");
+                Manifest(payload, AppVersion.Number);
+            }
             AppUpdate.ValidatePayload(payload, AppUpdate.ParseVersion(AppVersion.Number), 1);
             check(FileIntegrity.Check(payload).Passed, "real Tauri and backend binaries pass Desktop manifest validation");
             string bridgeZip = Path.Combine(root, UpdatePackage.AssetName(AppUpdate.ParseVersion(AppVersion.Number), 0));
@@ -197,6 +201,7 @@ namespace AudioSwitch
             string backup = Path.Combine(root, "backup");
             UpdateInstaller.ApplyPackage(payload, installed, backup, AppUpdate.ParseVersion(AppVersion.Number), 1);
             check(FileIntegrity.Check(installed).Passed && AppUpdate.Hash(Path.Combine(backup, "AudioSwitch.exe")) == before, "real complete Desktop files install in isolation with verified old executable backup");
+            check(UpdatePackage.Files(1).All(name => AppUpdate.Hash(Path.Combine(installed, name)) == AppUpdate.Hash(Path.Combine(payload, name))), "installed Desktop preserves every source payload byte including manifest and notices");
             using (var process = Process.Start(new ProcessStartInfo(Path.Combine(installed, "AudioSwitch.exe"), "--check-files --quiet") { UseShellExecute = false, CreateNoWindow = true })) {
                 try { check(process.WaitForExit(10000) && process.ExitCode == 0, "installed real backend performs read-only complete Desktop check without tray startup"); }
                 finally { if (!process.HasExited) { process.Kill(); process.WaitForExit(); } }

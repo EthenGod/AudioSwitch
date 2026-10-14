@@ -1,5 +1,5 @@
 # An isolated sleeping process stands in for the owner. No audio backend starts.
-param([switch]$Panel, [string]$ExecutablePath)
+param([switch]$Panel, [string]$ExecutablePath, [ValidatePattern('^[a-zA-Z0-9-]{1,64}$')][string]$RecordPrefix = 'stage52')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot)
 $exe = Join-Path $root 'staging/ui-target/release/audio-switch-panel.exe'
@@ -30,7 +30,7 @@ try {
     Start-Sleep -Seconds 2
     $remaining = @($during | Where-Object { $item = Get-Process -Id $_.Pid -ErrorAction SilentlyContinue; $item -and $item.StartTime.Ticks -eq $_.StartTicks })
     $after = ConfigHash
-    $recordName = if ($isPanel) { 'stage52-panel-owner.json' } else { 'stage52-prompt-owner.json' }
+    $recordName = if ($isPanel) { "$RecordPrefix-panel-owner.json" } else { "$RecordPrefix-prompt-owner.json" }
     [PSCustomObject]@{ OwnerPid=$owner.Id; WindowPid=$panelProcess.Id; During=$during; Remaining=$remaining; ConfigurationUnchanged=($before -eq $after); OwnerExitClosedWindow=$panelProcess.HasExited } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root "frontend/output/desktop/$recordName") -Encoding utf8
     if ($remaining.Count -or $before -ne $after) { throw 'Process or configuration check failed.' }

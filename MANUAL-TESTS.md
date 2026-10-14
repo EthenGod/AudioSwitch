@@ -337,3 +337,12 @@
 - `AudioSwitch.exe --check-webview2` 只读检测 Evergreen 注册信息，UTF-8 输出，退出码 0／2／3 分别为检测到／缺失／无法确认。普通回归注入空值、零版本、错误类型、权限不足和双注册位置，验证旧格式不新增依赖、新格式阻止交接，并显示手动安装方法。不要卸载日常机器的 Runtime 来制造缺失。
 - 自动更新预检缺失时 pending 内容保持原字节；最后交接前检测失败时还原 Attempted，安装 Runtime 后可重试。安装助手应在退出旧程序或备份替换前复查。真实运行组件突然卸载的竞态、新机器手动安装后重试，仍需独立环境验收；注册检测通过不等于浏览器窗口一定能创建。
 - `AudioSwitch.Tests.exe --desktop-update-process` 用假后台／面板和真实安装助手验证同版本迁移、更高版本升级及同版本修复；不执行生产 TrayHost。运行前后核对活动配置哈希，验证测试进程退出；这不能代替实际 GitHub 下载、生产重启、音频写入和恢复测试。
+
+## refactor/ui 第五阶段 5.4a 实包隔离验收
+
+- 先核对本轮双包摘要，用 `AudioSwitch.Tests.exe --release-archives '附件目录'` 调用生产解压／校验，记录输出的解压目录。再运行 `AudioSwitch.Tests.exe '--desktop-package=解压后的desktop目录'`；现在允许实际 Desktop 包作为输入，保持其说明和清单原字节，验证临时目录安装／备份和只读检查。测试不启动真实 TrayHost。
+- `launch-session.ps1` 新增 `-PackageDirectory`（兼容原 CandidateDirectory）、`-FixturePath`（仅允许 staging 下 AudioSwitch.Tests.exe）和 `-RecordName`。同一会话所有命令需使用相同 FixturePath／RecordName，避免覆盖旧验收记录。运行前检查没有已有后台，脚本不会替用户停止日常程序。
+- 用 Open、Check、Sample、Idle、Close 顺序执行。Check 验证复用、最小化恢复、关闭重开和提示复用，并核对第一次关闭后的 WebView2 释放；Idle 正常关闭两个窗口但保留测试入口，核对只剩打开前的测试进程；Close 最终退出测试入口并核对配置。应使用 try/finally 确保执行 Close；失败不强杀无关程序。
+- 内存采样使用 Open 的 `-NoBrowserDebug`，打开后等待约 5 秒，再 Check／Sample。脚本默认仍开启本地 9223 供原浏览器测试使用，记录 DebugBrowser 标志。测试控制台 conhost 属于入口本身，按打开前 PID 和启动时间识别，不能计入界面残留或生产后台性能。
+- 分别运行 `verify-prompt-owner.ps1 -Panel` 和不带 Panel 的命令，指定实际包内面板路径与新的 `-RecordPrefix`，验证独立所有者退出时关闭窗口。前者检查主面板、后者检查提示，不启动真实后台。
+- 对照 [发布验收表](frontend/RELEASE-READINESS.md) 填写已验／待验；真实配置保存和恢复、音频写入、生产重启、GitHub 连续迁移与缺少 Runtime 的新机器仍不能由隔离结果替代。
