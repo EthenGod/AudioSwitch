@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { mapUpgrade, upgradeActive } from './upgrade'
 import { dolbyProfile, mapDolbyRead, mapDolbyOperation, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
 
@@ -80,6 +81,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
     CanManageBackup: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 2,
     CanCheckMaintenance: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 3,
+    CanManageUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 6,
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
 }
@@ -172,6 +174,17 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   }
   return {
     mode: 'desktop',
+    async startUpgrade(kind) {
+      if (!snapshot?.CanManageUpdates) throw new OperationFailure('当前后台只支持检查，请使用新版后台。')
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      writing = true
+      try { return mapUpgrade(await call('start_upgrade', { kind }), undefined, kind) } catch (e) { throw failure(e) } finally { writing = false }
+    },
+    async readUpgrade(token) { try { return mapUpgrade(await call('read_upgrade', { token }), token) } catch (e) { throw failure(e) } },
+    async upgradeAction(token, action) { try { return mapUpgrade(await call('upgrade_action', { token, action }), token) } catch (e) { throw failure(e) } },
+    async cancelUpgrade(token) {
+      try { const job = mapUpgrade(await call('cancel_upgrade', { token }), token); if (upgradeActive(job)) throw new Error('尚未确认任务停止，请稍后重试。'); return job } catch (e) { throw failure(e) }
+    },
     async startDolbyApply(id, profile, expected, token) {
       if (!snapshot?.CanApplyDolby) throw new OperationFailure('当前后台不支持新的 Dolby 应用结果。')
       if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')

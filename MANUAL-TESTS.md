@@ -320,3 +320,12 @@
 - 可一起运行 `--update-process --repair-process --automatic-process` 验证旧 8 文件兼容；这些是假程序的隔离测试，不是 `--lifecycle` 或音效实机测试。`--render` 保留更新及检查提示的界面渲染。
 - 先完成最新候选包构建，再运行 `staging/AudioSwitch.Tests.exe "--desktop-package=候选verified目录完整路径"`。它只读取已校验候选源，另建 staging 目录，将真实后台／Tauri 文件装配为 Desktop 测试包，生成 8 文件过渡 ZIP 和 14 文件 Desktop ZIP，并在独立目标做完整替换／备份；目标只运行 `--check-files --quiet`，不会启动托盘。记录两份 ZIP 摘要、目标／备份路径及活动配置哈希不变。两个 ZIP 是本地测试产物，不自动上传，不代表完成正式发布验收。
 - 正式发布前还需落实双资产发布脚本、版本递增、WebView2 前置条件、React 下载／取消／安装／修复入口，以及旧正式版经过 GitHub 到过渡版再到 Desktop 的实际验收。不能用本机已有 Runtime 或假程序启动确认替代这些项目。
+
+## refactor/ui 第五阶段 5.3c 面板下载与修复
+
+- 普通 C# 回归新增维护会话测试：检查不下载、下载不安装、二次确认、拒绝越序／重复命令、候选保护、校验失败不能安装，以及 UTF-8 辅助进程的下载取消、输入关闭、安装已接受后输入关闭、交接失败。依赖全部为假对象，不连接真实发布或音频。
+- `staging/AudioSwitch.Tests.exe --desktop-update-process` 现在另含 Desktop 同版本完整修复，用真实安装助手和隔离假后台／面板检查全部 14 文件、完整备份、启动确认及其他目录进程不受影响。发现真实后台运行时拒绝测试，不为测试退出用户后台。
+- Rust 隔离命令：在 `frontend/desktop.ps1` 使用的项目工具链环境中运行 `cargo test --manifest-path frontend/src-tauri/Cargo.toml --locked isolated_upgrade_worker_protocol -- --ignored --nocapture`；先运行 `build.ps1 -Test -OutputDirectory staging`。验证固定命令、旧任务标记、重复点击、取消等待、确认后关闭和错误不重提，测试只启动 staging 测试 EXE 的假维护入口。
+- 浏览器预览打开应用设置 → 检查更新，再用 Playwright CLI 执行 `run-code --filename frontend/scripts/verify-upgrade.js`。验证取消、准备安装／暂不安装／二次确认、键盘确认、焦点、深浅色及两种尺寸下 100%／125%／150%／200% CSS 缩放。截图位于 `output/playwright/upgrade-*.png`；不等同 Windows 实际 DPI 或真实安装。
+- 旧接口 3～5 应仍只有只读检查；接口 6 才出现新流程。候选包文件缺损也不能下载修复；正式 Desktop 在检查缺损后下载同版本整包，下载／校验失败不能出现安装按钮。断网、结果不确定时保留错误说明，不能把交接显示为安装成功。
+- 实际网络下载、正式 Desktop 更新／修复后的真实后台启动、WebView2 缺失环境、升级后音效规则与恢复仍待后续授权验收。本轮不执行会写音频的启动或实机测试。

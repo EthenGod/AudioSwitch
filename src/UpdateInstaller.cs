@@ -68,8 +68,8 @@ namespace AudioSwitch
         }
         internal static void Launch(string payload, UpdateRelease release, int parentPid)
         { LaunchCore(payload, release, parentPid, false); }
-        internal static void LaunchRepair(string payload, int parentPid)
-        { LaunchCore(payload, new UpdateRelease { Version = AppUpdate.ParseVersion(AppVersion.Number) }, parentPid, true); }
+        internal static void LaunchRepair(string payload, int parentPid, int format = UpdatePackage.Legacy)
+        { LaunchCore(payload, new UpdateRelease { Version = AppUpdate.ParseVersion(AppVersion.Number), PackageFormat = format }, parentPid, true); }
         internal static void LaunchAutomatic(string payload, UpdateRelease release, int parentPid, bool background)
         { LaunchCore(payload, release, parentPid, false, true, background); }
         private static void LaunchCore(string payload, UpdateRelease release, int parentPid, bool repair, bool automatic = false, bool background = false)

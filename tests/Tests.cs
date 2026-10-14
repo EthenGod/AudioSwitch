@@ -19,6 +19,9 @@ namespace AudioSwitch
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && (args[0] == "--upgrade-test-worker" || args[0] == "--upgrade-cancel-worker" || args[0] == "--upgrade-error-worker")) {
+                PanelUpgradeTests.Worker(args[0] == "--upgrade-cancel-worker" ? "cancel" : args[0] == "--upgrade-error-worker" ? "error" : "success"); return 0;
+            }
             if (args.Length == 3 && args[0] == "--frontend-launch-host") return FrontendLaunchHost.Run(args[1],args[2]);
             if (args.Length == 2 && args[0] == "--panel-readonly-host") return PanelReadOnlyHost.Run(args[1]);
             if (args.Length == 2 && args[0] == "--panel-readonly-wait-host") return PanelReadOnlyHost.Run(args[1], true);
@@ -51,6 +54,7 @@ namespace AudioSwitch
                 PanelDolbyApplyTests.Run(Check);
                 PanelImportTests.Run(Check);
                 PanelMaintenanceTests.Run(Check);
+                PanelUpgradeTests.Run(Check);
                 RunPriorityTests();
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();
@@ -94,7 +98,7 @@ namespace AudioSwitch
                 if (args.Contains("--render")) AutoUpdatePreferenceTests.Render(Check);
                 if (args.Contains("--render")) IntegrityTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
-                if (args.Contains("--desktop-update-process")) { UpdateTests.ProcessSmoke(Check, false, false, true, true); UpdateTests.ProcessSmoke(Check, false, false, true, false); }
+                if (args.Contains("--desktop-update-process")) { UpdateTests.ProcessSmoke(Check, false, false, true, true); UpdateTests.ProcessSmoke(Check, false, false, true, false); UpdateTests.ProcessSmoke(Check, true, false, true, false); }
                 var desktopFixture = args.FirstOrDefault(a => a.StartsWith("--desktop-package=", StringComparison.Ordinal));
                 if (desktopFixture != null) DesktopUpdateTests.RealPackage(desktopFixture.Substring("--desktop-package=".Length), Check);
                 if (args.Contains("--repair-process")) UpdateTests.ProcessSmoke(Check, true);
@@ -1557,6 +1561,19 @@ namespace AudioSwitch
                 prompt.Close();
             }
         }
+        private static bool SameJsonValue(object left, object right)
+        {
+            var a = left as Dictionary<string, object>; var b = right as Dictionary<string, object>;
+            if (a != null || b != null) return a != null && b != null && a.Count == b.Count && a.All(pair => b.ContainsKey(pair.Key) && SameJsonValue(pair.Value, b[pair.Key]));
+            var x = left as object[]; var y = right as object[];
+            if (x != null || y != null) return x != null && y != null && x.Length == y.Length && x.Select((item, index) => SameJsonValue(item, y[index])).All(equal => equal);
+            return Object.Equals(left, right);
+        }
+        private static bool SameJson(string left, string right)
+        {
+            var serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+            return SameJsonValue(serializer.DeserializeObject(left), serializer.DeserializeObject(right));
+        }
         private static void RunConfigurationTests()
         {
             var speaker = Device("speaker", 0); speaker.Name = "扬声器 \"主力\" \\ 测试";
@@ -1569,7 +1586,8 @@ namespace AudioSwitch
             string exported = PreferenceStore.Export(current);
             var document = Wire.Decode<ConfigurationFile>(exported);
             Check(document.Format == "AudioSwitch.Settings" && document.Version == 1 && exported.Contains(Environment.NewLine), "runtime and backup use one versioned readable JSON format");
-            Check(Wire.Encode(PreferenceStore.Parse(exported)) == Wire.Encode(current), "configuration round trip preserves all flags, rank, offline devices, presets, whitelist, Unicode and escaped names");
+            // Reflection caching can reorder JSON object properties; array order and all values must still match.
+            Check(SameJson(Wire.Encode(PreferenceStore.Parse(exported)), Wire.Encode(current)), "configuration round trip preserves all flags, rank, offline devices, presets, whitelist, Unicode and escaped names");
             Check(document.Settings.DarkMode && Wire.Decode<Preferences>(Wire.Encode(current)).DarkMode, "dark mode survives backup and IPC serialization");
             var legacy = PreferenceStore.Parse("{\"AskOnConnect\":false,\"IncludeCommunications\":true}");
             Check(!legacy.AskOnConnect && legacy.IncludeCommunications && legacy.UseDevicePriority && legacy.DeviceRules.Count == 0, "legacy import retains saved values and fills new defaults");
@@ -1588,20 +1606,20 @@ namespace AudioSwitch
             string folder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "configuration-tests"));
             string path = Path.Combine(folder, "settings.json");
             PreferenceStore.Save(path, current);
-            Check(File.ReadAllText(path) == exported && Wire.Encode(PreferenceStore.Load(path)) == Wire.Encode(current), "active settings use exactly the exported backup format");
+            Check(SameJson(File.ReadAllText(path), exported) && SameJson(Wire.Encode(PreferenceStore.Load(path)), Wire.Encode(current)), "active settings use the exported backup format and preserve every value");
             var imported = new Preferences { DeviceOrder = new List<Endpoint> { offline, speaker, mic } };
             imported.DeviceRules[mic.Id] = DeviceRule.SwitchOnConnect;
             string backup;
             var result = PreferenceStore.Import(path, PreferenceStore.Export(imported), current, out backup);
-            Check(File.Exists(backup) && Wire.Encode(PreferenceStore.Load(backup)) == Wire.Encode(current), "import writes a restorable complete backup before replacement");
-            Check(Wire.Encode(result) == Wire.Encode(imported) && Wire.Encode(PreferenceStore.Load(path)) == Wire.Encode(imported), "import replaces the full configuration including removal of old profiles and rules");
+            Check(File.Exists(backup) && SameJson(Wire.Encode(PreferenceStore.Load(backup)), Wire.Encode(current)), "import writes a restorable complete backup before replacement");
+            Check(SameJson(Wire.Encode(result), Wire.Encode(imported)) && SameJson(Wire.Encode(PreferenceStore.Load(path)), Wire.Encode(imported)), "import replaces the full configuration including removal of old profiles and rules");
             string before = File.ReadAllText(path); int backupCount = Directory.GetFiles(Path.Combine(folder, "backups")).Length;
             bool failed = false;
             try { PreferenceStore.Import(path, "{\"DeviceRules\":{\"bad\":10}}", imported, out backup); } catch (InvalidOperationException) { failed = true; }
             Check(failed && File.ReadAllText(path) == before && Directory.GetFiles(Path.Combine(folder, "backups")).Length == backupCount, "failed validation cannot change active config or create a misleading backup");
             string migration = Path.Combine(folder, "legacy.json"); File.WriteAllText(migration, Wire.Encode(current));
             var migrated = PreferenceStore.Load(migration);
-            Check(Wire.Encode(migrated) == Wire.Encode(current) && File.ReadAllText(migration).Contains("AudioSwitch.Settings"), "old active settings automatically migrate without preference loss");
+            Check(SameJson(Wire.Encode(migrated), Wire.Encode(current)) && File.ReadAllText(migration).Contains("AudioSwitch.Settings"), "old active settings automatically migrate without preference loss");
             string corrupt = Path.Combine(folder, "corrupt.json"); File.WriteAllText(corrupt, "{bad");
             failed = false; try { PreferenceStore.Load(corrupt); } catch (InvalidOperationException) { failed = true; }
             Check(failed && File.ReadAllText(corrupt) == "{bad", "damaged active config is preserved instead of silently reset");

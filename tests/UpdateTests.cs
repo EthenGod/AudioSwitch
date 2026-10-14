@@ -243,10 +243,10 @@ class Fixture {
                 }
             }
             if (desktop) {
-                DesktopUpdateTests.MakeDesktop(payload, migration ? AppVersion.Number : "99.0.0");
+                DesktopUpdateTests.MakeDesktop(payload, migration || repair ? AppVersion.Number : "99.0.0");
                 if (!migration) DesktopUpdateTests.MakeDesktop(target, AppVersion.Number);
             }
-            if (repair)
+            if (repair && !desktop)
             {
                 string path = Path.Combine(payload, "AudioSwitch.exe"); byte[] bytes = File.ReadAllBytes(path);
                 string marker = "AudioSwitch-Self-SHA256-v1=";
@@ -299,13 +299,13 @@ class Fixture {
                     if (desktop) {
                         check(plan.Hashes.All(item => AppUpdate.Hash(Path.Combine(target, item.Key)) == item.Value), "real helper installs all desktop files including manifest");
                         check((panel == null || panel.HasExited) && !foreign.HasExited, "owned panel exits before replacement and foreign panel remains running");
-                        check(UpdatePackage.IsDesktop(target) && !PanelLaunch.IsCandidate(target), "real helper completes " + (migration ? "same-version bridge migration" : "newer-version desktop upgrade"));
+                        check(UpdatePackage.IsDesktop(target) && !PanelLaunch.IsCandidate(target), "real helper completes " + (migration ? "same-version bridge migration" : repair ? "same-version desktop repair" : "newer-version desktop upgrade"));
                     }
                     string saved = Directory.GetDirectories(Path.Combine(target, "update-backups")).Single();
                     check(AppUpdate.Hash(Path.Combine(saved, "AudioSwitch.exe")) == originalHash, "old running executable preserved in complete backup");
                     check(!UpdateInstaller.IsUpdating(), "update mutex is released after helper exits");
                     if (automatic) check(File.ReadAllText(Path.Combine(target, "fixture-started.txt")).StartsWith("--background --updated="), "real automatic installer restarts without requesting a panel");
-                    if (repair) check(AppUpdate.Files.Except(FileIntegrity.RequiredFiles).All(name => File.ReadAllText(Path.Combine(target, name)) == "keep optional file"), "real same-version repair helper leaves all optional files untouched");
+                    if (repair && !desktop) check(AppUpdate.Files.Except(FileIntegrity.RequiredFiles).All(name => File.ReadAllText(Path.Combine(target, name)) == "keep optional file"), "real same-version repair helper leaves all optional files untouched");
                 }
                 finally
                 {

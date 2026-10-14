@@ -20,6 +20,7 @@ namespace AudioSwitch
         {
             if (args.Contains("--dolby-worker")) { DolbyWorker.Main(); return; }
             if (args.Length == 1 && args[0] == "--panel-maintenance") { PanelMaintenance.Main(); return; }
+            if (args.Length == 1 && args[0] == "--panel-upgrade") { PanelUpgrade.Main(); return; }
             SetProcessDPIAware();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

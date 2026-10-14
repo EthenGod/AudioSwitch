@@ -283,3 +283,8 @@ h1 { margin: 0; font-size: 25px; line-height: 1.25; letter-spacing: -.7px; font-
 .maintenance-progress { display: flex; gap: 10px; align-items: center; }
 .maintenance-notes { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
 .maintenance-entries { padding-left: 18px; line-height: 1.9; overflow-wrap: anywhere; }
+.upgrade-sheet .backend-warning { overflow-wrap: anywhere; }
+.upgrade-confirmation { display: block; line-height: 1.7; }
+.upgrade-confirmation h3 { margin: 0 0 8px; font-size: 14px; }
+.upgrade-confirmation p { margin: 8px 0 0; }
+.upgrade-sheet progress { width: 100%; accent-color: var(--accent); }

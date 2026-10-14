@@ -4,6 +4,7 @@ mod pipe;
 mod actions;
 mod backup;
 mod maintenance;
+mod upgrade;
 mod prompt;
 mod dolby;
 mod dolby_apply;
@@ -114,6 +115,19 @@ async fn confirm_import(token: String, bridge: tauri::State<'_, Bridge>) -> Resu
     Ok(reply)
 }
 #[tauri::command]
+async fn start_upgrade(kind: upgrade::Kind, bridge: tauri::State<'_, Bridge>, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    let snapshot = pipe::read_snapshot().await?;
+    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 6 { return Err("当前后台只支持检查，请使用新版后台。".to_string().into()); }
+    Ok(jobs.start(maintenance::backend_path(&snapshot)?, kind).await?)
+}
+#[tauri::command]
+fn read_upgrade(token: String, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.read(&token)?) }
+#[tauri::command]
+fn upgrade_action(token: String, action: upgrade::Action, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.action(&token, action)?) }
+#[tauri::command]
+async fn cancel_upgrade(token: String, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.cancel(&token).await?) }
+#[tauri::command]
 async fn start_maintenance(kind: maintenance::Kind, bridge: tauri::State<'_, Bridge>, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> {
     let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
     let path = maintenance::backend_path(&pipe::read_snapshot().await?)?;
@@ -218,6 +232,7 @@ fn main() {
         .manage(Bridge::default())
         .manage(session)
         .manage(maintenance::Maintenance::default())
+        .manage(upgrade::Upgrade::default())
         .manage(dolby::Reader::default())
         .manage(dolby_apply::Session::default())
         .setup(move |app| {
@@ -239,8 +254,8 @@ fn main() {
             });
             Ok(())
         })
-        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
-        .invoke_handler(tauri::generate_handler![read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
+        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<upgrade::Upgrade>().close(); window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
+        .invoke_handler(tauri::generate_handler![start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
         .run(context);
     if result.is_err() {
         // This native message also works when WebView2 cannot create any web UI.

@@ -8,6 +8,7 @@ import { Settings } from './components/Settings'
 import { DeviceSheet } from './components/DeviceSheet'
 import { BackupSheet } from './components/BackupSheet'
 import { MaintenanceSheet } from './components/MaintenanceSheet'
+import { UpgradeSheet } from './components/UpgradeSheet'
 import { OperationFailure } from './data/desktop'
 
 const pages = {
@@ -121,6 +122,6 @@ export function App({ gateway }: { gateway: UiGateway }) {
       if (failure.snapshot) { setSnapshot(failure.snapshot); setDark(failure.snapshot.Preferences.DarkMode) }
       if (failure.requiresRefresh) setUncertain(true)
     }} />}
-    {maintenance && snapshot && <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />}
+    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
   </div>
 }

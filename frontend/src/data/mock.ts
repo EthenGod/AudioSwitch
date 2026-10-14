@@ -1,5 +1,6 @@
 import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
 import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
+import { mockUpgrade } from './upgrade'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -44,6 +45,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
+    ...mockUpgrade(),
     async startDolbyApply(id, profile, expected, token) {
       if (dolbyRunning(application)) throw new Error('正在模拟应用。')
       if (!device(id).Online || device(id).Flow !== 0 || state.Defaults['0:1'] !== id) throw new Error('请选择当前在线输出设备。')

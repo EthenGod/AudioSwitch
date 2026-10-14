@@ -10,6 +10,7 @@ node_modules/
 /frontend/dist/
 /frontend/dist-desktop/
 /frontend/output/
+/output/playwright/
 .playwright-cli/
 *.tsbuildinfo
 /frontend/.vite/

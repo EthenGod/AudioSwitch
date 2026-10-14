@@ -38,6 +38,7 @@ export interface Snapshot {
   CanWrite?: boolean
   CanManageBackup?: boolean
   CanCheckMaintenance?: boolean
+  CanManageUpdates?: boolean
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {
@@ -50,6 +51,13 @@ export interface ImportPreview {
   Token: string; FileName: string; Devices: number; Profiles: number; Rules: number; DolbyProfiles: number; OfflineDevices: number
 }
 export type MaintenanceKind = 'update' | 'files'
+export type UpgradeKind = 'update' | 'repair'
+export type UpgradeAction = 'download' | 'install'
+export interface UpgradeJob {
+  Token: string; Kind: UpgradeKind
+  Status: 'checking' | 'available' | 'repairable' | 'current' | 'passed' | 'unavailable' | 'downloading' | 'ready' | 'installing' | 'handoff' | 'cancelled' | 'error'
+  Message: string; Version?: string; Notes?: string; Bytes: number; Total: number; CanDownload: boolean
+}
 export interface MaintenanceJob {
   Token: string; Kind: MaintenanceKind
   Status: 'running' | 'available' | 'current' | 'ahead' | 'unavailable' | 'passed' | 'failed' | 'cancelled' | 'error'
@@ -57,6 +65,10 @@ export interface MaintenanceJob {
 }
 /** The desktop implementation permits only explicit panel commands. */
 export interface AudioGateway {
+  startUpgrade(kind: UpgradeKind): Promise<UpgradeJob>
+  readUpgrade(token: string): Promise<UpgradeJob>
+  upgradeAction(token: string, action: UpgradeAction): Promise<UpgradeJob>
+  cancelUpgrade(token: string): Promise<UpgradeJob>
   startDolbyApply(id: string, profile: DolbyProfile, expected: DolbyProfile | null, token: string): Promise<{ snapshot: Snapshot; operation: DolbyOperation }>
   readDolbyApply(token: string): Promise<DolbyOperation>
   cancelDolbyApply(token: string): Promise<DolbyOperation>
