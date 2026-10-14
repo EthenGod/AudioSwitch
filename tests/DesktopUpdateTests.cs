@@ -160,7 +160,11 @@ namespace AudioSwitch
             var record = store.Read();
             check(record.Format == 2 && record.PackageFormat == 1 && record.Hashes.Count == 14 && !record.Attempted, "desktop cache record binds format and all 14 hashes");
             int launches = 0; string issue;
-            check(store.TryInstall(false, (path, found, background) => { check(found.PackageFormat == 1 && found.Version == release.Version, "same-version startup handoff preserves desktop format"); launches++; }, out issue) && launches == 1, "same-version bridge migration can install staged desktop update");
+            string pendingBefore = File.ReadAllText(store.PathName);
+            check(!store.TryInstall(false, (path, found, background) => launches++, out issue, false, format => { WebViewRuntime.Require(format, () => WebViewRuntime.Check(machine => null)); }) && launches == 0 && issue.Contains("WebView2"), "missing Runtime blocks automatic desktop handoff");
+            check(File.ReadAllText(store.PathName) == pendingBefore && !store.Read().Attempted, "missing Runtime leaves pending bytes and retry eligibility unchanged");
+            check(!store.TryInstall(false, (path, found, background) => { throw new WebViewRequirementException("WebView2 disappeared before helper start"); }, out issue, false, format => { }) && !store.Read().Attempted && launches == 0, "Runtime loss at final preflight restores automatic retry eligibility");
+            check(store.TryInstall(false, (path, found, background) => { check(found.PackageFormat == 1 && found.Version == release.Version, "same-version startup handoff preserves desktop format"); launches++; }, out issue, false, format => { }) && launches == 1, "same-version bridge migration can install staged desktop update after prerequisite resolves");
             check(!store.TryInstall(false, (path, found, background) => launches++, out issue) && launches == 1, "same-version migration attempt does not repeat after interruption");
             check(store.BlockedVersion() == release.Version, "failed same-version desktop migration blocks automatic retries");
             record.Attempted = false; record.PackageFormat = 0; store.Save(record);

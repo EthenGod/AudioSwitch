@@ -19,6 +19,7 @@ namespace AudioSwitch
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 2 && args[0] == "--release-archives") return ReleasePackageTests.Verify(args[1]);
             if (args.Length == 1 && (args[0] == "--upgrade-test-worker" || args[0] == "--upgrade-cancel-worker" || args[0] == "--upgrade-error-worker")) {
                 PanelUpgradeTests.Worker(args[0] == "--upgrade-cancel-worker" ? "cancel" : args[0] == "--upgrade-error-worker" ? "error" : "success"); return 0;
             }
@@ -55,6 +56,7 @@ namespace AudioSwitch
                 PanelImportTests.Run(Check);
                 PanelMaintenanceTests.Run(Check);
                 PanelUpgradeTests.Run(Check);
+                WebViewRuntimeTests.Run(Check);
                 RunPriorityTests();
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();

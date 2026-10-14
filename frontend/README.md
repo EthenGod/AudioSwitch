@@ -54,9 +54,11 @@ Rust 只注册状态查询、主面板操作、四个备份命令和维护任务
 
 启动前检查候选清单、全部列出文件的大小与摘要，以及面板 x64／版本。候选面板、清单或新增配套说明／许可残留但不完整时明确报错，不静默回退。没有候选标记的旧 8 文件目录保留原 WinForms 入口，因此普通 C# 构建不依赖前端。`AudioSwitch.exe --ui`／`--prompt` 的原显式入口仍保留供兼容使用；托盘自动入口已按目录选择。
 
-5.3a 起，候选目录的 `--check-files --quiet` 和面板内文件检查覆盖整包，旧格式更新／局部修复会被阻止；损坏时重新解压完整候选包到独立目录。可运行 `frontend/scripts/test-candidate-runtime.ps1 -ArchivePath '候选ZIP完整路径'` 做真实 EXE 的只读整包检查与损坏回归。后续采用旧格式过渡版再升级到新界面，完整安装／修复流程尚未实现。
+5.3a 起，候选目录的 `--check-files --quiet` 和面板内文件检查覆盖整包，旧格式更新／局部修复会被阻止；损坏时重新解压完整候选包到独立目录。可运行 `frontend/scripts/test-candidate-runtime.ps1 -ArchivePath '候选ZIP完整路径'` 做真实 EXE 的只读整包检查与损坏回归。完整安装／修复已在后续小项接入 Desktop 格式，候选包继续仅供独立验证。
 
-5.3b 接入后台的 Desktop 双格式下载／完整替换与失败恢复。计划在每个新正式版本保留旧名 8 文件过渡资产，并另发 `AudioSwitch-Desktop-v<版本>-win-x64.zip`，避免只查 latest 的旧客户端找不到过渡包。同版本迁移只用于尚未装新界面的目录；当前候选包继续禁止安装，5.3c 已接入 React 下载／安装／修复交互，正式双资产打包仍待后续。详见 [第五阶段](STAGE-5.md)。
+5.3b 接入后台的 Desktop 双格式下载／完整替换与失败恢复。每个新正式版本需保留旧名 8 文件过渡资产，并另发 `AudioSwitch-Desktop-v<版本>-win-x64.zip`，避免只查 latest 的旧客户端找不到过渡包。同版本迁移只用于尚未装新界面的目录；当前候选包继续禁止安装，5.3c 已接入 React 下载／安装／修复交互。5.3d 新增根目录 `release.ps1 -Desktop -OutputDirectory staging/自选目录`：重新构建、运行后台回归、归集许可，再用正式更新解压器验证两份 ZIP 和单 EXE。只有验证通过才写入新的版本目录，不覆盖、不发布。详见 [第五阶段](STAGE-5.md)。
+
+新界面启动和 Desktop 安装交接前按[微软文档](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)只读检查整机／当前用户的 Evergreen Runtime。缺失或无法读取时阻止交接并提示手动安装；旧格式不需要 Runtime，自动更新缓存保留供重试。`AudioSwitch.exe --check-webview2` 输出 UTF-8 JSON，退出码 0 为检测到、2 为缺失、3 为无法确认；不初始化音频或配置。注册信息通过不能代替实际窗口测试。本轮没有卸载 Runtime 或测试全新机器。
 
 由托盘启动的主面板和提示携带所属后台句柄，后台退出后都关闭；手动打开的主面板首次成功读取后台后也绑定该后台。后台存活时关闭面板不退出后台，不预留隐藏面板。提示的“打开面板”交回后台，成功确认后关闭提示，避免再启动一个无人管理的主面板。
 

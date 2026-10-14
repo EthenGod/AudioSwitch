@@ -1,7 +1,8 @@
 ﻿# Copyright (C) 2026 EthenGod
 # SPDX-License-Identifier: GPL-3.0-only
-param([string]$OutputDirectory = 'releases')
+param([string]$OutputDirectory = 'releases', [switch]$Desktop, [string]$NodePath)
 $ErrorActionPreference = 'Stop'
+if ($Desktop) { & (Join-Path $PSScriptRoot 'frontend/desktop-release.ps1') -OutputDirectory $OutputDirectory -NodePath $NodePath; return }
 $versionText = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'src\AppVersion.cs') -Raw
 $match = [regex]::Match($versionText, 'Number = "([0-9]+\.[0-9]+\.[0-9]+)"')
 if (!$match.Success) { throw '无法读取程序版本号。' }

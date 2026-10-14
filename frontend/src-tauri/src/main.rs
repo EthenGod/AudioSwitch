@@ -260,7 +260,7 @@ fn main() {
     if result.is_err() {
         // This native message also works when WebView2 cannot create any web UI.
         use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
-        let message: Vec<u16> = "声间面板无法启动。请确认完整候选包已解压，并已安装 Microsoft Edge WebView2 Runtime。可按包内 CANDIDATE-README.txt 的说明修复后重试。后台仍可从托盘退出。\0".encode_utf16().collect();
+        let message: Vec<u16> = "声间面板无法启动。请确认完整程序包已解压，并已安装 Microsoft Edge WebView2 Runtime。可按包内 DESKTOP-README.txt（候选包为 CANDIDATE-README.txt）的说明修复后重试。Runtime 安装入口：https://developer.microsoft.com/microsoft-edge/webview2/ 。后台仍可从托盘退出。\0".encode_utf16().collect();
         let title: Vec<u16> = "无法打开声间面板\0".encode_utf16().collect();
         unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
     }

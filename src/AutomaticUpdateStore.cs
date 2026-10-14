@@ -113,9 +113,10 @@ namespace AudioSwitch
             var item = Read(); if (item == null) return;
             item.Attempted = true; item.Failure = message.Length > 2000 ? message.Substring(0, 2000) : message; Save(item);
         }
-        internal bool TryInstall(bool background, Action<string, UpdateRelease, bool> launch, out string issue, bool suspended = false)
+        internal bool TryInstall(bool background, Action<string, UpdateRelease, bool> launch, out string issue, bool suspended = false, Action<int> requireRuntime = null)
         {
             issue = null;
+            PendingUpdate marked = null;
             if (suspended) return false;
             // Leave any older pending record untouched, including its attempted flag.
             if (PanelLaunch.IsCandidate(Path.GetDirectoryName(target))) { issue = PanelLaunch.LegacyUpdateBlocked; return false; }
@@ -125,10 +126,21 @@ namespace AudioSwitch
                 if (item == null || !UpdatePackage.CanInstall(AppUpdate.ParseVersion(item.Version), item.PackageFormat, Path.GetDirectoryName(target))) return false;
                 if (item.Attempted) { issue = item.Failure ?? "上次自动更新未完成，请在面板中手动重试。"; return false; }
                 Validate(item);
+                (requireRuntime ?? WebViewRuntime.Require)(item.PackageFormat);
                 // Persist before handing off: a failed installation must not repeat at every login.
                 item.Attempted = true; Save(item);
+                marked = item;
                 launch(Payload(item), new UpdateRelease { Version = AppUpdate.ParseVersion(item.Version), Tag = item.Tag, Digest = item.Digest, PackageFormat = item.PackageFormat }, background);
                 return true;
+            }
+            catch (WebViewRequirementException ex) {
+                issue = ex.Message;
+                // LaunchCore can recheck after the first preflight. No helper has been started for this exception.
+                if (marked != null) {
+                    marked.Attempted = false;
+                    try { Save(marked); } catch (Exception save) { issue += "\r\n无法恢复自动重试记录，请在面板手动重试：" + save.Message; }
+                }
+                return false;
             }
             catch (Exception ex)
             {

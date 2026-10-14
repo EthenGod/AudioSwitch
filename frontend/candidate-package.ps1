@@ -1,4 +1,4 @@
-param([string]$NodePath)
+﻿param([string]$NodePath, [switch]$TestBackend, [switch]$PassThru)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'scripts/candidate-common.ps1')
 $root = Split-Path $PSScriptRoot
@@ -10,13 +10,19 @@ $cargoVersion = [regex]::Match($cargo,'(?m)^version = "([0-9.]+)"').Groups[1].Va
 if ($npm.version -cne $version -or $tauri.version -cne $version -or $cargoVersion -cne $version) { throw '前后端源码版本不一致，停止打包。' }
 $work = New-CandidateDirectory (Join-Path $root ('staging/ui-candidate-' + [Guid]::NewGuid().ToString('N')))
 $buildRelative = 'staging/' + (Split-Path $work -Leaf) + '/backend'
-& (Join-Path $root 'build.ps1') -OutputDirectory $buildRelative
-& (Join-Path $PSScriptRoot 'desktop.ps1') -Command build -NodePath $NodePath
+if ($TestBackend) { $buildRelative = 'staging/t' + [Guid]::NewGuid().ToString('N').Substring(0,8) }
+$buildPath = Join-Path $root $buildRelative
+if ($TestBackend) {
+    # .NET Framework test fixtures add nested paths; keep their base short enough for MAX_PATH.
+    & (Join-Path $root 'build.ps1') -Test -OutputDirectory $buildRelative *> (Join-Path $work 'backend-build.log')
+    Get-Content -LiteralPath (Join-Path $work 'backend-build.log') -Tail 3 | Out-Host
+} else { & (Join-Path $root 'build.ps1') -OutputDirectory $buildRelative | Out-Host }
+& (Join-Path $PSScriptRoot 'desktop.ps1') -Command build -NodePath $NodePath | Out-Host
 $payload = New-CandidateDirectory (Join-Path $work 'payload')
 foreach ($name in $CandidateFiles[0..7]) {
     $target = Join-Path $payload $name
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
-    [IO.File]::Copy((Join-Path $work "backend/$name"), $target, $false)
+    [IO.File]::Copy((Join-Path $buildPath $name), $target, $false)
 }
 [IO.File]::Copy((Join-Path $root 'staging/ui-target/release/audio-switch-panel.exe'), (Join-Path $payload 'audio-switch-panel.exe'), $false)
 [IO.File]::Copy((Join-Path $PSScriptRoot 'dist-desktop/THIRD-PARTY-NOTICES.txt'), (Join-Path $payload 'THIRD-PARTY-FRONTEND.txt'), $false)
@@ -48,3 +54,4 @@ $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $work 'verificati
 Write-Host "独立候选包（不供旧更新器安装）：$archive"
 Write-Host "验证目录：$work"
 Write-Host "SHA-256：$($result.Sha256)"
+if ($PassThru) { [pscustomobject]@{ Work=$work; Backend=$buildPath; Payload=$result.ExtractedTo; Archive=$archive; Version=$version } }

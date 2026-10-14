@@ -42,6 +42,7 @@ namespace AudioSwitch
             if (modern) {
                 try { Validate(directory, AppVersion.Number); }
                 catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整" + (UpdatePackage.IsDesktop(directory) ? "桌面" : "候选") + "包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }
+                WebViewRuntime.Require(UpdatePackage.Desktop);
             }
             return new ProcessStartInfo(modern ? panel : backend, (prompt ? "--prompt" : modern ? "" : "--ui") + " --owner=" + owner) {
                 UseShellExecute = false, WorkingDirectory = directory

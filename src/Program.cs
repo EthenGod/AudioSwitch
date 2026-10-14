@@ -21,6 +21,7 @@ namespace AudioSwitch
             if (args.Contains("--dolby-worker")) { DolbyWorker.Main(); return; }
             if (args.Length == 1 && args[0] == "--panel-maintenance") { PanelMaintenance.Main(); return; }
             if (args.Length == 1 && args[0] == "--panel-upgrade") { PanelUpgrade.Main(); return; }
+            if (args.Length == 1 && args[0] == "--check-webview2") { WebViewRuntime.Main(); return; }
             SetProcessDPIAware();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -44,6 +45,7 @@ namespace AudioSwitch
                 if (args.Contains("--ui") || args.Contains("--prompt"))
                 {
                     if (!FileIntegrity.RequireStartupFiles()) return;
+                    WebViewRuntime.RequireForDirectory(AppDomain.CurrentDomain.BaseDirectory);
                     if (args.Contains("--ui")) InstanceLocation.RequireBackend(Application.ExecutablePath, Wire.Send(new Request { Action = "snapshot" }));
                     // Read without migration/writes, so the first frame already has the saved theme.
                     try { if (File.Exists(PreferenceStore.SettingsPath)) Palette.Apply(PreferenceStore.Parse(PreferenceStore.ReadFile(PreferenceStore.SettingsPath)).DarkMode); }
@@ -82,6 +84,7 @@ namespace AudioSwitch
                     }
                     if (!FileIntegrity.RequireStartupFiles()) return;
                     string updateIssue = null;
+                    WebViewRuntime.RequireForDirectory(AppDomain.CurrentDomain.BaseDirectory);
                     var startupPreferences = PreferenceStore.Load(PreferenceStore.SettingsPath);
                     var updates = new AutomaticUpdateStore(DataDirectory, Application.ExecutablePath);
                     if (updates.TryInstall(args.Contains("--background"), (payload, release, background) =>

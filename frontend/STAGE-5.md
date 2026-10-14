@@ -61,6 +61,14 @@
 - 回归覆盖越序动作、旧任务标记、重复提交、关闭时请求未返回、下载失败、取消、交接失败及中文跨进程结果；使用假维护依赖／进程，不启动真实托盘或写音频。用 Playwright 检查交互、焦点、长错误和缩放布局。
 - 保留下一阶段的真实在线发布、WebView2 缺失环境、真实后台重启及有音频副作用的验收；本轮不发布、不更新日常 bin。
 
+### 5.3d 实施清单（2026-10-14）
+
+- `release.ps1 -Desktop` 新增双包选项：同一构建生成旧名 8 文件过渡 ZIP、新名 14 文件 Desktop ZIP 和兼容单 EXE；默认旧包方式保留。前后端版本必须一致，不覆盖已有目录，不自动上传或改版本号。本轮产物仅放 staging。
+- 复用新鲜候选构建及许可归集，只复制正式清单指定内容到新的目录；候选标记不进入正式包。核对固定清单、逐文件摘要、解压后完整性，以及真实更新解压器能接受两份 ZIP。
+- 依据微软文档只读检测当前用户／整机 Evergreen WebView2 Runtime。新界面启动、Desktop 安装交接及安装助手退出旧程序前检查；缺失／无法检测时说明安装与重试方法，不自动下载安装。旧格式运行不增加该依赖。
+- 自动更新缺少 Runtime 时保留缓存和未尝试状态，安装 Runtime 后可重试；不把前置条件缺失记为已尝试安装。测试以注入缺失／权限失败、隔离包及只读本机检测为主，不卸载系统 Runtime。
+- 完成本地构建、双包校验、运行依赖和隔离测试；保留真实 GitHub 连续升级、缺失 Runtime 的新机器与音频副作用验收。交付后停止，不提交、发布、合并或替换 bin。
+
 ## 5.4 发布与日常替换前验收
 
 - 补齐第四阶段真实保存／导入恢复、Dolby 应用和取消恢复、实际设备提示、USB／蓝牙插拔、睡眠唤醒及跨屏 DPI；仅在用户允许对应副作用后执行。
@@ -196,3 +204,30 @@
 涉及文件：新增 `src/PanelUpgrade.cs`、Rust `upgrade.rs`、前端 `UpgradeSheet.tsx`／`data/upgrade.ts`、对应 C#／React 测试和 `verify-upgrade.js`；连接 Program、接口版本、LaunchRepair 格式参数、Tauri 命令、前端数据接口／页面；补充同版本整包修复测试及说明文档。未修改音频核心、Dolby 实现、真实配置、自启、日常 bin、版本号或正式 release.ps1；没有提交、合并或发布。
 
 本小项完成后停止。下一项建议 5.3d：先补具体清单，再处理正式双资产打包和 WebView2 前置条件。真实 GitHub 连续升级、生产后台重启后的音效规则、真实修复／失败恢复及硬件验收仍待后续；不能用本轮模拟结果替代。
+
+## 5.3d 交付记录（2026-10-14）
+
+`release.ps1 -Desktop` 已完成本地双包构建与校验：同一次新鲜构建生成旧名 8 文件过渡 ZIP、新名 14 文件 Desktop ZIP 和相同后台单 EXE；旧命令默认方式保持不变。版本不一致、目录已存在、输出越界或链接路径会拒绝。只选取固定清单，候选专用标记不进入 Desktop；保留前端、Rust、标准库及 Loader 许可，不分发系统 Runtime。生产更新解压器逐包解压、校验，再运行各包后台的只读完整性检查，全部通过后才写入最终目录。
+
+新增 Evergreen WebView2 只读检测，按微软文档读取当前用户／整机注册信息。新界面启动、安装交接及安装助手让旧程序退出前均检查；缺少或无法确认时显示手动安装和重试方法，不自动安装组件。自动更新因此中止时保留缓存和未尝试状态，避免装好组件后仍被锁住。旧格式不新增运行依赖；诊断参数 `--check-webview2` 不初始化配置或音频。注册检测不保证实际创建窗口成功，Tauri 原生失败提示仍保留。
+
+| 验证 | 结果与范围 |
+| --- | --- |
+| C# | 普通回归 768 项通过；隔离安装进程专项 800 项通过，包含普通回归，不能相加。覆盖缺失／错误注册值、读取权限、用户／整机回退、中文诊断、自动更新不消耗安装尝试，以及同版本迁移／升级／修复。生产安装助手只操作假后台／面板。 |
+| 构建 | 前端类型检查、桌面网页生产构建及 Tauri release 构建通过；本轮没有改 React 业务逻辑。普通回归首次放入过长的候选子目录触发 .NET Framework 路径长度限制，已把双包测试输出调整到唯一短目录 staging/t加标记，保留失败目录，重跑通过。 |
+| 打包 | 两份 ZIP 由实际更新解压器接受；分别为 8／14 文件，解压 EXE 与独立 EXE 摘要相同，独立 `--check-files --quiet` 均返回 0。复用候选格式的 52 项拒绝损坏／越界等回归通过。最终目录仅三个附件；重复打包和输出越界被拒绝，原附件摘要不变。 |
+| 本机只读检查 | 检测到 WebView2 153.0.4234.48；验证前后活动配置哈希一致。未卸载 Runtime，未启动真实 TrayHost，未写音频。缺失与权限异常通过注入测试，不能替代无 Runtime 新机器验收。 |
+
+产物仅供本地验证：`staging/release-53d/v0.11.1/`。未递增版本；实际发布需采用高于旧正式版的协调版本、提交完整对应源码，并完成剩余实机验收。
+
+| 文件 | SHA-256 |
+| --- | --- |
+| AudioSwitch-v0.11.1-win-x64.zip | `3b14c04241b374d5c4af72bb2765c7a96138ece62801128ef47e022085209b34` |
+| AudioSwitch-Desktop-v0.11.1-win-x64.zip | `182b706b907a26b56ddeb8043808c1299c7bef9e543daa02519415a11c13ac72` |
+| AudioSwitch.exe | `00bb5021e430c53b1ce15af4ac49e49eab0107e1caa04c38ffc5ba492ebcb4a1` |
+
+日志与记录：`staging/stage53d-dual-package.log`、`stage53d-process.log`、`stage53d-candidate.log`、`stage53d-final-check.json`；完整普通测试日志在 `staging/ui-candidate-100c3a7f8b74424887491976262560c5/backend-build.log`；附件明细在 `staging/desktop-release-5bf38b9abfee4a23b1d189f52ea9b7e2/verification.json`。
+
+涉及文件：新增 `src/WebViewRuntime.cs`、`frontend/desktop-release.ps1`、`desktop-readme.txt` 及对应 C# 测试；在 Program／FrontendWindows／UpdateInstaller／AutomaticUpdateStore 接入前置检查，补充 Rust 原生启动错误提示；扩展 release.ps1 和 candidate-package.ps1，更新 README、CONFIGURATION、MANUAL-TESTS 与本记录。未修改音频核心、Dolby、真实配置、日常 bin；未提交、合并或发布。
+
+本小项完成后停止。下一阶段 5.4 先盘点未验收项、准备隔离环境与具体清单；真实 GitHub 连续升级、生产重启及音频写入仍不能由本轮本地结果代替，沿用用户“无音频写入”的限制。

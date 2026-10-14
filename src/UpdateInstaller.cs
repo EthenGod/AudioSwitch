@@ -74,6 +74,7 @@ namespace AudioSwitch
         { LaunchCore(payload, release, parentPid, false, true, background); }
         private static void LaunchCore(string payload, UpdateRelease release, int parentPid, bool repair, bool automatic = false, bool background = false)
         {
+            WebViewRuntime.Require(release.PackageFormat);
             string work = Path.GetDirectoryName(payload);
             string target = Application.ExecutablePath;
             UpdatePackage.RequireTarget(Path.GetDirectoryName(target), release.PackageFormat);
@@ -257,6 +258,7 @@ namespace AudioSwitch
                     plan = Wire.Decode<UpdatePlan>(File.ReadAllText(planFile));
                     if (plan != null && plan.Automatic != automatic) throw new InvalidDataException("更新启动方式不一致。");
                     ValidatePlan(plan);
+                    WebViewRuntime.Require(plan.PackageFormat);
                     string directory = Path.GetDirectoryName(plan.Target);
                     string backup = Path.Combine(directory, "update-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
                     ValidateBackupPaths(directory, backup, plan.PackageFormat);

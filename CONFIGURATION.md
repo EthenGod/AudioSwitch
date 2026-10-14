@@ -8,6 +8,8 @@
 
 待安装记录继续读取旧 `Format=1` / `PackageFormat=0` 的 8 文件记录（缺省 PackageFormat 视为 0）；Desktop 使用 `Format=2` / `PackageFormat=1` 的 14 文件记录，安装助手也保留包类型，不能靠篡改类型减少校验文件数。旧包已安装成功留下的同版本 Attempted 记录不阻止下一步迁移；同版本 Desktop 迁移失败的 Attempted 记录仍阻止自动重复。下载缓存中的未完成 Desktop 解压可按已选资产类型重新解压；安装目标目录不会因此放宽校验。安装仍只处理固定程序文件和自身备份，不触碰 settings.json 或其备份。
 
+5.3d 的 WebView2 检测只读注册表，不增加配置字段、不保存检测结果。自动安装在标记 Attempted 前检查 Desktop 所需组件；缺少或无法读取时保留未尝试记录及缓存。交接前再次检测失败会还原该标记，失败原因显示在面板；如果记录还原失败则明确要求手动重试。安装助手也会在让旧程序退出之前复查。旧格式安装不需要 WebView2，实际安装失败仍沿用原有禁止重复自动尝试的策略。
+
 唯一活动用户配置：`%LOCALAPPDATA%\AudioSwitch\settings.json`。
 程序自动保存、导出备份、导入恢复共用同一种 UTF-8 JSON 格式。
 `AudioSwitch.exe.config` 是 .NET 运行时文件，不存放用户设置。
