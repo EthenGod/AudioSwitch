@@ -346,3 +346,10 @@
 - 内存采样使用 Open 的 `-NoBrowserDebug`，打开后等待约 5 秒，再 Check／Sample。脚本默认仍开启本地 9223 供原浏览器测试使用，记录 DebugBrowser 标志。测试控制台 conhost 属于入口本身，按打开前 PID 和启动时间识别，不能计入界面残留或生产后台性能。
 - 分别运行 `verify-prompt-owner.ps1 -Panel` 和不带 Panel 的命令，指定实际包内面板路径与新的 `-RecordPrefix`，验证独立所有者退出时关闭窗口。前者检查主面板、后者检查提示，不启动真实后台。
 - 对照 [发布验收表](frontend/RELEASE-READINESS.md) 填写已验／待验；真实配置保存和恢复、音频写入、生产重启、GitHub 连续迁移与缺少 Runtime 的新机器仍不能由隔离结果替代。
+
+## refactor/ui 第五阶段 5.4b 更新交接故障
+
+- 普通回归启动测试专用子进程，调用与安装助手相同的组件预检及交接等待逻辑，注入 Runtime 缺失；核对中文诊断、原程序尚未退出的提示、自动缓存 Attempted 恢复，以及随后可以继续尝试。测试子进程不启动 TrayHost，不访问音频；不卸载真实 Runtime。
+- 普通异常退出和等待超时不能转换成可安全重试的组件错误；正常 ready 事件仍应完成交接。安装助手的组件检查必须位于创建备份、通知旧程序退出和替换文件之前。
+- 在同一临时缓存连续准备两次交接：助手、配置和任务文件各自独立；第一份任务事件名和固定 install.json 保留。第二次不能覆盖前一次仍可能在使用的文件；下载器继续拒绝重新解压已交接缓存，原缓存容量限制仍适用。
+- 运行 `AudioSwitch.Tests.exe --desktop-update-process --automatic-process` 验证假后台的迁移、Desktop 更新、同版本修复及原自动安装；未运行真实后台和网络发布。新的缺失 Runtime 故障用例不等于缺少组件的全新 Windows 环境实测。

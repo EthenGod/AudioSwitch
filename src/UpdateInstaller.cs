@@ -30,6 +30,8 @@ namespace AudioSwitch
     }
     internal static class UpdateInstaller
     {
+        // Only emitted before readiness, backups, process shutdown or file replacement.
+        internal const int RuntimeUnavailableExitCode = 23;
         internal static string MutexName { get { return "Local\\AudioSwitch-Update-" + Wire.Identity; } }
         internal static bool IsUpdating()
         {
@@ -83,27 +85,52 @@ namespace AudioSwitch
             var plan = new UpdatePlan { Target = target, Payload = payload, Version = release.Version.ToString(3), ParentPid = parentPid,
                 ReadyEvent = "Local\\AudioSwitch-Update-Ready-" + Guid.NewGuid().ToString("N"),
                 Repair = repair, Automatic = automatic, Background = background, PackageFormat = release.PackageFormat, Hashes = files.ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
-            string helper = Path.Combine(work, "AudioSwitch.Update.exe");
-            string planFile = Path.Combine(work, "install.json");
+            string helper, planFile;
             using (UpdateStorage.CacheLease(Path.GetDirectoryName(work)))
             {
                 string source = repair ? Path.Combine(payload, "AudioSwitch.exe") : target;
                 string config = repair ? Path.Combine(payload, "AudioSwitch.exe.config") : target + ".config";
-                UpdateStorage.Require(Path.GetDirectoryName(work), UpdateStorage.CacheLimit, new FileInfo(source).Length + new FileInfo(config).Length + 65536, "更新缓存");
+                UpdateStorage.Require(Path.GetDirectoryName(work), UpdateStorage.CacheLimit, new FileInfo(source).Length + new FileInfo(config).Length + 131072, "更新缓存");
                 // A damaged running executable must never be used as the repair helper.
-                File.Copy(source, helper, false); File.Copy(config, helper + ".config", false);
-                File.WriteAllText(planFile, Wire.Encode(plan), new System.Text.UTF8Encoding(false));
+                PrepareHelper(work, source, config, plan, out helper, out planFile);
             }
             using (var ready = new EventWaitHandle(false, EventResetMode.ManualReset, plan.ReadyEvent))
             using (var helperProcess = Process.Start(new ProcessStartInfo(helper, (automatic ? "--apply-auto-update " : "--apply-update ") + Quote(planFile)) { UseShellExecute = false, WorkingDirectory = work }))
             {
-                // Do not close the user's panel until the helper has validated its input and acquired the lock.
-                var watch = Stopwatch.StartNew();
-                while (!ready.WaitOne(100))
-                {
-                    if (helperProcess.HasExited || watch.ElapsedMilliseconds > 25000)
-                        throw new IOException("更新助手未能准备就绪。当前程序仍在运行，请稍后重试。");
-                }
+                WaitForReady(helperProcess, ready);
+            }
+        }
+        // Caller holds the cache lease and has reserved space. Keep all prior attempts intact.
+        internal static void PrepareHelper(string work, string source, string config, UpdatePlan plan, out string helper, out string planFile)
+        {
+            string attempt = Guid.NewGuid().ToString("N");
+            helper = Path.Combine(work, "AudioSwitch.Update-" + attempt + ".exe");
+            planFile = Path.Combine(work, "install-" + attempt + ".json");
+            string marker = Path.Combine(work, "install.json"); RejectLinks(marker);
+            File.Copy(source, helper, false); File.Copy(config, helper + ".config", false);
+            File.WriteAllText(planFile, Wire.Encode(plan), new System.Text.UTF8Encoding(false));
+            // Preserve the existing download/extraction guard, including older fixed-name plans.
+            if (!File.Exists(marker)) File.Copy(planFile, marker, false);
+        }
+        internal static void WaitForReady(Process helper, EventWaitHandle ready, int timeoutMilliseconds = 25000)
+        {
+            var watch = Stopwatch.StartNew();
+            while (!ready.WaitOne(100)) {
+                bool exited = helper.HasExited;
+                if (exited && ready.WaitOne(0)) return;
+                if (exited && helper.ExitCode == RuntimeUnavailableExitCode)
+                    throw new WebViewRequirementException("更新助手无法使用 Microsoft Edge WebView2 Runtime，尚未退出原程序或替换文件。请安装或修复 Evergreen Runtime 后重试。\r\n" + WebViewRuntime.DownloadUrl);
+                if (exited || watch.ElapsedMilliseconds > timeoutMilliseconds)
+                    throw new IOException("更新助手未能准备就绪。当前程序仍在运行，请稍后重试。");
+            }
+        }
+        internal static bool CheckRuntimeBeforeReady(int format, string resultPath, Action<int> requireRuntime = null)
+        {
+            try { (requireRuntime ?? WebViewRuntime.Require)(format); return true; }
+            catch (WebViewRequirementException ex) {
+                try { File.WriteAllText(resultPath, ex.ToString(), new System.Text.UTF8Encoding(false)); } catch { }
+                Environment.ExitCode = RuntimeUnavailableExitCode;
+                return false;
             }
         }
         private static void ValidatePlan(UpdatePlan plan)
@@ -258,7 +285,7 @@ namespace AudioSwitch
                     plan = Wire.Decode<UpdatePlan>(File.ReadAllText(planFile));
                     if (plan != null && plan.Automatic != automatic) throw new InvalidDataException("更新启动方式不一致。");
                     ValidatePlan(plan);
-                    WebViewRuntime.Require(plan.PackageFormat);
+                    if (!CheckRuntimeBeforeReady(plan.PackageFormat, resultPath)) return;
                     string directory = Path.GetDirectoryName(plan.Target);
                     string backup = Path.Combine(directory, "update-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
                     ValidateBackupPaths(directory, backup, plan.PackageFormat);

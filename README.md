@@ -81,7 +81,7 @@
 
 UI 迁移使用 PowerShell 7 执行 `./release.ps1 -Desktop`，需同步更新 C#、`frontend/package.json`、Tauri／Cargo 清单及对应锁文件中的项目版本。它重新构建并验证，在新的版本目录生成 **三个** 附件：旧名 8 文件 ZIP、`AudioSwitch-Desktop-v版本号-win-x64.zip`（14 文件）和同一后台的单 EXE。两份 ZIP 必须一起保留，才能让旧客户端先更新到过渡版、再迁移到新界面；单 EXE 不包含新面板。需要已安装的 Node／Rust／C++ 构建工具，不自动安装。可用 `-OutputDirectory staging/自选目录` 做本地验证，不覆盖已有版本目录。当前 0.11.1 产物仅用于本地校验；正式发布前需递增版本、完成实机验收并提交对应完整源码。
 
-Desktop 需要 Microsoft Edge WebView2 Evergreen Runtime。启动与安装交接前只读检测组件，缺失时说明微软下载地址；不会自动下载安装。`AudioSwitch.exe --check-webview2` 只输出检测结果，不启动后台或读取配置。检测到注册信息不代表实际窗口创建已验收。自动更新因缺少组件暂停时保留缓存，安装组件后可重试。
+Desktop 需要 Microsoft Edge WebView2 Evergreen Runtime。启动与安装交接前只读检测组件，缺失时说明微软下载地址；不会自动下载安装。`AudioSwitch.exe --check-webview2` 只输出检测结果，不启动后台或读取配置。检测到注册信息不代表实际窗口创建已验收。自动更新因缺少组件暂停时保留缓存，安装组件后可重试。5.4b 已补齐安装助手最后一次组件检查失败的反馈和重试保护，不会只显示笼统的“助手未就绪”；再次交接不会覆盖前次助手文件。
 
 默认旧格式脚本会在独立 staging 目录构建、运行普通测试，并在项目的 `releases/v版本号/` 中生成两个待上传附件：
 

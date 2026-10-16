@@ -135,7 +135,7 @@ namespace AudioSwitch
             }
             catch (WebViewRequirementException ex) {
                 issue = ex.Message;
-                // LaunchCore can recheck after the first preflight. No helper has been started for this exception.
+                // Either local preflight failed, or the helper exited before signaling readiness.
                 if (marked != null) {
                     marked.Attempted = false;
                     try { Save(marked); } catch (Exception save) { issue += "\r\n无法恢复自动重试记录，请在面板手动重试：" + save.Message; }
