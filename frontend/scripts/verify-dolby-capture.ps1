@@ -1,7 +1,11 @@
+param([string]$ExecutablePath, [string]$OutputPath)
 # Windows PowerShell only: read current state and run the original capture-only worker.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot)
 $exe = Join-Path $root 'staging/AudioSwitch.exe'
+if ($ExecutablePath) { $exe = (Resolve-Path -LiteralPath $ExecutablePath).Path }
+if (!$OutputPath) { $OutputPath = Join-Path $root 'staging/stage44-readonly-capture.json' }
+if (Test-Path -LiteralPath $OutputPath) { throw 'Capture record already exists; choose a new explicit filename.' }
 $configuration = Join-Path $env:LOCALAPPDATA 'AudioSwitch/settings.json'
 function ConfigurationHash { if (Test-Path -LiteralPath $configuration) { (Get-FileHash -LiteralPath $configuration -Algorithm SHA256).Hash } }
 $before = ConfigurationHash
@@ -22,10 +26,10 @@ try {
         if (!$result.Error -and !$result.Profile) { throw 'Capture result is incomplete.' }
         $afterState=$audio.Read(); $after=ConfigurationHash
         $sameDefaults=($state.Defaults | ConvertTo-Json -Compress) -eq ($afterState.Defaults | ConvertTo-Json -Compress)
-        $record=[PSCustomObject]@{ Pid=$process.Id; Exited=$process.HasExited; ConfigurationUnchanged=($before -eq $after); DefaultsUnchanged=$sameDefaults; Captured=($null -ne $result.Profile); Result=$result }
-        $record | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'staging/stage44-readonly-capture.json') -Encoding UTF8
+        $record=[PSCustomObject]@{ CapturedAt=(Get-Date).ToString('o'); DeviceId=$id; Executable=$exe; Pid=$process.Id; Exited=$process.HasExited; ConfigurationUnchanged=($before -eq $after); DefaultsUnchanged=$sameDefaults; Captured=($null -ne $result.Profile); Result=$result }
+        $record | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
         $record | Select-Object Pid,Exited,ConfigurationUnchanged,DefaultsUnchanged,Captured | Format-List
-        if ($result.Error) { Write-Output ('Capture reported: '+$result.Error) }
+        if ($result.Error) { throw ('Capture reported: '+$result.Error) }
         if ($before -ne $after -or !$sameDefaults) { throw 'System state changed during read-only capture; inspect before continuing.' }
     } finally { if (!$process.HasExited) { $process.Kill(); [void]$process.WaitForExit(1500) }; $process.Dispose() }
 } finally { $audio.Dispose() }

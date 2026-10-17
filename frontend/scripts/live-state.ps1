@@ -1,9 +1,10 @@
-param([Parameter(Mandatory=$true)][string]$OutputPath)
+param([Parameter(Mandatory=$true)][string]$OutputPath, [string]$ExecutablePath)
 # Run with Windows PowerShell (.NET Framework). Read-only system baseline.
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $OutputPath) { throw 'Baseline already exists; choose a new explicit filename.' }
 $root = Split-Path (Split-Path $PSScriptRoot)
-$assembly = [Reflection.Assembly]::LoadFrom((Join-Path $root 'staging\AudioSwitch.exe'))
+if (!$ExecutablePath) { $ExecutablePath = Join-Path $root 'staging\AudioSwitch.exe' }
+$assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path -LiteralPath $ExecutablePath).Path)
 $audio = [Activator]::CreateInstance($assembly.GetType('AudioSwitch.AudioService'), $true)
 try {
     $state = $audio.Read()
