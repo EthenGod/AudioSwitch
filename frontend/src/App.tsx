@@ -20,6 +20,12 @@ type Notice = { text: string; error?: boolean } | null
 
 export function App({ gateway }: { gateway: UiGateway }) {
   const desktop = gateway.mode === 'desktop'
+  useEffect(() => {
+    document.title = desktop ? '声间 · 设备面板' : '声间 · 界面预览'
+    document.querySelector('meta[name="description"]')?.setAttribute('content', desktop
+      ? '声间 Audio Switch · 音频设备管理'
+      : '声间 Audio Switch · 仅使用模拟数据的界面预览')
+  }, [desktop])
   const [page, setPage] = useState<Page>('devices')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [busy, setBusy] = useState(false)
@@ -99,12 +105,12 @@ export function App({ gateway }: { gateway: UiGateway }) {
       <nav aria-label="主导航">{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span>{page === key && <ChevronRight size={13} />}</button> })}</nav>
       <div className="sidebar-bottom">
         <div className="automation-hint"><span><ArrowRightLeft size={15} />自动切换</span><strong>{snapshot ? snapshot.Preferences.UseDevicePriority ? '按设备优先级选择' : '当前已关闭优先级' : desktop ? '等待读取设备' : '等待示例数据'}</strong><p>优先使用排序靠前的在线设备</p><button onClick={() => setPage('automation')}>管理规则 <ChevronRight size={12} /></button></div>
-        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label="关于此预览" onClick={() => setNotice({ text: desktop ? '桌面面板：操作交给已运行的声间后台处理；不会自动启动后台。' : '当前为浏览器模拟预览，不连接后台。' })}><CircleHelp size={15} /></Button></div>
+        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label={desktop ? '关于声间' : '关于此预览'} onClick={() => setNotice({ text: desktop ? '桌面面板：操作交给已运行的声间后台处理；不会自动启动后台。' : '当前为浏览器模拟预览，不连接后台。' })}><CircleHelp size={15} /></Button></div>
       </div>
     </aside>
     <div className="workspace">
       <header className="topbar"><div className="breadcrumb"><AudioLines size={15} /><span>工作空间</span><ChevronRight size={12} /><strong>{currentPage.title}</strong></div><div className="topbar-actions">{snapshot?.Preferences.GameMode && <span className="game-badge"><Gamepad2 size={13} />游戏模式</span>}<Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} disabled={busy || loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></div></header>
-      <div className="preview-banner"><Info size={14} /><span>{desktop ? uncertain ? '操作结果尚未确认，请先刷新状态' : readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '已连接真实后台，操作会改变系统设置' : '界面预览，操作不会改变系统设置'}</span><span className="preview-detail">{desktop ? readOnly ? '需要支持第三阶段操作的后台' : '预设仅保存，切换时应用' : '所有设备均为示例'}</span></div>
+      <div className="preview-banner"><Info size={14} /><span>{desktop ? uncertain ? '操作结果尚未确认，请先刷新状态' : readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '已连接真实后台，操作会改变系统设置' : '界面预览，操作不会改变系统设置'}</span><span className="preview-detail">{desktop ? uncertain ? '确认当前状态后再操作' : readOnly ? '修改设置需要新版后台' : '预设仅保存，切换时应用' : '所有设备均为示例'}</span></div>
       <main ref={main} id="main-content" tabIndex={-1} className="main-content">
         <div className="page-heading"><h1>{currentPage.title}</h1>{page === 'devices' && <Button variant="outline" disabled={busy || loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button>}</div>
         {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><p>{desktop ? '读取已运行后台的状态，不会启动后台。' : '不会连接真实音频后台。'}</p><div className="skeleton-row" /><div className="skeleton-row" /></div> : error ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw />重试</Button></div> : snapshot && <>

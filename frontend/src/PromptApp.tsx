@@ -29,6 +29,9 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   }
   useEffect(() => {
     document.title = gateway.mode === 'desktop' ? '声间 · 设备提示' : '声间 · 设备提示预览'
+    document.querySelector('meta[name="description"]')?.setAttribute('content', gateway.mode === 'desktop'
+      ? '声间 Audio Switch · 音频设备接入与断开提示'
+      : '声间 Audio Switch · 仅使用模拟数据的设备提示预览')
   }, [gateway.mode])
   useEffect(() => {
     let active = true, timer: ReturnType<typeof setTimeout>

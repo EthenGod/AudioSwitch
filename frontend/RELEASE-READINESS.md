@@ -1,6 +1,8 @@
 # UI 重构发布验收表
 
-更新：2026-10-17，阶段 5.4d。**当前结论：完整包已通过本地隔离验收和一次真实后台启动／面板退出检查，尚不能发布或替换日常版本。**
+更新：2026-10-18，阶段 5.4f。**当前结论：标题及文案修正已进入新本地完整包并通过原生窗口检查，尚不能发布或替换日常版本。**
+
+最新本地验证包为 `staging/release-54f-final/v0.11.1/`，来源为已记录的未提交前端改动及基准提交。5.4c、5.4f 首次包均保留，不混用它们的摘要与实测记录。5.4d 的真实后台实测对应旧 5.4c 包；本轮仅运行隔离模拟入口。
 
 5.4d 已按用户确认后的 [真实后台联调清单](LIVE-ACCEPTANCE.md) 执行。真实后台、面板打开／关闭／重开正常，前后默认设备、音量、空间音效、Dolby、配置和自启登记一致，无需恢复写入。
 
@@ -11,7 +13,7 @@
 | 项目 | 已有证据 | 发布前仍需完成 |
 | --- | --- | --- |
 | 页面与基本交互 | 第一阶段与 5.3c 的浏览器测试；深浅色、键盘和等效缩放记录 | Windows 原生缩放、跨显示器 DPI、原生文件选择框人工检查 |
-| 真实只读数据 | 4.4c 设备／Dolby 读取；5.4d 真实 TrayHost 显示 14 台设备（10 台在线），三个页面显示正常，前后读值与配置一致 | 持续运行的完整联调；断开、重新连接与错误提示人工确认；内部网页无障碍标题仍沿用“界面预览”待修正 |
+| 真实只读数据 | 4.4c 设备／Dolby 读取；5.4d 真实 TrayHost 显示 14 台设备（10 台在线），三个页面显示正常，前后读值与配置一致；5.4f 新包的主面板／提示 WebView2 文档标题已实测正确（模拟后台） | 持续运行的完整联调；断开、重新连接与错误提示人工确认 |
 | 窗口与进程 | 5.4a 隔离主面板／提示行为检查；5.4d 真实后台打开／关闭／重开主面板，7 个界面进程释放；退出后产品进程为 0 | 真实托盘点击、实际设备提示及长时间稳定性；本次短时内存采样见联调清单 |
 | 保存、导入与音频操作 | 第三／四阶段的逻辑、模拟 IPC、失败和取消回归 | 真实仅保存、导入／备份恢复、默认角色切换、音量／空间音效／Dolby 应用与失败恢复；执行前另行确认副作用和恢复方案 |
 | 安装、修复及回滚 | 5.3d 假进程安装助手 800 项（含普通回归）；5.4a 实际 Desktop 文件安装与备份、14 文件逐字节一致及只读完整性校验 | 实际生产程序退出、替换、重启、同版本完整修复和失败恢复；重启可能触发既有音效规则 |
@@ -73,3 +75,23 @@
 源码及路径记录：`staging/stage54c-source.json`、`stage54c-paths.json`；最终摘要与边界核对：`stage54c-final.json`。构建日志：`stage54c-package.log`，完整后台回归位于 `staging/ui-candidate-300babf7107843998b41cd6d4ff8f6bf/backend-build.log`。实包专项：`stage54c-real-package.log`，事务结果位于 `staging/tdc7e0916/desktop-real-ac3422e8/result.json`。组包清单位于 `staging/desktop-release-80fe6864a3b44081b0e4b2a2ad466960/verification.json`。
 
 这是仍沿用 0.11.1 的本地验证包，不是新的正式版本；不可用来覆盖现有 Release。没有替换日常 bin、发布、提交或合并。表中实际网络迁移、新机器 Runtime、生产后台与音频／硬件实测仍待验，本项结束不代表可以正式替换日常版本。
+
+## 5.4f 当前本地完整包（2026-10-18）
+
+最终目录：`staging/release-54f-final/v0.11.1/`。基准提交为 `ee492e89aba77855ff05929d3bbb656ec814ad79`，包含尚未提交的 index.html、App、PromptApp 和 Settings 文案修正，不能宣称仅从该提交构建。实际文件摘要与完整前端差异保存在 `staging/stage54f-final-source.json`、`stage54f-final-frontend.patch`。最初包 `staging/release-54f/v0.11.1/` 未包含本轮补充的关于按钮／兼容提示修正，仅作历史记录；5.4c 包也保留。
+
+| 附件 | SHA-256 |
+| --- | --- |
+| AudioSwitch-v0.11.1-win-x64.zip（8 文件） | `4b06fbaad3c08a38959cbf5620d556ec45d8cb7dd411af3861e867518c36f75a` |
+| AudioSwitch-Desktop-v0.11.1-win-x64.zip（14 文件） | `370cabe6a85f04ab0a23b90bdbdad792b67e2ac44212a30f11fa05bee47788e5` |
+| AudioSwitch.exe | `bf359442184edcb14914245ec09b71c5ddd1f64dc58e77a128db0c29072ea36f` |
+
+本轮最终 776 项后端普通检查、91 项前端测试通过；TypeScript、桌面网页和 Tauri release 构建通过，归集 17 个前端运行依赖、shadcn、247 个 Rust 依赖及标准库／WebView2 Loader 许可。两份 ZIP 通过生产解压器及包内只读文件检查，独立 EXE 与两份 ZIP 中后台一致。没有重跑未改动的安装事务或有副作用实机测试，也不把历史项目计入本轮。
+
+实际运行最终 Desktop 包的原生面板及设备提示，后端为既有模拟入口，无真实 AudioService。两个 WebView2 文档标题分别为“声间 · 设备面板”“声间 · 设备提示”；关于按钮为“关于声间”，设置页为“桌面版”。原生无障碍树与设置文案存于 `staging/stage54f-final-main-ax.txt`、`stage54f-final-prompt-ax.txt`、`stage54f-final-settings-ax.txt`。旧后台／操作结果不确定的提示分支通过源码及现有回归核对，未在本轮原生窗口中人工触发。
+
+入口正常退出后，记录中的 11 个入口／窗口相关进程全部退出，配置哈希一致。会话记录为 `frontend/output/desktop/stage54f-final-native.json`。此前首次包的 native 记录及源码记录保留，不能混作最终包证据。
+
+完整构建日志：`staging/stage54f-final-package.log`；后台日志：`staging/ui-candidate-dbd48bb465c641c7a2cefa0a8bd5bd7d/backend-build.log`；前端测试：`staging/stage54f-frontend-tests.log`；附件明细：`staging/desktop-release-c38a6e0fb9ca4ba092790acdd086d9b2/verification.json`；最终核对：`staging/stage54f-final-check.json`。解压目录：`staging/t47b6424f/release-verify-1b7e203b12324683b6645db5dfc44ea8/desktop`。
+
+本包仅用于本地验证，仍是 0.11.1；未递增版本、替换日常程序或上传。标题原生验收项已关闭，真实保存、导入恢复、主动音频操作、硬件及连续升级安装等仍待单独验收。

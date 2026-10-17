@@ -354,6 +354,13 @@
 - 在同一临时缓存连续准备两次交接：助手、配置和任务文件各自独立；第一份任务事件名和固定 install.json 保留。第二次不能覆盖前一次仍可能在使用的文件；下载器继续拒绝重新解压已交接缓存，原缓存容量限制仍适用。
 - 运行 `AudioSwitch.Tests.exe --desktop-update-process --automatic-process` 验证假后台的迁移、Desktop 更新、同版本修复及原自动安装；未运行真实后台和网络发布。新的缺失 Runtime 故障用例不等于缺少组件的全新 Windows 环境实测。
 
+## refactor/ui 第五阶段 5.4f 原生标题与本地包
+
+- 后续本地验证使用 `staging/release-54f-final/v0.11.1/`；完整摘要及未提交源码来源见 `frontend/RELEASE-READINESS.md`。旧包保留，版本仍是 0.11.1，不作为新的正式发布。
+- 使用 PowerShell 7 执行 `frontend/scripts/launch-session.ps1 -Command Open`，指定本次已解压 Desktop 目录、同轮测试 EXE、独立 RecordName 和 `-NoBrowserDebug`。该入口使用模拟设备且拒绝音频及配置写入；先确认没有已有声间进程。
+- 检查主面板和设备提示的原生标题、WebView2 文档标题、关于按钮及设置页文案。通过已有入口的 `testShowPrompt` 请求打开模拟设备提示，不执行真实插拔或切换。
+- 使用同一 FixturePath／RecordName 的 `-Command Close` 正常结束入口，核对其窗口与 WebView2 子进程退出、配置哈希一致。2026-10-18 最终包以上检查通过，记录 `frontend/output/desktop/stage54f-final-native.json` 和 `staging/stage54f-final-*-ax.txt`。这不替代真实后台或更新安装验收。
+
 ## refactor/ui 第五阶段 5.4d 真实后台启动与界面
 
 - 具体范围、授权、备份、退出方式及实际结果见 `frontend/LIVE-ACCEPTANCE.md`。本次允许启动已有规则及必要恢复，不包括主动音频操作或安装升级。
