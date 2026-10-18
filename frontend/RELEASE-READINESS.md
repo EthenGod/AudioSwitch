@@ -1,6 +1,6 @@
 # UI 重构发布验收表
 
-更新：2026-10-18，阶段 5.4g。**当前结论：原生备份导出、导入预览与取消已通过只读联调；真实保存／确认导入及其余发布验收仍未完成，尚不能发布或替换日常版本。**
+更新：2026-10-18，阶段 5.4h。**当前结论：原生异常备份拒绝与重选恢复通过，已修正导入预览的解析错误提示；尚未重新归入双包。真实保存／确认导入及其余发布验收仍未完成，尚不能发布或替换日常版本。**
 
 最新本地验证包仍为 `staging/release-54f-final/v0.11.1/`，构建时的源码来源见下方历史记录。5.4c、5.4f 首次包均保留，不混用它们的摘要与实测记录。5.4d 的真实后台实测对应旧 5.4c 包；5.4g 使用最新面板和只读测试入口，读取真实配置／设备，但不运行 TrayHost 自动规则。
 
@@ -12,7 +12,7 @@
 
 | 项目 | 已有证据 | 发布前仍需完成 |
 | --- | --- | --- |
-| 页面与基本交互 | 第一阶段与 5.3c 的浏览器测试；深浅色、键盘和等效缩放记录；5.4g 原生文件选择框取消、中文路径导出与读取通过 | Windows 原生缩放、跨显示器 DPI；原生文件错误／拒绝覆盖等分支的桌面验收 |
+| 页面与基本交互 | 第一阶段与 5.3c 的浏览器测试；深浅色、键盘和等效缩放记录；5.4g 原生文件选择框取消、中文路径导出与读取；5.4h 损坏 JSON、非法 UTF-8、超大文件拒绝与重选恢复通过 | Windows 原生缩放、跨显示器 DPI；文件占用／无权限、导出失败及活动配置覆盖保护等分支的桌面验收 |
 | 真实只读数据 | 4.4c 设备／Dolby 读取；5.4d 真实 TrayHost 显示 14 台设备（10 台在线），三个页面显示正常，前后读值与配置一致；5.4f 新包的主面板／提示 WebView2 文档标题已实测正确（模拟后台） | 持续运行的完整联调；断开、重新连接与错误提示人工确认 |
 | 窗口与进程 | 5.4a 隔离主面板／提示行为检查；5.4d 真实后台打开／关闭／重开主面板，7 个界面进程释放；退出后产品进程为 0 | 真实托盘点击、实际设备提示及长时间稳定性；本次短时内存采样见联调清单 |
 | 保存、导入与音频操作 | 第三／四阶段的逻辑、模拟 IPC、失败和取消回归；5.4g 真实配置导出逐值一致、导入摘要及取消／重开检查通过，活动配置不变 | 真实仅保存、确认导入／备份恢复、默认角色切换、音量／空间音效／Dolby 应用与失败恢复；执行前另行确认副作用和恢复方案 |
@@ -109,3 +109,15 @@
 证据：`staging/stage54g-build.log`；会话 `staging/stage54g-desktop-readonly.json`；最终文件位于 `staging/t54g/`：`audit-summary.json`、`content-check.json`、`final-process-check.json`、`ui-processes.json`、`export-cancel-ax.txt`、`export-success-ax.txt`、`import-picker-cancel-ax.txt`、`import-preview-ax.txt`、`import-reopened-ax.txt`。完整音频审计为 `readonly-session-b3d2be306fec45d6ae480449dbf2ea3d.json`。导出的真实备份和设备记录仅留在忽略的 staging，不加入源码。
 
 初次受限环境面板退出、跨上下文连接不可用，不作为产品失败或通过证据；该会话已经正常结束并保留记录。改为同一用户桌面上下文后通过上述验收。真实“仅保存”、确认导入／完整备份恢复、文件错误分支及实际安装仍按上表待验。
+
+## 5.4h 异常备份与提示修正（2026-10-18）
+
+实际 Desktop 面板通过原生文件选择框拒绝损坏 JSON、非法 UTF-8 和 1048577 字节文件，没有摘要或确认入口；按钮可继续使用。损坏 JSON 原先显示解析器细节及部分文件文本，本轮在 PanelImport.Preview 的解析失败边界改为重新选择备份的中文提示，不再保留包含文件文本的内部异常。PreferenceStore 的类型、范围、版本和大小校验未改。
+
+提示修正后使用 `staging/t54h-build/AudioSwitch.Tests.exe` 只读入口复验：正常备份可在错误后重新预览，再选损坏文件会清除有效摘要和确认按钮。未确认导入、未运行 TrayHost。新构建普通 C# 回归 778 项通过；原有 5.4f-final 面板未改，既有双包尚不包含本次 C# 修正，下一次打包应从最新源码重新生成。
+
+两次会话（修正前／后）的审计分别记录 snapshot 4 次、previewImport 1 次，以及 snapshot 4 次、previewImport 3 次；编码／大小错误在 Rust 本地读取时被拒绝，不发 previewImport。只包含这两类只读请求。各次前后配置、默认角色、音量与空间音效一致，读错误为 0；没有读取 Dolby 当前驱动参数。两次各记录 7 个 UI 进程，最终均退出，测试输入文件哈希不变。
+
+证据：`staging/stage54h-build.log`；`staging/stage54h-readonly.json`／`stage54h-fixed-readonly.json`；`staging/t54h/` 内 `invalid-json-ax.txt`、`invalid-utf8-ax.txt`、`oversize-ax.txt`、`invalid-json-fixed-ax.txt`、`valid-after-error-ax.txt`、`error-after-valid-ax.txt`、`audit-before-fix.json`、`audit-fixed.json`、`final-check.json`。完整审计路径由上述摘要记录。源代码基准为 d4ad795 加本轮未提交改动。
+
+本项不代替真实保存、确认导入／恢复、导出写入失败及活动配置覆盖保护、音频操作或安装验收。未更新日常 bin、版本号或发布附件，未提交／合并。

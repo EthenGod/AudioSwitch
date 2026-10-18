@@ -31,6 +31,11 @@ namespace AudioSwitch
             var rev = PanelImport.Revision(incoming); incoming.DeviceProfiles["offline"].Dolby.Eq[19]++;
             check(PanelImport.Revision(incoming) != rev, "import conflict includes Dolby-only edits");
             Reject(delegate { PanelImport.Preview("{invalid", current, state); }, check, "import rejects malformed JSON before confirmation");
+            string invalidMessage = null; var beforeInvalid = Wire.Encode(current);
+            try { PanelImport.Preview("{\"private-backup-marker\":", current, state); }
+            catch (InvalidOperationException ex) { invalidMessage = ex.ToString(); }
+            check(invalidMessage != null && invalidMessage.Contains("重新选择声间导出的备份") && !invalidMessage.Contains("private-backup-marker"), "invalid preview gives retry guidance without exposing backup contents in exception chain");
+            check(Wire.Encode(current) == beforeInvalid && Wire.Encode(state) == originalState, "invalid preview preserves current preferences and audio snapshot");
             Reject(delegate { PanelImport.Preview(new string('x', PreferenceStore.MaxBytes + 1), current, state); }, check, "import rejects oversized configuration");
             Reject(delegate { PanelImport.Preview(Wire.Encode(new ConfigurationFile { Format = "AudioSwitch.Settings", Version = 1, Settings = incoming }).Replace("\"DarkMode\":true", "\"DarkMode\":1"), current, state); }, check, "import uses strict existing type validation");
             // Only a fresh temporary configuration; never touch the active SettingsPath.

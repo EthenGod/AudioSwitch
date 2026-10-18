@@ -16,7 +16,14 @@ namespace AudioSwitch
         }
         internal static Reply Preview(string json, Preferences current, AudioState state)
         {
-            var incoming = PreferenceStore.Parse(json);
+            Preferences incoming;
+            try { incoming = PreferenceStore.Parse(json); }
+            catch (InvalidOperationException)
+            {
+                // Parser exceptions can include backup contents. Keep the UI error
+                // actionable and do not forward that payload through an inner exception.
+                throw new InvalidOperationException("备份内容损坏或格式不受支持，请重新选择声间导出的备份。当前配置未改变。");
+            }
             return new Reply { PanelApiVersion = 2, ConfigurationJson = PreferenceStore.Export(incoming), ConfigurationRevision = Revision(current),
                 ImportPreview = new ImportPreviewInfo {
                     Devices = incoming.DeviceOrder.Count, Profiles = incoming.DeviceProfiles.Count, Rules = incoming.DeviceRules.Count,
