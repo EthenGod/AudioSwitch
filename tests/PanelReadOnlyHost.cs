@@ -47,6 +47,8 @@ namespace AudioSwitch
                             reply.DeviceSettings = settings;
                         }
                         else if (request.Action == "exportSettings") reply.ConfigurationJson = PreferenceStore.Export(prefs);
+                        // Pure parsing and summary only. importPreparedSettings remains rejected below.
+                        else if (request.Action == "previewImport") return PanelImport.Preview(request.ConfigurationJson, prefs, state);
                         else if (request.Action != "snapshot") reply.OperationError = "只读联调禁止保存、设备切换、音效应用及其他写入。";
                         return reply;
                     };

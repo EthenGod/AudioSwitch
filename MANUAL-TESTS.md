@@ -375,3 +375,12 @@
 - 核对本轮后台构建日志包含组件预检跨进程回归，前端类型检查及 Tauri 构建通过；两个 ZIP 由生产更新解压器接受，包内程序通过 `--check-files --quiet`，单 EXE 与两包中的后台摘要一致。
 - 对输出日志中记录的新解压 Desktop 目录，使用同一轮新构建的 Tests.exe 执行 `--desktop-package=目录`。确认临时安装后的全部 14 文件与来源一致、旧程序备份保留、用户配置不变。此命令不启动生产 TrayHost，不代表实际重启或音频行为通过。
 - 把源码提交号、新测试 EXE 路径、附件清单／摘要、实包安装记录和最终配置／进程检查写入本轮 staging 记录。旧验证包原样保留并标明已被后续本地包替代；同号本地产物不能用于覆盖既有正式 Release。
+
+## refactor/ui 第五阶段 5.4g 原生备份只读检查
+
+- 先确认没有真实 AudioSwitch 后台；保持无音频写入约束。编译测试入口到新的 staging 短目录。使用 PowerShell 7 调用 `frontend/scripts/readonly-session.ps1 -Command Open -FixturePath <staging内的AudioSwitch.Tests.exe绝对路径> -RecordName <独立会话名>`。
+- 同一当前用户桌面上下文启动 5.4f-final 的 `audio-switch-panel.exe --owner=<只读入口PID>`。不要启动包内 AudioSwitch.exe 默认入口；确认页面有“只读联调入口”提示。
+- 应用设置 → 导出备份 → 选择保存位置 → Escape，确认返回且不显示导出成功。再次选择全新 staging 中文文件名，导出后独立逐值核对内容；不覆盖活动配置或已有文件。
+- 导入设置 → 选择备份文件 → Escape，确认没有摘要。再次选择导出文件，仅检查摘要并点“取消”；重新打开不能保留摘要及确认按钮。不要点击“确认导入”。
+- 正常关闭面板，再以相同 FixturePath／RecordName 调用 `-Command Close`，检查配置及音频读值一致、记录的 UI 子进程退出。保留备份、审计与失败记录，不清理目录。
+- 2026-10-18 以上通过：摘要 14 台设备（4 台离线）、8 项设备预设、3 项 Dolby、8 项规则；导出 JSON 内容与活动配置一致，7 个 UI 进程释放。证据见 `frontend/RELEASE-READINESS.md` 的 5.4g。真实仅保存、确认导入／恢复、文件错误分支、音频应用及跨 DPI 仍待验。
