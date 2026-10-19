@@ -116,4 +116,68 @@ mod tests {
         assert!(require_supported(&json!({"PanelApiVersion":1})).is_err());
         assert!(PendingImport::prepare(&json!({"Error":"invalid"}), Path::new("sample.json")).is_err());
     }
+
+    #[cfg(windows)]
+    #[test] fn locked_backup_preserves_bytes_and_retries_after_release() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = directory();
+        let active = root.join("settings.json");
+        let output = root.join("被占用的备份.json");
+        fs::write(&active, "active configuration").unwrap();
+        fs::write(&output, "old backup").unwrap();
+        // A real Windows sharing violation, not an injected error result.
+        let lock = OpenOptions::new().read(true).share_mode(0).open(&output).unwrap();
+        assert!(read(&output).unwrap_err().starts_with("无法读取备份："));
+        assert!(write(&output, "{\"中文\":null}", &active).unwrap_err().starts_with("导出未完成，原目标文件未被截断："));
+        drop(lock);
+        assert_eq!(read(&output).unwrap(), "old backup");
+        let retained: Vec<_> = fs::read_dir(&root).unwrap().map(|e| e.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|s| s == "tmp")).collect();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(read(&retained[0]).unwrap(), "{\"中文\":null}");
+        write(&output, "{\"中文\":false}", &active).unwrap();
+        assert_eq!(read(&output).unwrap(), "{\"中文\":false}");
+        assert_eq!(read(&active).unwrap(), "active configuration");
+        assert_eq!(read(&retained[0]).unwrap(), "{\"中文\":null}");
+    }
+
+    #[cfg(windows)]
+    #[test] fn readonly_destination_preserves_backup_and_allows_retry() {
+        let root = directory();
+        let active = root.join("settings.json");
+        let output = root.join("只读备份.json");
+        fs::write(&active, "active configuration").unwrap();
+        fs::write(&output, "old backup").unwrap();
+        let original_permissions = fs::metadata(&output).unwrap().permissions();
+        let mut readonly = original_permissions.clone();
+        readonly.set_readonly(true);
+        fs::set_permissions(&output, readonly).unwrap();
+        let result = write(&output, "new backup", &active);
+        // Restore only this fixture's original attributes, even if the assertion fails.
+        fs::set_permissions(&output, original_permissions).unwrap();
+        assert!(result.unwrap_err().starts_with("导出未完成，原目标文件未被截断："));
+        assert_eq!(read(&output).unwrap(), "old backup");
+        write(&output, "new backup", &active).unwrap();
+        assert_eq!(read(&output).unwrap(), "new backup");
+        assert_eq!(read(&active).unwrap(), "active configuration");
+    }
+
+    #[cfg(windows)]
+    #[test] fn active_configuration_aliases_are_rejected_before_creating_files() {
+        let root = directory();
+        let active = root.join("settings.json");
+        fs::write(&active, "active configuration").unwrap();
+        fs::create_dir(root.join("subdirectory")).unwrap();
+        for alias in [root.join("SETTINGS.JSON"), root.join("subdirectory/../settings.json")] {
+            assert_eq!(write(&alias, "replacement", &active).unwrap_err(),
+                "不能将备份覆盖到正在使用的 settings.json，请选择其他文件名。");
+            assert_eq!(read(&active).unwrap(), "active configuration");
+        }
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        // A not-yet-created active file must also be protected by its canonical parent.
+        let missing = root.join("missing.json");
+        assert!(write(&root.join("subdirectory/../MISSING.JSON"), "replacement", &missing).is_err());
+        assert!(!missing.exists());
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+    }
 }
