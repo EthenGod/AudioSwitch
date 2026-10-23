@@ -1,38 +1,33 @@
 # 声间 AudioSwitch v0.12.0
 
-> 待发布稿：本地交付包已生成并校验，仍需提交对应源码、取得发布授权并上传附件。当前没有创建 v0.12.0 Release。
+> 待发布稿：上传附件并正式发布后，下面的下载按钮才可用。
 
-本版换用新的桌面界面，保留原有音频后台和配置。声音设备、自动切换和应用设置集中到三个页面，支持深浅色；设备音量、空间音效、白名单及 Dolby 方案在设备设置中编辑。
+新版界面来了，原有设备排序、音量和音效设置继续保留。
 
-## 使用变化
+[![下载 AudioSwitch.exe](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20AudioSwitch.exe-2563EB?style=for-the-badge)](https://github.com/EthenGod/AudioSwitch/releases/download/v0.12.0/AudioSwitch.exe)
 
-- 新面板按需启动，关闭后退出对应界面进程；后台仍在托盘运行。没有引入 Electron 或新的常驻服务。
-- 输出和麦克风分别管理，保留设备优先级、通话设备联动、白名单及已保存的音效预设。“仅保存”和导入配置不主动应用音频设置。
-- 支持配置导入预览、自动备份和恢复；无效备份会提示重新选择，不把解析错误中的文件内容显示在界面中。
-- 更新和文件修复使用完整程序包，先备份再替换；失败会核验恢复结果。旧配置和已有备份保留，不自动清空。
+**下载后放到可写文件夹，保留 `AudioSwitch.exe` 文件名，双击运行。** [按钮不显示？点这里下载](https://github.com/EthenGod/AudioSwitch/releases/download/v0.12.0/AudioSwitch.exe)。
 
-## 下载哪个附件
+注意：本版单独的 EXE 是过渡版，**不包含新界面**，运行后可通过“检查更新”继续安装新界面。想一步到位，请点下面的按钮：
 
-适用于 Windows 10 / 11 x64，需要 .NET Framework 4.8；新界面还需要 **Microsoft Edge WebView2 Evergreen Runtime**。缺少 Runtime 时先按程序提示安装，再重试；本包不自动安装系统组件。
+[![直接使用新界面](https://img.shields.io/badge/%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E6%96%B0%E7%95%8C%E9%9D%A2-64748B?style=for-the-badge)](https://github.com/EthenGod/AudioSwitch/releases/download/v0.12.0/AudioSwitch-Desktop-v0.12.0-win-x64.zip)
 
-| 附件 | 用途 |
-| --- | --- |
-| `AudioSwitch-Desktop-v0.12.0-win-x64.zip` | **直接使用新界面选这个。** 完整解压到可写文件夹，保留全部 14 个文件和子目录，再运行 `AudioSwitch.exe`。 |
-| `AudioSwitch-v0.12.0-win-x64.zip` | 供旧客户端识别的 8 文件过渡包；安装后再次检查更新，迁移到同版本 Desktop。 |
-| `AudioSwitch.exe` | 与两份 ZIP 内相同的过渡后台，不是包含新界面的单文件程序。 |
+[完整界面包](https://github.com/EthenGod/AudioSwitch/releases/download/v0.12.0/AudioSwitch-Desktop-v0.12.0-win-x64.zip)下载后，**完整解压**，再运行里面的 `AudioSwitch.exe`。适用于 Windows 10 / 11 64 位，需要 .NET Framework 4.8；若提示缺少 WebView2，请按提示安装后重试。
 
-## 从旧版本升级
+## ✨ 更新内容
 
-1. v0.11.x 用户通过旧版“检查更新”先安装过渡包。
-2. 过渡版重新打开后，再检查更新，下载并安装同版本 Desktop 包。游戏模式开启或自动更新关闭时，可主动使用检查更新。
-3. 新用户或手动安装用户可直接下载 Desktop ZIP；先从旧版托盘退出，再运行新目录中的 `AudioSwitch.exe`。不要只复制面板 EXE，也不要把 Desktop ZIP 改成旧包名。
+- 全新桌面界面：声音设备、自动切换和应用设置分为三个页面，支持深浅色。
+- 在设备设置中统一调整音量、空间音效、免打扰规则和 Dolby 方案。
+- 导入配置前可先预览，替换前自动备份，方便恢复原设置。
 
-正常启动仍会执行原有已开启的优先级和音效规则。活动配置沿用 `%LOCALAPPDATA%\AudioSwitch\settings.json`；程序换到新目录后，如需开机自启，请在新位置重新设置。关闭面板不等于退出后台。
+## 🛠️ 修复内容
 
-## 验证范围
+- 修复导入无效备份时，错误提示可能带出配置原文的问题；现在会提示重新选择文件。
 
-核心真实操作、保存／导入及恢复、输出与麦克风切换、基础音效和受支持 Dolby 应用已通过；本机独立目录完成过渡版到 Desktop 的真实退出、文件替换、重启，以及一次文件占用失败恢复，原配置和音频读回一致。上述实测使用版本递增前的 5.4i 验收包。v0.12.0 已通过 778 项后台检查、91 项前端测试、生产构建、两种包的完整性校验和模拟宿主下的版本显示检查，详见[交付记录](DELIVERY-v0.12.0.md)。
+## ⚠️ 已知问题
 
-日常试用未发现问题，用户已决定继续；未逐项确认的设备插拔、睡眠唤醒和其他硬件组合不宣称全部实测。未知 Dolby 组件仍不支持；缺少 WebView2 的全新系统、长期稳定性及真实 GitHub 连续升级仍有未验证范围。线上连续升级将在获准发布后验证，本地安装成功不等于线上链路已经通过。
+- 部分设备或 Dolby 组件版本仍不支持 Dolby 方案，可继续使用基础设备切换功能。
 
-源码使用 GPL-3.0-only。发布时提供与附件完全对应的 v0.12.0 标签源码，可从该 Release 的 Source code 入口获取；保留包内 SVCL、前端和 Rust 的第三方许可说明。
+**旧版用户：** v0.11.x 需先通过“检查更新”安装过渡版，再检查一次更新安装新界面；也可退出旧版托盘后，直接使用上面的完整界面包。原有设置继续保留。线上连续升级尚待发布后验证，其他未验证范围见[交付记录](https://github.com/EthenGod/AudioSwitch/blob/v0.12.0/releases/DELIVERY-v0.12.0.md)。
+
+源码在本页 **Source code** 中，普通使用无需下载。自有代码采用 GPL-3.0-only，第三方组件许可见包内说明。
