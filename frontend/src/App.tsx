@@ -10,6 +10,7 @@ import { BackupSheet } from './components/BackupSheet'
 import { MaintenanceSheet } from './components/MaintenanceSheet'
 import { UpgradeSheet } from './components/UpgradeSheet'
 import { OperationFailure } from './data/desktop'
+import { APP_VERSION } from './version'
 
 const pages = {
   devices: { title: '声音设备', Icon: Headphones },
@@ -105,7 +106,7 @@ export function App({ gateway }: { gateway: UiGateway }) {
       <nav aria-label="主导航">{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span>{page === key && <ChevronRight size={13} />}</button> })}</nav>
       <div className="sidebar-bottom">
         <div className="automation-hint"><span><ArrowRightLeft size={15} />自动切换</span><strong>{snapshot ? snapshot.Preferences.UseDevicePriority ? '按设备优先级选择' : '当前已关闭优先级' : desktop ? '等待读取设备' : '等待示例数据'}</strong><p>优先使用排序靠前的在线设备</p><button onClick={() => setPage('automation')}>管理规则 <ChevronRight size={12} /></button></div>
-        <div className="sidebar-meta"><span>声间 <span className="version">v0.11.1</span></span><Button variant="ghost" size="icon" aria-label={desktop ? '关于声间' : '关于此预览'} onClick={() => setNotice({ text: desktop ? '桌面面板：操作交给已运行的声间后台处理；不会自动启动后台。' : '当前为浏览器模拟预览，不连接后台。' })}><CircleHelp size={15} /></Button></div>
+        <div className="sidebar-meta"><span>声间 <span className="version">v{APP_VERSION}</span></span><Button variant="ghost" size="icon" aria-label={desktop ? '关于声间' : '关于此预览'} onClick={() => setNotice({ text: desktop ? '桌面面板：操作交给已运行的声间后台处理；不会自动启动后台。' : '当前为浏览器模拟预览，不连接后台。' })}><CircleHelp size={15} /></Button></div>
       </div>
     </aside>
     <div className="workspace">

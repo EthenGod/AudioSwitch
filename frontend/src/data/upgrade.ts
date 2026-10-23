@@ -23,7 +23,7 @@ export function mockUpgrade() {
     async readUpgrade(token: string) {
       const j = current(token)
       if (Date.now() >= finish) {
-        if (j.Status === 'checking') Object.assign(j, { Status:j.Kind === 'update' ? 'available' : 'repairable', Message:j.Kind === 'update' ? '示例：发现可安装版本。' : '示例：发现文件缺损，可下载完整包修复。', Version:'v0.12.0', Notes:'演示下载、取消与安装确认流程；不代表真实发布版本或本机文件状态。', CanDownload:true })
+        if (j.Status === 'checking') Object.assign(j, { Status:j.Kind === 'update' ? 'available' : 'repairable', Message:j.Kind === 'update' ? '示例：发现可安装版本。' : '示例：发现文件缺损，可下载完整包修复。', Version:'v0.13.0（示例）', Notes:'演示下载、取消与安装确认流程；不代表真实发布版本或本机文件状态。', CanDownload:true })
         if (j.Status === 'downloading') Object.assign(j, { Status:'ready', Message:'模拟下载与校验完成。', Bytes:j.Total })
         if (j.Status === 'installing') Object.assign(j, { Status:'handoff', Message:'模拟交接结束。没有安装、退出或重启任何程序。' })
       } else if (j.Status === 'downloading') j.Bytes = Math.min(j.Total, j.Bytes + 1024 * 1024)

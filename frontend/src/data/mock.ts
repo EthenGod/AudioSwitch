@@ -1,6 +1,7 @@
 import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
 import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
 import { mockUpgrade } from './upgrade'
+import { APP_VERSION } from '../version'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -91,7 +92,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
     async readMaintenance(token) {
       if (!maintenance || token !== maintenance.Token) throw new Error('检查已失效。')
       if (maintenance.Status === 'running' && Date.now() >= finishAt) maintenance = maintenance.Kind === 'update'
-        ? { ...maintenance, Status: 'available', CurrentVersion: '0.11.1', LatestVersion: 'v0.12.0（示例）', Notes: '示例更新说明：改善界面操作。\n这不是实际发布信息。', Message: '模拟发现新版本，未连接 GitHub。' }
+        ? { ...maintenance, Status: 'available', CurrentVersion: APP_VERSION, LatestVersion: 'v0.13.0（示例）', Notes: '示例更新说明：改善界面操作。\n这不是实际发布信息。', Message: '模拟发现新版本，未连接 GitHub。' }
         : { ...maintenance, Status: 'passed', Directory: '示例后台目录（未读取本机文件）', Entries: ['示例通过：AudioSwitch.exe', '示例通过：AudioSwitch.exe.config', '示例通过：vendor/svcl/svcl.exe'], Message: '模拟检查通过，未读取本机文件。' }
       return structuredClone(maintenance)
     },
