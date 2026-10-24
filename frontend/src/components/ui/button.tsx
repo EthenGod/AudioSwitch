@@ -4,10 +4,10 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-md border text-[13px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-md border text-[14px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0',
   { variants: {
     variant: {
-      default: 'border-transparent bg-primary text-primary-foreground hover:opacity-90',
+      default: 'border-transparent bg-primary text-primary-foreground',
       outline: 'border-border bg-card text-foreground hover:bg-muted',
       ghost: 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
     },
@@ -16,5 +16,5 @@ const buttonVariants = cva(
 )
 
 export function Button({ className, variant, size, ...props }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return <ButtonPrimitive data-slot="button" className={cn(buttonVariants({ variant, size }), className)} {...props} />
+  return <ButtonPrimitive data-slot="button" data-variant={variant ?? 'default'} className={cn(buttonVariants({ variant, size }), className)} {...props} />
 }

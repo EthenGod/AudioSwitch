@@ -70,7 +70,7 @@ describe('desktop write UI with isolated transport', () => {
     await user.click(screen.getByRole('button', { name: '声音设备' }))
     await user.click(screen.getByRole('button', { name: '刷新状态' }))
     await screen.findByRole('table')
-    expect(screen.getByText('已连接真实后台，操作会改变系统设置')).toBeVisible()
+    expect(screen.getByText('已连接')).toBeVisible()
     expect(call).toHaveBeenCalledTimes(1)
   })
 })

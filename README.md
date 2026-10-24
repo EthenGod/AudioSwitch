@@ -1,12 +1,14 @@
 # 声间 · Audio Switch
 
-当前源码版本 **v0.12.0**，本地双包已生成并校验，尚未发布。已发布版本仍为 v0.11.1；见 [v0.12.0 发行说明](releases/RELEASE-NOTES-v0.12.0.md) 和[本地交付记录](releases/DELIVERY-v0.12.0.md)。
+当前开发版本 **v0.12.1**，继续加入新内容，暂不生成 Release 附件。[开发清单](frontend/VERSION-0.12.1.md)。v0.12.0 按测试版（Pre-release）保留，原测试包不覆盖。
 
 用于 Windows 10 / 11 x64 的音频设备管理工具。新面板采用 React / TypeScript 和 Tauri 2 / WebView2，保留 C# 音频后台、设备规则和原配置。界面按需启动，关闭后释放界面进程；从托盘退出才会结束后台。
 
+本版 UI 已调整为 Radix 配色和三档字号。见 [UI 验证记录](frontend/UI-REFRESH-0.12.1.md)。后续开发先看 [HANDOFF.MD](HANDOFF.MD)。
+
 新界面包含声音设备、自动切换、应用设置，以及设备预设、Dolby 编辑、配置导入导出、更新和文件检查。浏览器预览仅使用模拟数据；完整 Desktop 包连接真实后台。入口仍是 `AudioSwitch.exe`，不要单独运行面板 EXE。
 
-旧版采用 **旧格式过渡包 → Desktop 完整包** 两步迁移。同一版本必须同时发布旧名 8 文件 ZIP 和新名 14 文件 ZIP；单 EXE 只包含过渡后台。新界面另外需要 Microsoft Edge WebView2 Evergreen Runtime，不捆绑浏览器或新增常驻服务。
+v0.12.1 仅提供 **单 EXE 便捷展开版＋完整 Desktop ZIP**。EXE 内置完整包，首次展开到旁边的 AudioSwitch 文件夹并启动主程序；ZIP 完整解压后直接运行主程序。新界面需要 Microsoft Edge WebView2 Evergreen Runtime，不捆绑浏览器或新增常驻服务。旧 v0.11.x 用户手动下载到新文件夹，不再安排过渡版中转。
 
 核心真实操作及独立目录内的升级、重启、一次文件失败恢复已通过，见 [验收状态](frontend/RELEASE-READINESS.md) 和 [迁移结果](frontend/MIGRATION-ACCEPTANCE.md)。日常试用由用户决定收尾，未逐项确认的硬件／睡眠范围仍保留。真实 GitHub 连续升级要在获准发布后完成，不能以本地演练代替。日常 `bin/` 和原发布附件保持不变。
 
@@ -14,7 +16,7 @@
 
 主面板左侧 **文件检查** 可检查当前程序目录，发现必要文件缺失或损坏后自动尝试修复。首次启动托盘以及打开面板／提示窗口时也会检查；配套文件恢复并核验通过后继续启动，仍有问题时显示原因，停止本次启动。已有后台时重复的后台启动仍直接退出。
 
-只要求 3 个运行文件：`AudioSwitch.exe`、`AudioSwitch.exe.config`、`vendor/svcl/svcl.exe`。说明、帮助和许可文件（`vendor/svcl/readme.txt`、`vendor/svcl/svcl.chm`、`LICENSE`、`NOTICE.txt`、`THIRD_PARTY.md`）缺失或被改动不影响检查结果，不自动补齐；正常发布包仍保留这些文件，分发规范不变。配套文件按编译时内嵌的长度和 SHA-256 校验，SVCL 保留固定版本校验。主程序检查名称、版本、x64 平台及自身 SHA-256：除保存自身校验值的 64 字节槽外，所有字节都参与校验。
+旧 v0.11.x 仅要求 3 个运行文件（以下为旧版说明；当前 Desktop 检查全部 14 个文件，失败时使用整包修复）：`AudioSwitch.exe`、`AudioSwitch.exe.config`、`vendor/svcl/svcl.exe`。说明、帮助和许可文件（`vendor/svcl/readme.txt`、`vendor/svcl/svcl.chm`、`LICENSE`、`NOTICE.txt`、`THIRD_PARTY.md`）缺失或被改动不影响检查结果，不自动补齐；正常发布包仍保留这些文件，分发规范不变。配套文件按编译时内嵌的长度和 SHA-256 校验，SVCL 保留固定版本校验。主程序检查名称、版本、x64 平台及自身 SHA-256：除保存自身校验值的 64 字节槽外，所有字节都参与校验。
 
 运行配置和 SVCL 会从程序内置副本离线恢复，写入前验证来源，保存原文件到程序目录 `repair-backups/`，写后重新检查；失败时尝试恢复原文件并核验，不能恢复会明确报告。修复不删除文件或清理备份。主程序异常时尝试下载**当前版本**的官方包，验证 GitHub 附件摘要和必要文件后，由独立助手正常关闭本目录实例、备份并替换 3 个运行文件，再重新启动。此过程复用更新事务和 `update-backups/`；不会为修复自动升级或降级。当前版本未发布修复包、离线、文件占用或目录不可写时，显示失败原因，允许重试或打开发布页，不会报告已经修复。
 
@@ -69,26 +71,18 @@
 
 **v0.10.1 本身没有更新入口，需要先手动安装一次带此功能的版本；以后可以直接在软件内更新。** 发布时应先提交并推送全部对应源码，再创建匹配标签和正式 Release，不要仅推送源码或标签而遗漏程序附件。
 
-维护者打包：修改 `src/AppVersion.cs` 中的版本号，然后运行：
+维护者打包使用 PowerShell 7。同步 C#、npm、Tauri／Cargo 及锁文件中的应用版本，运行 `./release.ps1`；旧 `-Desktop` 参数仅作同一入口的兼容别名。脚本只生成两个附件：
 
-```powershell
-.\release.ps1
-```
+- `AudioSwitch-Desktop-v版本号-win-x64.zip`：14 文件完整包，供直接解压和新界面整包更新。
+- `AudioSwitch.exe`：内置上述 ZIP 的便捷展开入口，与 ZIP 中实际后台不是同一个文件，不能要求两个 EXE 摘要相同。校验要求展开后的 14 文件与 ZIP 逐字节一致。
 
-UI 迁移使用 PowerShell 7 执行 `./release.ps1 -Desktop`，需同步更新 C#、`frontend/package.json`、Tauri／Cargo 清单及对应锁文件中的项目版本。它重新构建并验证，在新的版本目录生成 **三个** 附件：旧名 8 文件 ZIP、`AudioSwitch-Desktop-v版本号-win-x64.zip`（14 文件）和同一后台的单 EXE。两份 ZIP 必须一起保留，才能让旧客户端先更新到过渡版、再迁移到新界面；单 EXE 不包含新面板。需要已安装的 Node／Rust／C++ 构建工具，不自动安装。可用 `-OutputDirectory staging/自选目录` 做本地验证，不覆盖已有版本目录。当前 v0.12.0 为待发布版本；正式发布前须提交并推送对应完整源码，核对三个附件和版本标签，取得发布授权。
+**当前 v0.12.1 仍在开发，未另行要求前不生成 Release 附件。** 验证使用 `./release.ps1 -OutputDirectory staging/自选目录`，保留旧构建，不覆盖 `releases/` 或日常 `bin/`。脚本不提交、推送、打标签或上传。
 
-Desktop 需要 Microsoft Edge WebView2 Evergreen Runtime。启动与安装交接前只读检测组件，缺失时说明微软下载地址；不会自动下载安装。`AudioSwitch.exe --check-webview2` 只输出检测结果，不启动后台或读取配置。检测到注册信息不代表实际窗口创建已验收。自动更新因缺少组件暂停时保留缓存，安装组件后可重试。5.4b 已补齐安装助手最后一次组件检查失败的反馈和重试保护，不会只显示笼统的“助手未就绪”；再次交接不会覆盖前次助手文件。
+单 EXE 应放在可写文件夹。首次双击会创建旁边的 `AudioSwitch/`，校验完整包后再启动其中的 `AudioSwitch.exe`；启动规则可能切换设备或应用已有音效。便捷入口交接后退出。再次打开时，复用完整的同版本或更新版本；若已有程序较旧、损坏或目录冲突，会提示换新文件夹或通过原程序更新，不盲目覆盖。展开过程的 `AudioSwitch-unpack-唯一编号/` 保留用于恢复，不自动批量清理。
 
-默认旧格式脚本会在独立 staging 目录构建、运行普通测试，并在项目的 `releases/v版本号/` 中生成两个待上传附件：
+入口支持 `--background`；`--extract-only` 只展开、不启动后台，`--check-files --quiet` 只读校验入口本身。其他诊断、快捷方式和自启使用展开目录内主程序。用户设置继续保存在原 LocalAppData 位置，不跟随展开包复制。试运行勿使用待上传原件所在目录。
 
-- `AudioSwitch-v版本号-win-x64.zip`：完整程序包，继续用于软件内更新和主程序修复。
-- `AudioSwitch.exe`：可直接下载的单 EXE，与 ZIP 中的主程序完全相同。
-
-旧格式发布只上传该版本子目录中的 ZIP 和 EXE；Desktop 发布则上传双包脚本生成的三个附件。ZIP 内的 EXE 与单独的 EXE 均内嵌工具 Logo 图标，使用同一份程序；构建资源 `assets/AudioSwitch.ico` 包含 16–256 像素图标，无需另行上传。源码通过 GitHub 按该版本标签自动生成的 [Source code 下载入口](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) 提供，无需单独上传源码附件；发布前必须提交并推送与构建对应的全部源码和构建必需文件，再创建匹配标签，并在说明中注明源码入口。
-
-单 EXE 首次运行会离线释放运行配置和 `vendor/svcl/svcl.exe`，因此须下载到可写文件夹，保留 `AudioSwitch.exe` 文件名。不会要求补齐不影响运行的说明文件；原始第三方文件及许可已内嵌，可运行 `AudioSwitch.exe --licenses` 查看和复制许可文字。用户设置仍保存到原来的 LocalAppData 目录。待上传目录只保存原件，试运行请复制到其他目录。
-
-完整程序包内直接放置原有 8 个发布文件，不增加外层目录；应用内更新仍使用该 ZIP。脚本核对 ZIP 内每个文件及独立 EXE 的哈希，不提交、不推送、不发布；版本目录已存在时停止，不覆盖、不清理旧目录。`-OutputDirectory` 指定其他输出根目录时，其下同样按 `v版本号/` 整理。历史 `artifacts/` 旧包保持原样。GitHub 上传完成后必须有 `sha256:` 附件摘要，否则软件拒绝安装。
+WebView2 缺失时主程序会给出安装入口，不自动安装。发布前需提交完整对应源码，版本目录只含上述两件附件；源码通过同版本标签提供，第三方许可随完整包保留。GitHub 附件必须有 SHA-256 摘要；测试版不进入稳定更新发现。当前只保留旧格式识别、误装保护和历史回归，不再生成旧名过渡 ZIP。
 
 `--update-process` 是独立更新助手的跨进程验证：需要先退出已有声间，测试只运行临时假面板、假后台及假新版程序，验证退出、中文／空格路径、替换、备份、启动确认和锁释放，不调用音频服务或用户配置。它不能代替真实 GitHub 下载和实际版本升级验收。
 

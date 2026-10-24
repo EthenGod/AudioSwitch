@@ -14,11 +14,14 @@ AudioSwitch.exe --check-webview2 只读检查 Runtime 安装登记，不启动�
 活动配置仍在 %LOCALAPPDATA%\AudioSwitch\settings.json，不在本包内。
 更新和修复先备份程序文件；用户配置和已有备份不清空。
 
-从旧版升级：旧更新器先安装同版本发布中的 AudioSwitch-v<版本>-win-x64.zip 过渡包，
-过渡版再次检查更新后选择 AudioSwitch-Desktop-v<版本>-win-x64.zip，允许同版本迁移。
-缺少 WebView2 时保留过渡版，安装 Runtime 后重试。
-不要用 Desktop ZIP 替换旧名 ZIP，也不要把候选包改名后用来更新。
-单独的 AudioSwitch.exe 是过渡后台，不是包含新界面的单文件程序。
+本版仅提供完整 ZIP 和单 EXE 便捷展开版，不提供过渡包。
+单 EXE 内置同一个完整 ZIP，首次运行展开到旁边的 AudioSwitch 文件夹，再启动其中主程序。
+重复运行复用已校验的同版本或更新版本；已有目录不完整、较旧或损坏时停止，不覆盖。
+展开过程保留 AudioSwitch-unpack-唯一编号 中的包与失败记录，不清理用户文件。
+展开入口支持 --background；--extract-only 只展开，不启动后台；--check-files --quiet 只读校验入口自身。
+其他命令、快捷方式及开机自启使用展开文件夹内的主程序。入口在交接后退出，不常驻。
+旧版 v0.11.x 如无法识别新格式，请从托盘退出后手动下载到新的文件夹；无需中转安装。
+现有 Desktop 使用完整 ZIP 进行后续更新；不要把候选包改名用于更新。
 
 desktop-manifest.json 固定列出版本、平台、13 个内容文件的长度和 SHA-256。
 包内校验用于完整性，不替代发布者身份验证。请从项目正式发布页获取程序。

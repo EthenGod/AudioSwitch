@@ -1,7 +1,7 @@
-﻿# Copyright (C) 2026 EthenGod
+# Copyright (C) 2026 EthenGod
 # SPDX-License-Identifier: GPL-3.0-only
 # This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
-param([switch]$Test, [string]$OutputDirectory = 'bin')
+param([switch]$Test, [string]$OutputDirectory = 'bin', [string]$DesktopPayload)
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (!(Test-Path -LiteralPath $compiler)) { throw '需要 Windows 自带的 .NET Framework 4.x 编译器。' }
@@ -9,8 +9,8 @@ $output = Join-Path $PSScriptRoot $OutputDirectory
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' | ForEach-Object FullName)
 $references = @('/r:System.dll','/r:System.Core.dll','/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.IO.Compression.dll','/r:System.IO.Compression.FileSystem.dll')
-# Embed the logo before computing the executable's integrity digest. Both release
-# assets reuse this same executable, so neither needs a separate icon file.
+# Embed the logo before computing the executable's integrity digest. Both build
+# entry points embed the icon, so neither needs a separate icon file.
 $iconPath = Join-Path $PSScriptRoot 'assets\AudioSwitch.ico'
 if (!(Test-Path -LiteralPath $iconPath -PathType Leaf)) { throw '缺少程序 Logo 图标：assets\AudioSwitch.ico' }
 # Embed companion hashes; no extra distribution file is needed by older updaters.
@@ -26,6 +26,14 @@ $integrityManifest = Join-Path $output 'integrity-manifest.txt'
 [IO.File]::WriteAllLines($integrityManifest, [string[]]$integrityLines, [Text.UTF8Encoding]::new($false))
 $integrityResource = '/resource:' + $integrityManifest + ',AudioSwitch.Integrity'
 $repairResources = @("/resource:$PSScriptRoot\src\App.config,AudioSwitch.Repair.Config", "/resource:$PSScriptRoot\vendor\svcl\svcl.exe,AudioSwitch.Repair.Svcl")
+$entryPoint = 'AudioSwitch.Program'
+if ($DesktopPayload) {
+    if ($Test) { throw '便捷展开版不作为普通测试宿主，请先验证完整包。' }
+    $payloadPath = (Resolve-Path -LiteralPath $DesktopPayload).Path
+    if ((Get-Item -LiteralPath $payloadPath).Length -gt 32MB) { throw '便捷展开版内置包超过大小限制。' }
+    $repairResources += "/resource:$payloadPath,AudioSwitch.DesktopPayload"
+    $entryPoint = 'AudioSwitch.DesktopBootstrap'
+}
 # Preserve the complete original third-party distribution and notices in single-EXE downloads.
 foreach ($file in @('vendor/svcl/readme.txt', 'vendor/svcl/svcl.chm', 'LICENSE', 'NOTICE.txt', 'THIRD_PARTY.md')) {
     $repairResources += "/resource:$PSScriptRoot\$file,AudioSwitch.Distribution.$file"
@@ -48,7 +56,7 @@ function Set-ExecutableIntegrity([string]$path) {
     [Array]::Copy($digest, 0, $bytes, $digestPosition, 64)
     [IO.File]::WriteAllBytes($path, $bytes)
 }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 /main:AudioSwitch.Program "/win32manifest:$PSScriptRoot\src\app.manifest" "/win32icon:$iconPath" "/out:$output\AudioSwitch.exe" $integrityResource @repairResources @references @sources
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 "/main:$entryPoint" "/win32manifest:$PSScriptRoot\src\app.manifest" "/win32icon:$iconPath" "/out:$output\AudioSwitch.exe" $integrityResource @repairResources @references @sources
 if ($LASTEXITCODE -ne 0) { throw '编译失败。' }
 Set-ExecutableIntegrity (Join-Path $output 'AudioSwitch.exe')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src\App.config') -Destination (Join-Path $output 'AudioSwitch.exe.config')

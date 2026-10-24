@@ -53,11 +53,14 @@ export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onCha
   </div>
 }
 
-export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSaved, onFailure, onResult }: {
+export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finishClose, onSaved, onFailure, onResult }: {
   device: Device; snapshot: Snapshot; gateway: UiGateway; readOnly: boolean; onClose: () => void
   onSaved: (snapshot: Snapshot) => void; onFailure: (error: OperationFailure) => void
   onResult?: (text: string, error: boolean) => void
 }) {
+  const [open, setOpen] = useState(true)
+  const onClose = () => setOpen(false)
+
   const desktop = gateway.mode === 'desktop', supported = !desktop || !!snapshot.CanEditDolby
   const [baseline, setBaseline] = useState(() => structuredClone(snapshot.DolbyProfiles?.[device.Id] ?? null))
   const [enabled, setEnabled] = useState(baseline !== null), [draft, setDraft] = useState<DolbyProfile>(() => baseline ?? emptyDolby())
@@ -110,13 +113,13 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose, onSav
       if (e instanceof OperationFailure) { if (e.requiresRefresh) setUncertain(true); onFailure(e) }
     } finally { lock.current = saveLock.current = false; setSaving(false) }
   }
-  return <Sheet open onOpenChange={open => { if (!open) void stop(true) }}><SheetContent className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
-    <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? ' · 离线' : ''}</SheetDescription></header>
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
+    <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
     <div className="sheet-preview">{desktop ? '仅保存不改变音效；保存并应用会写入当前输出的 Dolby 设置' : '界面预览，操作不会改变系统设置'}</div>
     <div className="sheet-scroll">
       {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台。</p>}
       <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
-      <p className="field-help">读取需要此设备是当前输出。成功后仅填入草稿；失败或取消会保留草稿。</p>
+      <p className="field-help">读取需要此设备是当前输出。仅填入草稿。</p>
       {(starting || running || closing) && <p role="status">{closing ? '正在取消并等待读取退出…' : '正在读取 Dolby…'}</p>}
       {message && <p role={job?.Status === 'error' ? 'alert' : 'status'}>{message}</p>}
       {error && <p role="alert" className="field-help">{error}</p>}

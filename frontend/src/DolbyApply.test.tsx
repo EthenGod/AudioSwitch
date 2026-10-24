@@ -40,7 +40,10 @@ describe('Dolby save and apply', () => {
     await screen.findByText('正在恢复检查'); expect(onClose).not.toHaveBeenCalled(); expect(button()).toBeDisabled()
     done = true; await waitFor(()=>expect(onClose).toHaveBeenCalledOnce())
     expect(onResult).toHaveBeenCalledWith('取消后恢复未通过核验',true)
-    expect(screen.getByRole('alert')).toHaveTextContent('取消后恢复未通过核验')
+    // The closing drawer now unmounts after its exit transition. Its parent must
+    // receive the recovery warning first so the persistent toast can show it.
+    expect(onResult.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
   it('closing during submission cancels the returned task without duplicate saving', async () => {
     let finish!: (r:{snapshot:Snapshot;operation:DolbyOperation})=>void, token = ''

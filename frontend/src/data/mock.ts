@@ -5,12 +5,12 @@ import { APP_VERSION } from '../version'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
-  { Id: 'demo-headphones', Name: 'Studio 耳机', Flow: 0, Online: true, Connection: 'USB Audio · 耳机', Kind: 'headphones' },
-  { Id: 'demo-speakers', Name: '桌面扬声器', Flow: 0, Online: true, Connection: 'Realtek Audio · 3.5 mm', Kind: 'speaker' },
-  { Id: 'demo-monitor', Name: '显示器音频', Flow: 0, Online: true, Connection: 'DisplayPort · 显示器', Kind: 'monitor' },
-  { Id: 'demo-bluetooth', Name: '蓝牙耳机', Flow: 0, Online: false, Connection: 'Bluetooth · 已保留预设', Kind: 'headphones' },
-  { Id: 'demo-microphone', Name: 'USB 麦克风', Flow: 1, Online: true, Connection: 'USB Audio · 麦克风', Kind: 'microphone' },
-  { Id: 'demo-array', Name: '内置麦克风阵列', Flow: 1, Online: true, Connection: 'Realtek Audio · 内置', Kind: 'microphone' },
+  { Id: 'demo-headphones', Name: 'Studio 耳机', Flow: 0, Online: true, Connection: 'USB Audio / 耳机', Kind: 'headphones' },
+  { Id: 'demo-speakers', Name: '桌面扬声器', Flow: 0, Online: true, Connection: 'Realtek Audio / 3.5 mm', Kind: 'speaker' },
+  { Id: 'demo-monitor', Name: '显示器音频', Flow: 0, Online: true, Connection: 'DisplayPort / 显示器', Kind: 'monitor' },
+  { Id: 'demo-bluetooth', Name: '蓝牙耳机', Flow: 0, Online: false, Connection: 'Bluetooth / 已保留预设', Kind: 'headphones' },
+  { Id: 'demo-microphone', Name: 'USB 麦克风', Flow: 1, Online: true, Connection: 'USB Audio / 麦克风', Kind: 'microphone' },
+  { Id: 'demo-array', Name: '内置麦克风阵列', Flow: 1, Online: true, Connection: 'Realtek Audio / 内置', Kind: 'microphone' },
 ]
 
 function initial(): Snapshot {
@@ -135,7 +135,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
       if (value === 'duplicate') {
         state.Devices[1].Name = '扬声器'; state.Devices[2].Name = '扬声器'
       }
-      if (value === 'long') state.Devices[0].Name = '用于会议、游戏与音乐制作的高保真桌面音频接口 · 第二代 USB 专业监听耳机（非常长的设备名称示例）'
+      if (value === 'long') state.Devices[0].Name = '用于会议、游戏与音乐制作的高保真桌面音频接口 / 第二代 USB 专业监听耳机（非常长的设备名称示例）'
       return this.read()
     },
     async switchDevice(id) {

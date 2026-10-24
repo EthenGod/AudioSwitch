@@ -4,15 +4,11 @@
 
 [![下载 AudioSwitch.exe](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20AudioSwitch.exe-2563EB?style=for-the-badge)](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch.exe)
 
-**不知道选哪个？先点上面的蓝色按钮下载 `AudioSwitch.exe`。** 放到一个固定、可写的文件夹，保留原文件名，再双击运行。
+**下载 `AudioSwitch.exe`，放到固定、可写的文件夹，保留原文件名，双击运行。** 首次运行会展开到旁边的 `AudioSwitch` 文件夹并打开程序，请保留该文件夹。
 
-[按钮不显示？点这里下载](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch.exe) · [完整程序包](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch-v{{VERSION}}-win-x64.zip)
+[按钮不显示？点这里下载](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch.exe) · [完整程序包](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch-Desktop-v{{VERSION}}-win-x64.zip)
 
-<!-- 若本版单 EXE 不包含新界面，必须在这里说明，不能承诺下载后直接获得新界面。
-Desktop 迁移版增加以下入口，并把“完整程序包”的目标改成 Desktop ZIP：
-[![直接使用新界面](https://img.shields.io/badge/%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E6%96%B0%E7%95%8C%E9%9D%A2-64748B?style=for-the-badge)](https://github.com/EthenGod/AudioSwitch/releases/download/v{{VERSION}}/AudioSwitch-Desktop-v{{VERSION}}-win-x64.zip)
-单独下载的 EXE 是过渡版，不包含新界面。想直接使用新界面，请下载完整界面包，完整解压后运行其中的 AudioSwitch.exe。
--->
+完整包请先全部解压，再运行其中的 `AudioSwitch.exe`。
 
 ## ✨ 更新内容
 

@@ -4,9 +4,12 @@ import type { MaintenanceJob, MaintenanceKind, Snapshot, UiGateway } from '@/dat
 import { Button } from './ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from './ui/sheet'
 
-export function MaintenanceSheet({ kind, gateway, snapshot, onClose }: {
+export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose }: {
   kind: MaintenanceKind; gateway: UiGateway; snapshot: Snapshot; onClose: () => void
 }) {
+  const [open, setOpen] = useState(true)
+  const onClose = () => setOpen(false)
+
   const desktop = gateway.mode === 'desktop', updating = kind === 'update'
   const [job, setJob] = useState<MaintenanceJob | null>(null), [starting, setStarting] = useState(false), [closing, setClosing] = useState(false), [error, setError] = useState('')
   const heading = useRef<HTMLHeadingElement>(null), current = useRef<MaintenanceJob | null>(null), alive = useRef(true), lock = useRef(false), closeRequested = useRef(false)
@@ -45,16 +48,16 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose }: {
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '无法开始检查，请重试。') }
     finally { lock.current = false; closeRequested.current = false; if (alive.current) { setStarting(false); setClosing(false) } }
   }
-  return <Sheet open onOpenChange={open => { if (!open) void stop(true) }}>
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}>
     <SheetContent initialFocus={heading} closeDisabled={closing} closeLabel="关闭检查窗口">
       <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{updating ? '检查更新' : '文件检查'}</SheetTitle><SheetDescription className="sheet-description">{updating ? '查看正式版本与更新说明' : '检查后台运行必需文件'}</SheetDescription></header>
       <div className="sheet-preview"><Info size={14} />{desktop ? '只读检查，不安装、修复或修改配置' : '界面预览，不联网或读取本机文件'}</div>
       <div className="sheet-scroll maintenance-content">
         {updating ? <>
-          <p>更新来源：GitHub · EthenGod/AudioSwitch</p>
+          <p>更新来源：GitHub EthenGod/AudioSwitch</p>
           <p className="field-help">{!snapshot.Preferences.AutoUpdateEnabled ? '后台自动更新已关闭。手动检查仍可使用。' : snapshot.Preferences.GameMode ? '游戏模式暂停后台自动更新。手动检查仍可使用。' : '后台自动更新设置保持不变。'}</p>
-          <p className="field-help">新面板尚未接入完整更新包，下载和安装暂未开放。</p>
-        </> : <p className="field-help">这里只检查后台程序、运行配置和音效辅助工具。新面板与 WebView2 的发布校验将在后续接入；本次不修复任何文件。</p>}
+          <p className="field-help">当前后台仅支持检查，请手动下载完整包。</p>
+        </> : <p className="field-help">当前后台只支持检查后台文件，不检查面板或修复文件。</p>}
         {(starting || running || closing) && <p role="status" className="maintenance-progress"><LoaderCircle className="spin" size={17} />{closing ? '正在取消并等待检查退出…' : starting ? '正在启动检查…' : job?.Message}</p>}
         {error && <p role="alert" className="backend-warning">{error}</p>}
         {job && job.Status !== 'running' && <section className="sheet-section" aria-live="polite">

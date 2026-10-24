@@ -5,10 +5,13 @@ import { OperationFailure } from '@/data/desktop'
 import { Button } from './ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from './ui/sheet'
 
-export function BackupSheet({ mode, gateway, onClose, onResult, onFailure }: {
+export function BackupSheet({ mode, gateway, onClose: finishClose, onResult, onFailure }: {
   mode: 'import' | 'export'; gateway: UiGateway; onClose: () => void
   onResult: (snapshot: Snapshot) => void; onFailure: (error: OperationFailure) => void
 }) {
+  const [open, setOpen] = useState(true)
+  const onClose = () => setOpen(false)
+
   const desktop = gateway.mode === 'desktop', importing = mode === 'import'
   const heading = useRef<HTMLHeadingElement>(null), locked = useRef(false), token = useRef('')
   const [busy, setBusy] = useState(false), [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -39,13 +42,12 @@ export function BackupSheet({ mode, gateway, onClose, onResult, onFailure }: {
       onResult(result.snapshot); setComplete(result.BackupPath)
     })
   }
-  return <Sheet open onOpenChange={open => { if (!open && !locked.current) onClose() }}>
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open && !locked.current) onClose() }}>
     <SheetContent initialFocus={heading} closeDisabled={busy} closeLabel="关闭备份窗口">
-      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{importing ? '导入设置' : '导出备份'}</SheetTitle><SheetDescription className="sheet-description">{importing ? '检查备份内容，再确认替换' : '保存完整设备偏好与音效预设'}</SheetDescription></header>
+      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{importing ? '导入设置' : '导出备份'}</SheetTitle><SheetDescription className="sr-only">{importing ? '检查备份内容，再确认替换' : '保存完整设备偏好与音效预设'}</SheetDescription></header>
       <div className="sheet-preview"><Info size={14} />{desktop ? importing ? '确认前不会修改配置' : '只导出配置，不应用音效' : '界面预览，不读写文件或系统配置'}</div>
       <div className="sheet-scroll backup-content">
         {importing ? <p>导入会替换设备排序、白名单、应用偏好和音效预设。旧配置会先自动备份；不会立即切换设备或应用音效。开机自启登记不受影响。</p> : <p>备份包含离线设备和完整 Dolby 预设。请选择单独的文件保存，不能覆盖正在使用的配置。</p>}
-        {!desktop && <p className="field-help">使用内置示例演示流程，没有真实文件选择或备份生成。</p>}
         {busy && <p role="status">{importing ? '正在处理备份…' : '正在选择位置并导出…'}</p>}
         {error && <p role="alert" className="backend-warning">{error}</p>}
         {uncertain && <p>请关闭此窗口，在声音设备页刷新状态后再操作。</p>}

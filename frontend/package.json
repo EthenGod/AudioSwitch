@@ -1,6 +1,6 @@
 {
   "name": "audio-switch-ui",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-only",
@@ -18,8 +18,9 @@
     "desktop:build": "tauri build --no-bundle"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.12.1",
     "@base-ui/react": "1.8.0",
+    "@radix-ui/colors": "3.0.0",
+    "@tauri-apps/api": "2.12.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.49.0",
@@ -28,8 +29,8 @@
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.12.1",
     "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.12.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",

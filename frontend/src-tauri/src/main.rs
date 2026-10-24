@@ -224,7 +224,7 @@ fn main() {
     let mut context = tauri::generate_context!();
     if is_prompt {
         let config = &mut context.config_mut().app.windows[0];
-        config.label = "prompt".into(); config.title = "声间 · 设备提示".into();
+        config.label = "prompt".into(); config.title = "声间 设备提示".into();
         config.width = 400.0; config.height = 380.0; config.min_width = Some(320.0); config.min_height = Some(300.0);
         config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
     }

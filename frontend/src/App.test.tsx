@@ -90,7 +90,6 @@ describe('preview workflows', () => {
     await user.click(screen.getByRole('switch', { name: '开机自启' }))
     await waitFor(() => expect(screen.getByRole('switch', { name: '开机自启' })).toBeChecked())
     expect((await gateway.read()).StartupEnabled).toBe(true)
-    expect(screen.getByText('Dolby 方案在输出设备设置中编辑')).toBeVisible()
     await user.click(screen.getByRole('button', { name: '声音设备' }))
     await user.click(screen.getByRole('button', { name: '设置当前输出' }))
     await user.click(screen.getByRole('button', { name: '编辑 Dolby 方案' }))

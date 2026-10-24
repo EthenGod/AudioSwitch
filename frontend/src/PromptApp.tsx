@@ -28,10 +28,10 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     finally { lock.current = false; setBusy(false) }
   }
   useEffect(() => {
-    document.title = gateway.mode === 'desktop' ? '声间 · 设备提示' : '声间 · 设备提示预览'
+    document.title = gateway.mode === 'desktop' ? '声间 设备提示' : '声间 设备提示预览'
     document.querySelector('meta[name="description"]')?.setAttribute('content', gateway.mode === 'desktop'
-      ? '声间 Audio Switch · 音频设备接入与断开提示'
-      : '声间 Audio Switch · 仅使用模拟数据的设备提示预览')
+      ? '声间 Audio Switch 音频设备接入与断开提示'
+      : '声间 Audio Switch 仅使用模拟数据的设备提示预览')
   }, [gateway.mode])
   useEffect(() => {
     let active = true, timer: ReturnType<typeof setTimeout>
@@ -94,8 +94,8 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     </section>
     {!closed && <footer className="prompt-actions">
       {arrival && state && <>
-        <Button disabled={disabled || !devices.some(d => d.Id === selected)} onClick={() => void respond({ kind: 'selected', token, id: selected })}>{busy ? '正在处理…' : !arrival.Disconnected && arrival.NewIds.includes(selected) ? '用新设备' : '切换'}</Button>
-        {!arrival.Disconnected && <Button variant="outline" title={arrival.PreviousName} disabled={disabled || !canRestore(state, arrival)} onClick={() => void respond({ kind: 'previous', token })}>继续用旧设备</Button>}
+        <Button disabled={disabled || !devices.some(d => d.Id === selected)} onClick={() => void respond({ kind: 'selected', token, id: selected })}>{busy ? '正在处理…' : !arrival.Disconnected && arrival.NewIds.includes(selected) ? '使用新设备' : '切换'}</Button>
+        {!arrival.Disconnected && <Button variant="outline" title={arrival.PreviousName} disabled={disabled || !canRestore(state, arrival)} onClick={() => void respond({ kind: 'previous', token })}>保留原设备</Button>}
         <Button variant="outline" disabled={disabled} onClick={() => void respond({ kind: 'current', token })}>{devices.length ? '保持当前选择' : '知道了'}</Button>
       </>}
       <Button variant="ghost" disabled={busy} onClick={() => { if (!lock.current) { lock.current = true; setBusy(true); void gateway.openPanel().then(() => setClosed(true)).catch(() => setError('无法打开面板，请重试。')).finally(() => { lock.current = false; setBusy(false) }) } }}>打开面板</Button>

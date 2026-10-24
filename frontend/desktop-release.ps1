@@ -7,7 +7,7 @@ $root = Split-Path $PSScriptRoot
 $version = Get-CandidateVersion
 $outputRoot = [IO.Path]::GetFullPath((Join-Path $root $OutputDirectory))
 $allowed = @('releases','staging') | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $root $_)) }
-if (!@($allowed | Where-Object { $outputRoot -eq $_ -or $outputRoot.StartsWith($_ + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) }).Count) { throw '双包输出只能放在项目 releases 或 staging 内。' }
+if (!@($allowed | Where-Object { $outputRoot -eq $_ -or $outputRoot.StartsWith($_ + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) }).Count) { throw '交付输出只能放在项目 releases 或 staging 内。' }
 $destination = Join-Path $outputRoot "v$version"
 if (Test-Path -LiteralPath $destination) { throw "版本目录已存在，不覆盖：$destination" }
 $ancestor = [IO.DirectoryInfo]::new($destination)
@@ -18,7 +18,6 @@ $candidate = & (Join-Path $PSScriptRoot 'candidate-package.ps1') -NodePath $Node
 if (!$candidate.Payload -or $candidate.Version -cne $version) { throw '未收到本轮已验证构建。' }
 $work = New-CandidateDirectory (Join-Path $root ('staging/desktop-release-' + [Guid]::NewGuid().ToString('N')))
 $payload = New-CandidateDirectory (Join-Path $work 'payload')
-$legacy = @($CandidateFiles[0..7])
 $content = @($CandidateFiles[0..11]) + @('DESKTOP-README.txt')
 foreach ($name in $content) {
     $source = if ($name -eq 'DESKTOP-README.txt') { Join-Path $PSScriptRoot 'desktop-readme.txt' } else { Join-Path $candidate.Payload $name }
@@ -43,14 +42,15 @@ function Write-Package([string]$Name, [string[]]$Files) {
         }
     } finally { $zip.Dispose(); $stream.Dispose() }
 }
-Write-Package "AudioSwitch-v$version-win-x64.zip" $legacy
 Write-Package "AudioSwitch-Desktop-v$version-win-x64.zip" (@($content) + @('desktop-manifest.json'))
-[IO.File]::Copy((Join-Path $payload 'AudioSwitch.exe'), (Join-Path $assets 'AudioSwitch.exe'), $false)
+$standaloneRelative = 'staging/' + (Split-Path $work -Leaf) + '/standalone'
+& (Join-Path $root 'build.ps1') -OutputDirectory $standaloneRelative -DesktopPayload (Join-Path $assets "AudioSwitch-Desktop-v$version-win-x64.zip")
+[IO.File]::Copy((Join-Path $root "$standaloneRelative/AudioSwitch.exe"), (Join-Path $assets 'AudioSwitch.exe'), $false)
 # Use the production ZIP extraction/validation logic and isolated --check-files; never start TrayHost.
 & (Join-Path $candidate.Backend 'AudioSwitch.Tests.exe') --release-archives $assets
-if ($LASTEXITCODE -ne 0) { throw '双包真实解压与文件检查失败，不生成待上传目录。' }
+if ($LASTEXITCODE -ne 0) { throw '完整包或单 EXE 展开校验失败，不生成待上传目录。' }
 $files = @(Get-ChildItem -LiteralPath $assets -File)
-if ($files.Count -ne 3) { throw '待上传附件数量不正确。' }
+if ($files.Count -ne 2) { throw '待上传附件数量不正确。' }
 [void][IO.Directory]::CreateDirectory($outputRoot)
 New-Item -ItemType Directory -Path $destination -ErrorAction Stop | Out-Null
 $hashes = @()
@@ -61,9 +61,9 @@ foreach ($file in $files) {
     if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $digest) { throw '复制后摘要不一致，请勿上传。' }
     $hashes += [ordered]@{ Name=$file.Name; Length=$file.Length; Sha256=$digest }
 }
-if (@(Get-ChildItem -LiteralPath $destination -Force).Count -ne 3) { throw '发布目录包含意外文件，请勿上传。' }
+if (@(Get-ChildItem -LiteralPath $destination -Force).Count -ne 2) { throw '发布目录包含意外文件，请勿上传。' }
 [ordered]@{ Version=$version; Candidate=$candidate.Work; Payload=$payload; Destination=$destination; Assets=$hashes } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $work 'verification.json') -Encoding UTF8
-Write-Host "本地双包验证通过：$destination"
+Write-Host "单 EXE 便捷展开版与完整 ZIP 验证通过：$destination"
 $hashes | ForEach-Object { Write-Host "$($_.Name) SHA-256 $($_.Sha256)" }
 Write-Host "记录：$work/verification.json"
-Write-Host '发布时必须同时保留旧名过渡 ZIP、新名 Desktop ZIP；单 EXE 仍是过渡后台。请先确认版本和完整源码，本脚本不提交、打标签或上传。'
+Write-Host '仅两个附件：完整 Desktop ZIP 和内置该 ZIP 的便捷展开 EXE；不生成过渡包。请先确认版本和完整源码，本脚本不提交、打标签或上传。'

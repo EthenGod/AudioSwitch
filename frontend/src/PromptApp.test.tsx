@@ -69,7 +69,7 @@ describe('device prompt', () => {
   it('actual failure uses the new snapshot and never reports success', async () => {
     const raw = fixture(), call = vi.fn(async (command: string) => command === 'prompt_action' ? { ...raw, OperationError: '设备已断开' } : raw)
     render(<PromptApp gateway={createPromptGateway(call)} />); await screen.findByRole('combobox')
-    fireEvent.click(screen.getByRole('button', { name: '用新设备' })); expect(await screen.findByRole('alert')).toHaveTextContent('设备已断开')
+    fireEvent.click(screen.getByRole('button', { name: '使用新设备' })); expect(await screen.findByRole('alert')).toHaveTextContent('设备已断开')
     expect(call.mock.calls.some(([c]) => c === 'close_prompt')).toBe(false)
   })
   it('disconnection without online devices only offers acknowledgment', async () => {
@@ -77,7 +77,7 @@ describe('device prompt', () => {
     raw.Pending[0].DisconnectedDevices = [{ Id: 'lost', Flow: 0 }]
     const { gateway: g } = gateway(raw); render(<PromptApp gateway={g} />)
     await screen.findByRole('heading', { name: '当前设备已断开' }); expect(screen.getByRole('button', { name: '切换' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: '继续用旧设备' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '保留原设备' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '知道了' })).toBeEnabled()
   })
   it('rejects malformed or duplicate pending entries instead of silently closing', () => {

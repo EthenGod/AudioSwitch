@@ -4,7 +4,13 @@
 
 ## 设计参考
 
-参考 [Map1en/VRCX-0](https://github.com/Map1en/VRCX-0/tree/7c2cd64a4e6bafee299e58f5aa585d2602b7e8dc)，核对提交 `7c2cd64a4e6bafee299e58f5aa585d2602b7e8dc` 的 `components.json`、`src/styles/globals.css`、`AppShellLayout.tsx` 和 `AppSidebar.tsx`。采用相同的 React/TypeScript 技术方向及 neutral/base-nova 组件风格，参考细边框、紧凑侧栏和状态栏。声间的布局和业务代码独立编写，未复制其社交功能、品牌素材或 Rust 代码。根据首轮反馈，深浅主题颜色沿用本项目 `src/UiStyle.cs` 的蓝灰色 Palette；`public/mark.svg` 按本项目 `src/AppIcon.cs` 的 `DrawMark` 几何与颜色绘制。
+参考 [Map1en/VRCX-0](https://github.com/Map1en/VRCX-0/tree/7c2cd64a4e6bafee299e58f5aa585d2602b7e8dc)，核对提交 `7c2cd64a4e6bafee299e58f5aa585d2602b7e8dc` 的 `components.json`、`src/styles/globals.css`、`AppShellLayout.tsx` 和 `AppSidebar.tsx`。采用相同的 React/TypeScript 技术方向及 neutral/base-nova 组件风格，参考细边框、紧凑侧栏和状态栏。声间的布局和业务代码独立编写，未复制其社交功能、品牌素材或 Rust 代码。首轮采用过本项目的蓝灰色 Palette。v0.12.1 按新 UI 约定改为 Radix Colors。Logo 保留原有声波几何，颜色改为 Indigo 9 和白色。
+
+## Radix Colors
+
+配色依赖为 `@radix-ui/colors` 3.0.0，使用 MIT 许可。仅导入 Slate、Indigo、Red、Green 的深浅色 CSS，以及黑白透明色。未加入运行时脚本。许可原文由现有打包脚本归集。
+
+颜色用途遵循 [Radix 色阶规范](https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale)。1–2 用于背景，3–5 用于交互状态，6–8 用于边框，9–10 用于实色，11–12 用于文字。
 
 ## UI 组件
 

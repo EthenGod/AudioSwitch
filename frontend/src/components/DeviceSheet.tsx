@@ -9,12 +9,15 @@ import { DeviceIdentity } from './shared'
 import { DolbySheet } from './DolbySheet'
 import { OperationFailure } from '@/data/desktop'
 
-export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway, saveError, onClose, onSave, onDolbySaved, onDolbyFailure, onDolbyResult }: {
+export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway, saveError, onClose: finishClose, onSave, onDolbySaved, onDolbyFailure, onDolbyResult }: {
   device: Device; snapshot: Snapshot; busy: boolean; readOnly?: boolean; gateway: UiGateway; saveError?: string; onClose: () => void
   onSave: (profile: DeviceProfile, rule: DeviceRule, expectedProfile: DeviceProfile | null, expectedRule: DeviceRule) => Promise<boolean>
   onDolbySaved: (snapshot: Snapshot) => void; onDolbyFailure: (error: OperationFailure) => void
   onDolbyResult?: (text: string, error: boolean) => void
 }) {
+  const [open, setOpen] = useState(true)
+  const onClose = () => setOpen(false)
+
   const desktop = gateway.mode === 'desktop'
   const [dolbyOpen, setDolbyOpen] = useState(false)
   const [baseline] = useState(() => snapshot.Preferences.DeviceProfiles[device.Id] ?? null)
@@ -44,19 +47,19 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
     const okay = await onSave({ Volume: useVolume ? volume : null, SpatialFormat: spatial === 'keep' ? null : spatial === 'off' ? '' : spatial }, rule, baseline, baselineRule)
     if (okay) onClose()
   }
-  return <Sheet open onOpenChange={open => { if (!open && !busy) onClose() }}>
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open && !busy) onClose() }}>
     <SheetContent initialFocus={heading} closeDisabled={busy}>
-      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">设备设置</SheetTitle><SheetDescription className="sheet-description">音量、空间音效与接入规则</SheetDescription></header>
+      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">设备设置</SheetTitle><SheetDescription className="sr-only">音量、空间音效与接入规则</SheetDescription></header>
       <div className="sheet-preview"><Info size={14} />{readOnly ? '只读：显示已保存的预设，不代表当前音效状态' : desktop ? '仅保存预设，不切换设备或写入音效' : '界面预览，操作不会改变系统设置'}</div>
       <div className="sheet-scroll">
         <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">离线</span>}</div>
         {reading && <p role="status">正在读取当前音量和支持的空间音效…</p>}
         {readError && <p role="alert" className="field-help">{readError} 未能读取的字段保留原值。</p>}
         {saveError && <p role="alert" className="field-help">{saveError}</p>}
-        <section className="sheet-section"><h3><Volume2 size={16} />音量预设</h3><div className="volume-toggle"><label htmlFor="use-volume">使用指定音量</label><Switch id="use-volume" checked={useVolume} disabled={busy || reading || readOnly || volumeUnavailable} onCheckedChange={setUseVolume} /></div><div className="volume-control"><Volume2 size={17} /><input type="range" aria-label="预设音量" min="0" max="100" value={volume} disabled={!useVolume || busy || reading || readOnly || volumeUnavailable} onChange={e => setVolume(Number(e.target.value))} /><output>{volume}<span>%</span></output></div><p className="field-help">{desktop && !readOnly && (volumeUnavailable ? `${details?.VolumeError || "当前音量不可读"}；保留原预设。` : `当前音量 ${details?.CurrentVolume}%。`)}{useVolume ? '仅保存预设不会改变当前音量。' : '保持设备当前音量，不写入音量设置。'}</p></section>
-        <section className="sheet-section"><h3><Headphones size={16} />Windows 空间音效</h3><label className="sr-only" htmlFor="spatial">空间音效预设</label><select id="spatial" value={spatial} disabled={device.Flow === 1 || busy || reading || readOnly || spatialUnavailable} onChange={e => setSpatial(e.target.value)}><option value="keep">保持不变</option><option value="off">关闭空间音效</option>{!readOnly && options.filter(o => o.Id !== '').map(o => <option key={o.Id} value={o.Id}>{o.Name}</option>)}{((readOnly && !['keep', 'off'].includes(spatial)) || !knownSpatial) && <option value={spatial}>保留已有音效格式</option>}</select><p className="field-help">{device.Flow === 1 ? '麦克风不适用播放空间音效；保留已有字段。' : readOnly ? '仅显示已保存的预设，尚未检查设备支持情况。' : desktop ? spatialUnavailable ? details?.SpatialError || '当前无法检查空间音效；保留原预设。' : '选项来自此设备；保持不变不会写入空间音效。' : '这里只演示选项，实际支持情况将在连接后台后检查。'}</p></section>
-        <section className="sheet-section"><h3><Shield size={16} />白名单 · 免打扰规则</h3><label className="sr-only" htmlFor="device-rule">白名单规则</label><select id="device-rule" value={rule} disabled={busy || readOnly} onChange={e => setRule(Number(e.target.value) as DeviceRule)}><option value="0">使用全局设置</option><option value="1">接受系统选择，不弹窗</option><option value="2">接入时自动切换，不弹窗</option></select><p className="field-help">{['沿用全局优先级与接入询问设置。', '保留 Windows 的选择和音量／空间音效，不主动切换。', '接入后主动切换到此设备并应用预设，优先于普通排序。'][rule]}</p></section>
-        {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong><p>独立方案、强度与均衡器</p></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
+        <section className="sheet-section"><h3><Volume2 size={16} />音量预设</h3><div className="volume-toggle"><label htmlFor="use-volume">使用指定音量</label><Switch id="use-volume" checked={useVolume} disabled={busy || reading || readOnly || volumeUnavailable} onCheckedChange={setUseVolume} /></div><div className="volume-control"><Volume2 size={17} /><input type="range" aria-label="预设音量" min="0" max="100" value={volume} disabled={!useVolume || busy || reading || readOnly || volumeUnavailable} onChange={e => setVolume(Number(e.target.value))} /><output>{volume}<span>%</span></output></div><p className="field-help">{desktop && !readOnly && (volumeUnavailable ? `${details?.VolumeError || "当前音量不可读"}；保留原预设。` : `当前音量 ${details?.CurrentVolume}%。`)}{useVolume ? '' : '切换时保持当前音量。'}</p></section>
+        <section className="sheet-section"><h3><Headphones size={16} />Windows 空间音效</h3><label className="sr-only" htmlFor="spatial">空间音效预设</label><select id="spatial" value={spatial} disabled={device.Flow === 1 || busy || reading || readOnly || spatialUnavailable} onChange={e => setSpatial(e.target.value)}><option value="keep">保持不变</option><option value="off">关闭空间音效</option>{!readOnly && options.filter(o => o.Id !== '').map(o => <option key={o.Id} value={o.Id}>{o.Name}</option>)}{((readOnly && !['keep', 'off'].includes(spatial)) || !knownSpatial) && <option value={spatial}>保留已有音效格式</option>}</select><p className="field-help">{device.Flow === 1 ? '麦克风不支持空间音效。' : readOnly ? '仅显示已保存的预设，尚未检查设备支持情况。' : desktop ? spatialUnavailable ? details?.SpatialError || '当前无法检查空间音效；保留原预设。' : '选择“保持不变”时不调整音效。' : '示例选项。'}</p></section>
+        <section className="sheet-section"><h3><Shield size={16} />接入规则</h3><label className="sr-only" htmlFor="device-rule">白名单规则</label><select id="device-rule" value={rule} disabled={busy || readOnly} onChange={e => setRule(Number(e.target.value) as DeviceRule)}><option value="0">使用全局设置</option><option value="1">接受系统选择，不弹窗</option><option value="2">接入时自动切换，不弹窗</option></select><p className="field-help">{['沿用全局优先级与接入询问设置。', '保留 Windows 的选择和音量／空间音效，不主动切换。', '接入后主动切换到此设备并应用预设，优先于普通排序。'][rule]}</p></section>
+        {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
       </div>
       <footer className="sheet-footer"><p>{readOnly ? '当前只读，不提供保存或应用操作。' : desktop ? '下次切换时应用预设；保留已有 Dolby 设置。' : '仅保存在本次预览中，刷新页面后重置。'}</p><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
       {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} onResult={onDolbyResult} />}

@@ -5,7 +5,10 @@ import { upgradeActive } from '@/data/upgrade'
 import { Button } from './ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from './ui/sheet'
 
-export function UpgradeSheet({ kind, gateway, snapshot, onClose }: { kind: UpgradeKind; gateway: UiGateway; snapshot: Snapshot; onClose: () => void }) {
+export function UpgradeSheet({ kind, gateway, snapshot, onClose: finishClose }: { kind: UpgradeKind; gateway: UiGateway; snapshot: Snapshot; onClose: () => void }) {
+  const [open, setOpen] = useState(true)
+  const onClose = () => setOpen(false)
+
   const [job, setJob] = useState<UpgradeJob | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirm, setConfirm] = useState(false), [submitted, setSubmitted] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null), confirmation = useRef<HTMLElement>(null), current = useRef<UpgradeJob | null>(null), alive = useRef(true), lock = useRef(false), committing = useRef(false), closeRequested = useRef(false)
   const desktop = gateway.mode === 'desktop', active = upgradeActive(job), polling = active && !['available', 'repairable', 'ready'].includes(job!.Status)
@@ -38,19 +41,19 @@ export function UpgradeSheet({ kind, gateway, snapshot, onClose }: { kind: Upgra
       if (alive.current) setError((committing.current ? '安装可能已提交，请重新读取结果，勿重复提交。' : '') + (e instanceof Error ? e.message : '操作未完成，请重试。'))
     } finally { lock.current = false; closeRequested.current = false; if (alive.current) setBusy(false) }
   }
-  return <Sheet open onOpenChange={open => { if (!open) void perform('close') }}>
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void perform('close') }}>
     <SheetContent className="upgrade-sheet" initialFocus={heading} closeDisabled={busy || installPending} closeLabel="关闭维护窗口">
       <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{kind === 'update' ? '检查更新' : '文件检查与修复'}</SheetTitle><SheetDescription className="sheet-description">检查 → 下载并校验 → 确认安装</SheetDescription></header>
       <div className="sheet-preview"><Info size={14} />{desktop ? '确认安装前不会替换程序或重启' : '界面预览，操作不会改变系统设置'}</div>
       <div className="sheet-scroll maintenance-content">
-        <p>{kind === 'update' ? '更新来源：GitHub · EthenGod/AudioSwitch' : '检查程序文件；缺损时下载当前版本完整包修复。'}</p>
+        <p>{kind === 'update' ? '更新来源：GitHub EthenGod/AudioSwitch' : '检查程序文件；缺损时下载当前版本完整包修复。'}</p>
         <p className="field-help">{desktop ? !snapshot.Preferences.AutoUpdateEnabled ? '后台自动更新已关闭；此处只处理本次手动维护。' : snapshot.Preferences.GameMode ? '游戏模式暂停后台自动更新；此处只处理本次手动维护。' : '后台自动更新设置保持不变。' : '以下均为模拟数据，不联网、不检查本机文件。'}</p>
         {(polling || busy) && <p className="maintenance-progress" role="status"><LoaderCircle size={17} className="spin" />{busy ? '正在处理，请稍候…' : job?.Message}</p>}
         {error && <p role="alert" className="backend-warning">{error}</p>}
         {job && <section className="sheet-section" aria-live="polite">
           {!polling && <h3>{job.Message}</h3>}
           {job.Version && <p>版本：{job.Version}</p>}
-          {job.Status === 'downloading' && <><progress aria-label="下载进度" max={job.Total || undefined} value={job.Total ? Math.min(job.Bytes, job.Total) : undefined} /><p>{(job.Bytes / 1048576).toFixed(1)} MiB{job.Total > 0 && ` / ${(job.Total / 1048576).toFixed(1)} MiB`} · 校验完成后才能安装</p></>}
+          {job.Status === 'downloading' && <><progress aria-label="下载进度" max={job.Total || undefined} value={job.Total ? Math.min(job.Bytes, job.Total) : undefined} /><p>{(job.Bytes / 1048576).toFixed(1)} MiB{job.Total > 0 && ` / ${(job.Total / 1048576).toFixed(1)} MiB`}，校验完成后才能安装</p></>}
           {job.Notes && <pre className="maintenance-notes">{job.Notes}</pre>}
         </section>}
         {confirm && <section ref={confirmation} tabIndex={-1} className="backend-warning upgrade-confirmation" aria-label="安装确认"><h3>{desktop ? '确认安装并重启声间？' : '模拟安装确认'}</h3><p>{desktop ? '安装助手会关闭面板和后台，备份原程序后替换文件，并重新启动。已开启的启动优先级或 Dolby 规则可能在重启后执行。' : '仅演示安装交接，不会下载、替换文件或重启程序。'}</p><p>安装交接后不能取消；失败原因和恢复结果由安装助手显示。</p></section>}
