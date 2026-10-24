@@ -14,8 +14,8 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
     <section className="settings-group" aria-label="应用偏好">
       <SettingRow title="外观"><div className="segmented"><button aria-label="浅色模式" aria-pressed={!prefs.DarkMode} disabled={busy} onClick={() => onPreference('DarkMode', false)}><Sun size={14} />浅色</button><button aria-label="深色模式" aria-pressed={prefs.DarkMode} disabled={busy} onClick={() => onPreference('DarkMode', true)}><Moon size={14} />深色</button></div></SettingRow>
       <ToggleRow title="游戏模式" description="暂停后台自动更新。" value={prefs.GameMode} disabled={busy || readOnly} onChange={v => onPreference('GameMode', v)} />
-      <ToggleRow title="开机自启" description={desktop ? snapshot.StartupMessage || (snapshot.StartupAvailable && !readOnly ? '登录 Windows 后只启动托盘。' : '当前连接无法修改自启设置。') : '登录 Windows 后启动托盘。'} value={snapshot.StartupEnabled} disabled={busy || readOnly || (desktop && !snapshot.StartupAvailable)} onChange={onStartup} />
-      <ToggleRow title="自动更新" description="空闲时下载，下次启动安装；游戏模式下暂缓。" value={prefs.AutoUpdateEnabled} disabled={busy || readOnly} onChange={v => onPreference('AutoUpdateEnabled', v)} />
+      <ToggleRow title="开机自启" description={desktop ? snapshot.StartupMessage || (snapshot.StartupAvailable && !readOnly ? '仅启动托盘。' : '当前连接无法修改自启设置。') : '仅启动托盘。'} value={snapshot.StartupEnabled} disabled={busy || readOnly || (desktop && !snapshot.StartupAvailable)} onChange={onStartup} />
+      <ToggleRow title="自动更新" description="空闲时下载，下次启动安装。" value={prefs.AutoUpdateEnabled} disabled={busy || readOnly} onChange={v => onPreference('AutoUpdateEnabled', v)} />
     </section>
     <div className="section-heading"><h2>备份与维护</h2><span className="section-caption">{desktop && !snapshot.CanManageBackup ? '导入导出需要新版后台' : ''}</span></div>
     <section className="maintenance-grid">{[

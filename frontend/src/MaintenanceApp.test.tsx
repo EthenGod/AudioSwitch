@@ -67,6 +67,6 @@ describe('maintenance UI', () => {
     await screen.findByRole('table'); await user.click(screen.getByRole('button', { name: '应用设置' })); await user.click(screen.getByRole('button', { name: /文件检查/ }))
     await user.click(screen.getByRole('button', { name: '模拟检查' }))
     await screen.findByText('示例：发现文件缺损，可下载完整包修复。', {}, { timeout: 2000 })
-    expect(screen.getByText('以下均为模拟数据，不联网、不检查本机文件。')).toBeVisible()
+    expect(within(screen.getByRole('dialog')).getByText('界面预览，不联网或读写本机文件')).toBeVisible()
   })
 })

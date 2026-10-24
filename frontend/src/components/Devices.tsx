@@ -17,7 +17,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
       const Icon = flow === 0 ? Headphones : Mic
       return <section className="summary-card" key={flow} aria-label={flow === 0 ? '当前声音输出' : '当前麦克风'}>
         <div className="summary-top"><span><Icon size={14} />{flow === 0 ? '当前声音输出' : '当前麦克风'}</span></div>
-        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? '暂无可用设备'}</h2><p>{current?.Connection ?? '连接设备后会显示在这里'}</p></div><Button variant="ghost" size="icon" disabled={!current || busy} aria-label={flow === 0 ? '设置当前输出' : '设置当前麦克风'} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
+        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? '暂无可用设备'}</h2><p>{current?.Connection}</p></div><Button variant="ghost" size="icon" disabled={!current || busy} aria-label={flow === 0 ? '设置当前输出' : '设置当前麦克风'} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
       </section>
     })}</div>
     <section className="device-section" aria-labelledby="device-list-title">
@@ -39,7 +39,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
             </div>
           </div>
         })}
-        {!visible.length && <div className="empty-state"><Unplug size={28} /><h3>{snapshot.Devices.length ? '没有找到匹配的设备' : '还没有声音设备'}</h3><p>{snapshot.Devices.length ? '试试其他名称，或切换设备类型。' : '连接耳机、扬声器或麦克风后，设备会显示在这里。'}</p>{(query || filter !== -1) && <Button variant="outline" onClick={() => { setQuery(''); setFilter(-1) }}>清除筛选</Button>}</div>}
+        {!visible.length && <div className="empty-state"><Unplug size={28} /><h3>{snapshot.Devices.length ? '没有找到匹配的设备' : '还没有声音设备'}</h3><p>{snapshot.Devices.length ? '更换关键词或清除筛选。' : '请连接耳机、扬声器或麦克风。'}</p>{(query || filter !== -1) && <Button variant="outline" onClick={() => { setQuery(''); setFilter(-1) }}>清除筛选</Button>}</div>}
       </div>
       <div className="list-footnote"><button onClick={onAutomation}>管理自动切换 <ChevronRight size={13} /></button></div>
     </section>

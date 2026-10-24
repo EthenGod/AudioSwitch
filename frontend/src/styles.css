@@ -158,7 +158,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .statusbar select { border: 0; padding: 1px 4px; background: transparent; color: var(--muted-foreground); font-size: var(--font-caption); }
 .statusbar select option { background: var(--card); }
 .settings-group { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; background: var(--card); margin-bottom: 26px; }
-.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 19px 20px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 68px; padding: 16px 20px; }
 .setting-row + .setting-row { border-top: 1px solid var(--border); }
 .setting-title { font-size: var(--font-body); font-weight: 500; }
 .setting-row p { color: var(--muted-foreground); font-size: var(--font-caption); line-height: 1.7; margin: 5px 0 0; }
@@ -174,7 +174,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .priority-row .device-identity { flex: 1; }
 .order-number { font-size: var(--font-caption); color: var(--tertiary); font-variant-numeric: tabular-nums; }
 .priority-state { font-size: var(--font-caption); color: var(--tertiary); }
-.page-footnote { font-size: var(--font-caption); color: var(--tertiary); line-height: 1.8; margin-top: 14px; }
+.priority-notice { font-size: var(--font-caption); color: var(--muted-foreground); line-height: 1.6; margin: 0 0 12px; }
 .maintenance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .maintenance-item { min-height: 64px; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; align-items: center; gap: 12px; text-align: left; background: var(--card); }
 .maintenance-item:hover { border-color: var(--tertiary); }
@@ -198,30 +198,38 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .sheet-content { position: fixed; z-index: 60; inset: 0 0 0 auto; width: min(480px, 100vw); display: flex; flex-direction: column; background: var(--background); border-left: 1px solid var(--border); box-shadow: var(--shadow-panel); transition: transform 250ms ease-out, opacity 250ms ease-out; outline: none; }
 .sheet-content[data-starting-style], .sheet-content[data-ending-style] { transform: translateX(24px); opacity: 0; }
 .sheet-backdrop[data-starting-style], .sheet-backdrop[data-ending-style] { opacity: 0; }
+/* Sheets mount already open. CSS supplies the missing first-frame state. */
+@starting-style {
+  .sheet-content { transform: translateX(24px); opacity: 0; }
+  .sheet-backdrop { opacity: 0; }
+}
 .sheet-close { position: absolute; top: 20px; right: 19px; }
-.sheet-header { padding: 24px 64px 18px 24px; flex-shrink: 0; }
+.sheet-header { padding: 20px 64px 16px 24px; flex-shrink: 0; }
 .sheet-title { font-size: var(--font-title); font-weight: 550; margin: 6px 0; }
 .sheet-description { color: var(--muted-foreground); font-size: var(--font-caption); margin: 0; }
 .sheet-preview { font-size: var(--font-caption); color: var(--accent); display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--selected); flex-shrink: 0; }
 .sheet-scroll { padding: 0 24px 24px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
-.sheet-device { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 21px 0; border-bottom: 1px solid var(--border); }
+.sheet-device { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .sheet-device .device-name { white-space: normal; overflow-wrap: anywhere; }
-.sheet-section { padding: 20px 0; border-bottom: 1px solid var(--border); }
-.sheet-section h3 { display: flex; align-items: center; gap: 8px; font-size: var(--font-body); font-weight: 500; margin: 0 0 17px; }
+.sheet-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.sheet-section h3 { display: flex; align-items: center; gap: 8px; font-size: var(--font-body); font-weight: 500; margin: 0 0 12px; }
+.sheet-section > .volume-toggle h3 { margin: 0; }
 .sheet-section h3 > svg { color: var(--muted-foreground); }
 .sheet-section select { width: 100%; font-size: var(--font-caption); }
 .volume-toggle { display: flex; justify-content: space-between; align-items: center; font-size: var(--font-caption); }
-.volume-control { display: flex; align-items: center; gap: 12px; margin-top: 19px; color: var(--muted-foreground); }
+.volume-control { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted-foreground); }
 .volume-control input { flex: 1; }
 .volume-control output { width: 48px; text-align: right; font-variant-numeric: tabular-nums; color: var(--foreground); font-size: var(--font-body); }
 .volume-control output span { font-size: var(--font-caption); margin-left: 3px; color: var(--tertiary); }
 .field-help { color: var(--tertiary); font-size: var(--font-caption); line-height: 1.8; margin: 12px 0 0; }
-.dolby-placeholder { display: flex; align-items: center; gap: 10px; color: var(--muted-foreground); margin-top: 22px; }
+.field-help:empty { display: none; }
+.dolby-placeholder { display: flex; align-items: center; gap: 10px; color: var(--muted-foreground); margin-top: 16px; }
 .dolby-placeholder strong { color: var(--foreground); font-weight: 500; font-size: var(--font-caption); }
 .dolby-placeholder p { font-size: var(--font-caption); margin-top: 4px; }
 .dolby-placeholder > span { margin-left: auto; }
 .sheet-footer { padding: 16px 24px 20px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--card); }
 .sheet-footer p { font-size: var(--font-caption); color: var(--tertiary); margin: 0 0 12px; }
+.sheet-footer > div + p { margin: 12px 0 0; }
 .sheet-footer > div { display: flex; justify-content: flex-end; gap: 9px; }
 .skip-link { position: fixed; z-index: 100; left: 16px; top: -60px; padding: 10px 18px; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--radius); }
 .skip-link:focus { top: 10px; }

@@ -50,12 +50,12 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}>
     <SheetContent initialFocus={heading} closeDisabled={closing} closeLabel="关闭检查窗口">
-      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{updating ? '检查更新' : '文件检查'}</SheetTitle><SheetDescription className="sheet-description">{updating ? '查看正式版本与更新说明' : '检查后台运行必需文件'}</SheetDescription></header>
+      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{updating ? '检查更新' : '文件检查'}</SheetTitle><SheetDescription className="sr-only">{updating ? '查看正式版本与更新说明' : '检查后台运行必需文件'}</SheetDescription></header>
       <div className="sheet-preview"><Info size={14} />{desktop ? '只读检查，不安装、修复或修改配置' : '界面预览，不联网或读取本机文件'}</div>
       <div className="sheet-scroll maintenance-content">
         {updating ? <>
           <p>更新来源：GitHub EthenGod/AudioSwitch</p>
-          <p className="field-help">{!snapshot.Preferences.AutoUpdateEnabled ? '后台自动更新已关闭。手动检查仍可使用。' : snapshot.Preferences.GameMode ? '游戏模式暂停后台自动更新。手动检查仍可使用。' : '后台自动更新设置保持不变。'}</p>
+          {(!snapshot.Preferences.AutoUpdateEnabled || snapshot.Preferences.GameMode) && <p className="field-help">自动更新已暂停，仍可手动检查。</p>}
           <p className="field-help">当前后台仅支持检查，请手动下载完整包。</p>
         </> : <p className="field-help">当前后台只支持检查后台文件，不检查面板或修复文件。</p>}
         {(starting || running || closing) && <p role="status" className="maintenance-progress"><LoaderCircle className="spin" size={17} />{closing ? '正在取消并等待检查退出…' : starting ? '正在启动检查…' : job?.Message}</p>}
@@ -69,7 +69,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
           {job.Notes && <><h3>更新说明</h3><pre className="maintenance-notes">{job.Notes}</pre></>}
         </section>}
       </div>
-      <footer className="sheet-footer"><p>{desktop ? '关闭窗口会停止本次检查。' : '示例结果不代表本机或实际版本状态。'}</p><div>
+      <footer className="sheet-footer">{(starting || running) && <p>关闭窗口会停止本次检查。</p>}<div>
         <Button variant="outline" disabled={closing} onClick={() => void stop(true)}>关闭</Button>
         {running || starting ? <Button disabled={closing || starting} onClick={() => void stop(false)}>取消检查</Button> : <Button disabled={closing} onClick={() => void start()}>{job ? '重新检查' : desktop ? '开始检查' : '模拟检查'}</Button>}
         {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>重新读取状态</Button>}

@@ -77,7 +77,7 @@ describe('preview workflows', () => {
     const { gateway, user } = await setup()
     await user.click(screen.getByRole('button', { name: '自动切换' }))
     await user.click(screen.getByRole('button', { name: '上移 蓝牙耳机' }))
-    await screen.findByText(/已调整示例优先级/)
+    await waitFor(() => expect(screen.getByText('蓝牙耳机').closest('.priority-row')).toHaveTextContent('03'))
     await user.click(screen.getByRole('switch', { name: '按设备优先级选择' }))
     await waitFor(() => expect(screen.getByRole('switch', { name: '按设备优先级选择' })).not.toBeChecked())
     expect((await gateway.read()).Preferences.DeviceOrder[0][2]).toBe('demo-bluetooth')

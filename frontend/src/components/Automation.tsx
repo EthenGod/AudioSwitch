@@ -17,12 +17,13 @@ export function Automation({ snapshot, busy, readOnly = false, desktop = false, 
   }
   return <>
     <section className="settings-group" aria-label="自动切换选项">
-      <ToggleRow title="按设备优先级选择" description="开启后立即选择排序靠前的在线设备；关闭后保留排序。" value={prefs.UseDevicePriority} disabled={busy || readOnly} onChange={v => onPreference('UseDevicePriority', v)} />
-      <ToggleRow title="新设备接入时询问" description="设备接入时提供快捷选择；白名单规则优先。" value={prefs.AskOnConnect} disabled={busy || readOnly} onChange={v => onPreference('AskOnConnect', v)} />
-      <ToggleRow title="同时切换通话设备" description="关闭后保留当前通话设备。" value={prefs.IncludeCommunications} disabled={busy || readOnly} onChange={v => onPreference('IncludeCommunications', v)} />
+      <ToggleRow title="按设备优先级选择" description="开启后立即切换到优先设备。" value={prefs.UseDevicePriority} disabled={busy || readOnly} onChange={v => onPreference('UseDevicePriority', v)} />
+      <ToggleRow title="新设备接入时询问" description="已设接入规则的设备不询问。" value={prefs.AskOnConnect} disabled={busy || readOnly} onChange={v => onPreference('AskOnConnect', v)} />
+      <ToggleRow title="同时切换通话设备" value={prefs.IncludeCommunications} disabled={busy || readOnly} onChange={v => onPreference('IncludeCommunications', v)} />
     </section>
-    <div className="section-heading"><h2>设备优先级</h2><span className="section-caption">越靠前，优先级越高</span></div>
+    <div className="section-heading"><h2>设备优先级</h2></div>
     <div className="list-toolbar"><div className="segmented" aria-label="优先级设备类型"><button aria-pressed={flow === 0} onClick={() => setFlow(0)}><Headphones size={14} />声音输出</button><button aria-pressed={flow === 1} onClick={() => setFlow(1)}><Mic size={14} />麦克风输入</button></div><span className="section-caption">{readOnly ? '只读' : ''}</span></div>
+    {desktop && !readOnly && prefs.UseDevicePriority && <p className="priority-notice">调整排序会立即切换设备并应用预设，白名单优先。</p>}
     <div className="priority-list" aria-label={flow === 0 ? '输出优先级列表' : '输入优先级列表'}>
       {order.map((id, index) => {
         const device = snapshot.Devices.find(d => d.Id === id)!
@@ -30,6 +31,5 @@ export function Automation({ snapshot, busy, readOnly = false, desktop = false, 
       })}
       {!order.length && <div className="empty-state"><p>暂无可排序的设备。</p></div>}
     </div>
-    <p className="page-footnote">{readOnly ? '当前连接只支持查看。' : desktop ? '输出和麦克风分别排序。优先级开启时，调整排序会立即选择设备并应用预设。白名单优先。' : '白名单规则优先于设备排序。'}</p>
   </>
 }

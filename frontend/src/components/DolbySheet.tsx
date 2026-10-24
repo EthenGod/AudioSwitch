@@ -49,7 +49,8 @@ export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onCha
         {advanced ? raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>) : ten.map((v,i) => <label key={i}>{frequencies[i]}<EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /></label>)}
       </fieldset>
     </section>
-    <p className="field-help">Dolby 自定义槽位由驱动共享。内容自动切换可能改变当前预设。低音增强暂不支持。</p>
+    {custom && <p className="field-help">自定义预设由驱动共享。</p>}
+    {p.AutoSwitch !== false && <p className="field-help">内容自动切换可能改变当前预设。</p>}
   </div>
 }
 
@@ -115,11 +116,11 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
     <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
-    <div className="sheet-preview">{desktop ? '仅保存不改变音效；保存并应用会写入当前输出的 Dolby 设置' : '界面预览，操作不会改变系统设置'}</div>
+    {!desktop && <div className="sheet-preview">界面预览，操作不会改变系统设置</div>}
     <div className="sheet-scroll">
       {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台。</p>}
       <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
-      <p className="field-help">读取需要此设备是当前输出。仅填入草稿。</p>
+      {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">切换到此设备后才能读取或立即应用。</p>}
       {(starting || running || closing) && <p role="status">{closing ? '正在取消并等待读取退出…' : '正在读取 Dolby…'}</p>}
       {message && <p role={job?.Status === 'error' ? 'alert' : 'status'}>{message}</p>}
       {error && <p role="alert" className="field-help">{error}</p>}
@@ -130,7 +131,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
     <footer className="sheet-footer">
       {application.job && <p role={['error','warning','cancelled'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
       {application.error && <p role="alert">{application.error}</p>}
-      <p>立即应用仅限当前输出，不切换设备，不应用音量或 Windows 空间音效。</p>
+      <p>仅保存不改变音效；立即应用只修改当前输出的 Dolby 设置。</p>
       <div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>{application.job ? '关闭' : '取消'}</Button>
         {running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>取消读取</Button>}
         {application.busy && <Button variant="outline" onClick={() => void application.cancel()}>取消应用</Button>}

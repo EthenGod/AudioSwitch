@@ -21,6 +21,6 @@ export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Sna
 export function SettingRow({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return <div className="setting-row"><div><div className="setting-title">{title}</div>{description && <p>{description}</p>}</div><div className="setting-control">{children}</div></div>
 }
-export function ToggleRow({ title, description, value, disabled, onChange }: { title: string; description: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
+export function ToggleRow({ title, description, value, disabled, onChange }: { title: string; description?: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
   return <SettingRow title={title} description={description}><Switch aria-label={title} checked={value} disabled={disabled} onCheckedChange={onChange} /></SettingRow>
 }
