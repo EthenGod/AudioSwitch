@@ -7,7 +7,7 @@ import { emptyDolby, type DolbyOperation } from './data/dolby'
 import type { Snapshot, UiGateway } from './data/types'
 import { backendFixture } from './test/backendFixture'
 const profile = { ...emptyDolby(), Enabled:false }
-const button = () => screen.getByRole('button', { name:'保存并应用 Dolby（模拟）' })
+const button = () => screen.getByRole('button', { name:'保存并应用（模拟）' })
 const operation = (token: string, Status: DolbyOperation['Status'] = 'running', Message = '已保存，尚未应用完成'): DolbyOperation => ({ Token:token, DeviceId:'demo-headphones', Status, Message })
 async function setup(factory: (snapshot: Snapshot) => Partial<UiGateway> = () => ({}), selected = 0) {
   const base = createMockGateway(0); await base.saveDolby('demo-headphones', profile, null)
@@ -22,7 +22,7 @@ describe('Dolby save and apply', () => {
     await setup(snapshot => { start.mockImplementation(async (_id,_p,_e,token) => ({ snapshot, operation:operation(token) })); return { startDolbyApply:start, readDolbyApply:read } })
     fireEvent.click(button()); fireEvent.click(button())
     await screen.findByText('已保存，尚未应用完成')
-    expect(start).toHaveBeenCalledOnce(); expect(screen.getByRole('button',{name:'仅保存 Dolby（模拟）'})).toBeDisabled()
+    expect(start).toHaveBeenCalledOnce(); expect(screen.getByRole('button',{name:'仅保存（模拟）'})).toBeDisabled()
     await screen.findByText('本次应用成功'); expect(button()).toBeEnabled()
     expect(start.mock.calls[0].slice(0,3)).toEqual(['demo-headphones',profile,profile])
   })

@@ -42,7 +42,7 @@ describe('Dolby editor and calibrated EQ', () => {
   it('only-save sends the original baseline and never starts capture automatically', async () => {
     const saveDolby = vi.fn(async()=>mapSnapshot(backendFixture())), startDolbyRead = vi.fn()
     const { onSaved } = await setup({ saveDolby, startDolbyRead })
-    fireEvent.click(screen.getByRole('button',{ name:'20 段原始值' })); fireEvent.click(screen.getByRole('button',{ name:'仅保存 Dolby（模拟）' }))
+    fireEvent.click(screen.getByRole('button',{ name:'20 段原始值' })); fireEvent.click(screen.getByRole('button',{ name:'仅保存（模拟）' }))
     await waitFor(()=>expect(onSaved).toHaveBeenCalledOnce())
     expect(saveDolby).toHaveBeenCalledWith('demo-headphones',profile(),profile()); expect(startDolbyRead).not.toHaveBeenCalled()
   })
@@ -57,7 +57,7 @@ describe('Dolby editor and calibrated EQ', () => {
     fireEvent.click(screen.getByRole('button',{ name:'模拟读取 Dolby 并填入' }))
     await screen.findByText('设备不支持 Dolby')
     expect(screen.getByRole('spinbutton',{ name:'32 Hz dB' })).toHaveValue(curve[0]/16)
-    expect(screen.getByRole('button',{ name:'仅保存 Dolby（模拟）' })).toBeEnabled()
+    expect(screen.getByRole('button',{ name:'仅保存（模拟）' })).toBeEnabled()
   })
   it('close during pending start cancels the returned job before closing', async () => {
     let finish!: (v:DolbyRead)=>void

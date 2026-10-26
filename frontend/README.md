@@ -6,6 +6,15 @@ UI 已按新约定统一配色、字号和文案。见 [UI 调整与验证](UI-R
 
 React + TypeScript + Tailwind + shadcn（Base UI）。浏览器使用内存模拟数据；Tauri 2 桌面窗口通过现有 C# 后台读取状态并执行主面板操作。
 
+## 单文件 HTML 预览
+
+在 `frontend/` 执行 `npm run build:preview`。
+默认输出到 `staging/ui-preview/声间-UI预览.html`，可用浏览器打开。
+脚本、样式、图标和许可均在文件内，不需要开发服务器。
+页面复用实际组件，只用模拟数据。刷新页面后重置，不连接后台，不保存真实配置。
+需要指定输出位置时，执行 `npm run build:preview -- ../staging/自选目录/预览.html`。
+输出必须位于项目 `staging/`，不生成 Release 附件。
+
 ## 桌面版（第四阶段分项迁移）
 
 在仓库根目录构建，不覆盖日常使用的 `bin/`：

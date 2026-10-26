@@ -45,8 +45,8 @@ export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onCha
     <section className="sheet-section"><label className="dolby-eq-toggle"><input type="checkbox" disabled={!custom} checked={p.Eq !== null} onChange={e => change('Eq', e.target.checked ? [...rememberedEq.current] : null)} />应用均衡器（自定义预设）</label>
       <div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div>
       <p className="field-help">{advanced ? '原始驱动单位，范围 −192～192，不是 dB。' : '范围 −12～12 dB。修改任意一点会重新换算 20 段曲线。'}切换视图不会修改曲线。</p>
-      <fieldset className="dolby-eq" disabled={!custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
-        {advanced ? raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>) : ten.map((v,i) => <label key={i}>{frequencies[i]}<EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /></label>)}
+      <fieldset className={`dolby-eq${advanced ? '' : ' dolby-eq-curve'}`} disabled={!custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
+        {advanced ? raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>) : ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /></label>)}
       </fieldset>
     </section>
     {custom && <p className="field-help">自定义预设由驱动共享。</p>}
@@ -136,8 +136,8 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
         {running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>取消读取</Button>}
         {application.busy && <Button variant="outline" onClick={() => void application.cancel()}>取消应用</Button>}
         {application.error && application.busy && <Button variant="outline" onClick={application.retry}>检查本次应用</Button>}
-        <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存 Dolby' : '仅保存 Dolby（模拟）'}</Button>
-        <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? '保存并应用 Dolby' : '保存并应用 Dolby（模拟）'}</Button>
+        <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>
+        <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? '保存并应用' : '保存并应用（模拟）'}</Button>
       </div>
       {desktop && !snapshot.CanApplyDolby && <p>当前后台不支持此处立即应用，可继续仅保存。</p>}
     </footer>

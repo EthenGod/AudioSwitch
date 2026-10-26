@@ -11,6 +11,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node scripts/write-notices.mjs",
+    "build:preview": "tsc --noEmit && node scripts/build-preview.mjs",
     "build:desktop": "tsc --noEmit && vite build --mode desktop && node scripts/write-notices.mjs dist-desktop",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "vitest run",

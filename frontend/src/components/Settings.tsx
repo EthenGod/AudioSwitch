@@ -1,4 +1,4 @@
-import { Download, Upload, RefreshCw, ShieldCheck, ArrowUpRight, Moon, Sun } from 'lucide-react'
+import { Download, Upload, RefreshCw, ShieldCheck, ChevronRight, Moon, Sun } from 'lucide-react'
 import type { PreferenceKey, Snapshot } from '@/data/types'
 import { SettingRow, ToggleRow } from './shared'
 import { APP_VERSION } from '../version'
@@ -23,7 +23,7 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
       { title: '导入设置', Icon: Download },
       { title: '检查更新', Icon: RefreshCw },
       { title: '文件检查', Icon: ShieldCheck },
-    ].map(({ title, Icon }, index) => <button className="maintenance-item" key={title} disabled={busy || (desktop && (index < 2 ? readOnly || !snapshot.CanManageBackup : !snapshot.CanCheckMaintenance))} onClick={() => index < 2 ? onBackup(index === 0 ? 'export' : 'import') : onMaintenance(index === 2 ? 'update' : 'files')}><Icon size={19} /><div><strong>{title}</strong></div><ArrowUpRight size={15} /></button>)}</section>
+    ].map(({ title, Icon }, index) => <button className="maintenance-item" key={title} disabled={busy || (desktop && (index < 2 ? readOnly || !snapshot.CanManageBackup : !snapshot.CanCheckMaintenance))} onClick={() => index < 2 ? onBackup(index === 0 ? 'export' : 'import') : onMaintenance(index === 2 ? 'update' : 'files')}><Icon size={20} /><div><strong>{title}</strong></div><ChevronRight size={16} /></button>)}</section>
     <div className="about-line"><img src="/mark.svg" width="30" height="30" alt="" /><div><strong>声间 <span>Audio Switch</span></strong><p>v{APP_VERSION} {desktop ? readOnly ? '兼容只读模式' : '桌面版' : '界面预览'}</p></div></div>
   </>
 }
