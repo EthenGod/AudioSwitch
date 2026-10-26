@@ -4,7 +4,15 @@
 
 UI 已按新约定统一配色、字号和文案。见 [UI 调整与验证](UI-REFRESH-0.12.1.md)。开始后续任务前先看 [项目交接记录](../HANDOFF.MD)。
 
-React + TypeScript + Tailwind + shadcn（Base UI）。浏览器使用内存模拟数据；Tauri 2 桌面窗口通过现有 C# 后台读取状态并执行主面板操作。
+React + TypeScript + Tailwind + shadcn（Base UI）。开发预览与单文件 HTML 使用模拟数据。Tauri 2 桌面窗口和托盘打开的本机浏览器面板通过 C# 后台执行真实操作。
+
+## 本机浏览器面板
+
+应用设置中的“双击托盘图标”控制打开方式，默认主面板。浏览器模式由完整包内的 `audio-switch-panel.exe --browser --owner=后台PID` 提供，不创建 WebView。不要手动把 Vite 预览当作真实面板。
+
+`src/data/browser.ts` 使用同一套 desktop gateway。Rust `src-tauri/src/browser.rs` 只监听随机回环端口，校验 Host、Origin 和本次凭据，并限定可用命令及静态文件。凭据通过 URL 片段交付，随后清除地址栏片段，只在该来源的 sessionStorage 中保留以支持刷新。不使用跨域许可、固定密码或可变文件路径。
+
+浏览器流连接仅用于确认标签仍打开，不读取音频。关闭最后一个标签后保留 8 秒刷新宽限期；连接断开检测最多约 2 秒。未成功打开页面时 60 秒退出。后台通过标准输入要求再次打开或关闭；后台进程结束时退出。多个标签共享原有串行操作限制。
 
 ## 单文件 HTML 预览
 

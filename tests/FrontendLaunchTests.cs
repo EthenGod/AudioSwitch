@@ -26,6 +26,13 @@ namespace AudioSwitch
             check(old.Arguments.Contains("--ui") && old.FileName.EndsWith("AudioSwitch.exe") && !old.UseShellExecute, "old eight-file layout retains WinForms launch without shell");
             check(PanelLaunch.Select(Path.Combine(root, "AudioSwitch.exe"), true, 123).Arguments == "--prompt --owner=123", "legacy prompt preserves owner");
             Reject(() => PanelLaunch.Select(Path.Combine(root, "AudioSwitch.exe"), false, 0), check, "invalid owner rejected");
+            Reject(() => PanelLaunch.Select(Path.Combine(root, "AudioSwitch.exe"), false, 123, true), check, "browser never silently opens legacy or preview UI");
+            check(!PreferenceStore.Parse("{\"AskOnConnect\":true}").OpenPanelInBrowser, "old configuration defaults to native tray double click");
+            check(PreferenceStore.Parse(PreferenceStore.Export(new Preferences { OpenPanelInBrowser = true })).OpenPanelInBrowser, "browser tray preference survives export and import");
+            string settingsPath = Path.Combine(root, "settings.json");
+            PreferenceStore.Save(settingsPath, new Preferences { OpenPanelInBrowser = true });
+            check(PreferenceStore.Load(settingsPath).OpenPanelInBrowser, "browser tray preference survives settings reload");
+            Reject(() => PreferenceStore.Parse("{\"OpenPanelInBrowser\":\"true\"}"), check, "browser tray preference requires boolean");
             foreach (string mode in new[] { "valid", "format", "version", "platform", "count", "duplicate", "traversal", "length", "hash", "sizeType", "missing", "corrupt", "panelOnly", "manifestOnly" }) {
                 string dir = Path.Combine(root, mode); Directory.CreateDirectory(dir);
                 var rows = new List<Dictionary<string, object>>();
@@ -76,6 +83,18 @@ namespace AudioSwitch
                 check(created.Count == 4 && created[1].Closes == 1 && created[3].Closes == 1, "shutdown closes owned windows once and blocks late launch");
             }
             check(created.All(w => w.Disposals == 1), "all owned process handles disposed exactly once");
+            created.Clear();
+            using (var windows = new FrontendWindows(p => new ProcessStartInfo(p ? "prompt" : "panel"), info => {
+                var window = new Window { Id = 200 + created.Count }; created.Add(window); return window;
+            }, () => new ProcessStartInfo("browser"))) {
+                windows.ShowBrowser(); windows.ShowBrowser(); windows.Show(false);
+                check(created.Count == 2 && created[0].Activations == 1, "browser host is reused independently of native panel");
+                created[0].Exited = true; windows.ShowBrowser();
+                check(created.Count == 3 && created[0].Disposals == 1, "browser host recreates after last tab closes");
+                windows.Close(); windows.ShowBrowser();
+                check(created.Count == 3 && created[1].Closes == 1 && created[2].Closes == 1, "backend exit closes both panel transports and blocks reopen");
+            }
+            check(created.All(w => w.Disposals == 1), "browser handles disposed exactly once");
         }
         private static void Reject(Action action, Action<bool,string> check, string name) { bool rejected = false; try { action(); } catch { rejected = true; } check(rejected,name); }
     }

@@ -8,6 +8,7 @@ mod upgrade;
 mod prompt;
 mod dolby;
 mod dolby_apply;
+mod browser;
 use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -63,13 +64,13 @@ async fn send_mutation(request: &Value, bridge: &Bridge) -> Result<Value, Bridge
 }
 
 #[tauri::command]
-async fn export_backup(window: tauri::WebviewWindow, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
+async fn export_backup(app: tauri::AppHandle, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
     let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
     backup::require_supported(&pipe::read_snapshot().await?)?;
     let reply = pipe::send(&json!({"Action":"exportSettings"}), false).await?;
     backup::check_reply(&reply)?;
     let configuration = reply["ConfigurationJson"].as_str().ok_or_else(|| BridgeError::from("后台没有返回备份内容。".to_string()))?.to_owned();
-    let owner = window.hwnd().map_err(|e| BridgeError::from(e.to_string()))?.0 as isize;
+    let owner = dialog_owner(&app);
     tauri::async_runtime::spawn_blocking(move || -> Result<Option<Value>, String> {
         let Some(path) = backup::choose(owner, true)? else { return Ok(None) };
         let active = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA").ok_or("无法确定活动配置位置。")?).join("AudioSwitch/settings.json");
@@ -78,11 +79,11 @@ async fn export_backup(window: tauri::WebviewWindow, bridge: tauri::State<'_, Br
     }).await.map_err(|e| BridgeError::from(e.to_string()))?.map_err(Into::into)
 }
 #[tauri::command]
-async fn choose_import(window: tauri::WebviewWindow, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
+async fn choose_import(app: tauri::AppHandle, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
     let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
     *bridge.import.lock().await = None;
     backup::require_supported(&pipe::read_snapshot().await?)?;
-    let owner = window.hwnd().map_err(|e| BridgeError::from(e.to_string()))?.0 as isize;
+    let owner = dialog_owner(&app);
     let selected = tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
         let Some(path) = backup::choose(owner, false)? else { return Ok(None) };
         let text = backup::read(&path)?; Ok(Some((path, text)))
@@ -212,8 +213,13 @@ async fn cancel_dolby_apply(token: String, session: tauri::State<'_, dolby_apply
     // Acknowledge cancellation only. The UI keeps waiting for the worker's final result.
     Ok(dolby_apply::operation(&pipe::send(&json!({"Action":"cancelDolbyApply","Token":token}), false).await?, &token)?)
 }
+fn dialog_owner(app: &tauri::AppHandle) -> isize {
+    app.get_webview_window("main").and_then(|window| window.hwnd().ok()).map_or(0, |hwnd| hwnd.0 as isize)
+}
 fn main() {
     let is_prompt = std::env::args().any(|arg| arg == "--prompt");
+    let is_browser = std::env::args().any(|arg| arg == "--browser");
+    if is_browser && is_prompt { return; }
     let session = prompt::Session::default();
     {
         if let Some(owner) = std::env::args().find_map(|arg| arg.strip_prefix("--owner=").map(str::to_owned)) {
@@ -222,6 +228,7 @@ fn main() {
         }
     }
     let mut context = tauri::generate_context!();
+    if is_browser { context.config_mut().app.windows.clear(); }
     if is_prompt {
         let config = &mut context.config_mut().app.windows[0];
         config.label = "prompt".into(); config.title = "声间 设备提示".into();
@@ -236,6 +243,17 @@ fn main() {
         .manage(dolby::Reader::default())
         .manage(dolby_apply::Session::default())
         .setup(move |app| {
+            if is_browser {
+                if browser::start(app.handle().clone()).is_err() {
+                    // A setup error otherwise becomes a panic before run() can return it.
+                    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+                    let message: Vec<u16> = "无法打开浏览器面板。请检查 Windows 默认浏览器设置，或在应用设置中改为打开主面板。\0".encode_utf16().collect();
+                    let title: Vec<u16> = "声间\0".encode_utf16().collect();
+                    unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+                    app.handle().exit(1);
+                }
+                return Ok(());
+            }
             if is_prompt {
                 if let Some(window) = app.get_webview_window("prompt") {
                     if let Some(monitor) = window.primary_monitor()? {

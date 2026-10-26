@@ -8,9 +8,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PromptApp } from './PromptApp'
 import { createPreviewPromptGateway, createPromptGateway } from './data/prompt'
 import './styles.css'
+import { openBrowserPanel } from './BrowserPanel'
 
 const desktop = isTauri(), query = new URLSearchParams(window.location.search)
 const prompt = desktop ? getCurrentWindow().label === 'prompt' : query.get('view') === 'prompt'
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>{prompt ? <PromptApp gateway={desktop ? createPromptGateway() : createPreviewPromptGateway(query.has('disconnected'), !query.has('light'))} /> : <App gateway={desktop ? createDesktopGateway() : createMockGateway()} />}</React.StrictMode>,
+  <React.StrictMode>{!desktop && query.has('browser') ? openBrowserPanel() : prompt ? <PromptApp gateway={desktop ? createPromptGateway() : createPreviewPromptGateway(query.has('disconnected'), !query.has('light'))} /> : <App gateway={desktop ? createDesktopGateway() : createMockGateway()} />}</React.StrictMode>,
 )

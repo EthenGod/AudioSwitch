@@ -36,6 +36,7 @@
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
+| `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
 | `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |
 
 ## 必须保留的行为

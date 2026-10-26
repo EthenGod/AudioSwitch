@@ -14,6 +14,16 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('changes tray double-click choice and preserves it when returning to settings', async () => {
+    const { gateway, user } = await setup()
+    await user.click(screen.getByRole('button', { name: '应用设置' }))
+    expect(screen.getByRole('combobox', { name: '双击托盘图标' })).toHaveTextContent('打开主面板')
+    await chooseOption('双击托盘图标', '在浏览器打开')
+    await waitFor(async () => expect((await gateway.read()).Preferences.OpenPanelInBrowser).toBe(true))
+    await user.click(screen.getByRole('button', { name: '声音设备' }))
+    await user.click(screen.getByRole('button', { name: '应用设置' }))
+    expect(screen.getByRole('combobox', { name: '双击托盘图标' })).toHaveTextContent('在浏览器打开')
+  })
   it('escapes a select without closing the device sheet or changing its draft', async () => {
     const { user } = await setup()
     await user.click(screen.getByRole('button', { name: /^设置 Studio 耳机/ }))

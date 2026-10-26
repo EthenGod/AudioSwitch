@@ -163,6 +163,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .settings-group { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; background: var(--card); margin-bottom: 26px; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 68px; padding: 16px 20px; }
 .setting-row + .setting-row { border-top: 1px solid var(--border); }
+.setting-control > .ui-select { width: 180px; }
 .setting-title { font-size: var(--font-body); font-weight: 500; }
 .setting-row p { color: var(--muted-foreground); font-size: var(--font-caption); line-height: 1.7; margin: 5px 0 0; }
 .setting-control { flex-shrink: 0; }

@@ -23,15 +23,18 @@ namespace AudioSwitch
                     var handle = dispatcher.Handle;
                     var device = new Endpoint { Id="test-output",Name="隔离验证设备（不会切换音频）",Flow=0 };
                     var state = new AudioState(); state.Devices.Add(device); state.Defaults["0:1"] = device.Id;
+                    var preferences = new Preferences();
                     Func<Request,Reply> action = request => {
                         string error = null;
                         try {
                             if (request.Action == "show") windows.Show(false);
                             else if (request.Action == "testShowPrompt") windows.Show(true);
+                            else if (request.Action == "testShowBrowser") windows.ShowBrowser();
+                            else if (request.Action == "openPanelInBrowser") preferences.OpenPanelInBrowser = request.Value;
                             else if (request.Action != "snapshot") error = "隔离启动验证拒绝音频与配置写入。";
                         } catch (Exception ex) { error = ex.Message; }
-                        return new Reply { PanelApiVersion=5,BackendPid=Process.GetCurrentProcess().Id,BackendExecutablePath=Path.Combine(directory,"AudioSwitch.exe"),FrontendPid=windows.PanelPid,PromptPid=windows.PromptPid,
-                            State=state,Preferences=new Preferences(),Startup=new StartupState { Available=false },OperationError=error,
+                        return new Reply { PanelApiVersion=7,BackendPid=Process.GetCurrentProcess().Id,BackendExecutablePath=Path.Combine(directory,"AudioSwitch.exe"),FrontendPid=windows.PanelPid,PromptPid=windows.PromptPid,
+                            State=state,Preferences=preferences,PreferencesSaved=request.Action == "openPanelInBrowser",Startup=new StartupState { Available=false },OperationError=error,
                             Warning="隔离启动验证：模拟设备，禁止音频及配置写入。",
                             Pending=new List<Arrival> { new Arrival { Token="launch-test",Flow=0,NewDevices=new List<Endpoint> {device},PreviousDefaults=new Dictionary<string,string>(),PreviousName="" } } };
                     };

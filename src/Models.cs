@@ -111,6 +111,7 @@ namespace AudioSwitch
     {
         public bool GameMode { get; set; }
         public bool AutoUpdateEnabled { get; set; }
+        public bool OpenPanelInBrowser { get; set; }
         internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
         public bool AskOnConnect { get; set; }

@@ -52,7 +52,7 @@ namespace AudioSwitch
             });
             panelDolby = new PanelDolbyApply(dolby);
             tray = new NotifyIcon { Text = "声间 · 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
-            tray.DoubleClick += delegate { ShowFrontend(false); };
+            tray.DoubleClick += delegate { if (preferences.OpenPanelInBrowser) frontends.ShowBrowser(); else ShowFrontend(false); };
             tray.BalloonTipClicked += delegate { ShowFrontend(true); };
             var menu = new ThemedMenu();
             menu.Opening += delegate { BuildMenu(menu); };
@@ -227,6 +227,7 @@ namespace AudioSwitch
                         InstanceLocation.RequireSame(Application.ExecutablePath, request.StartupExecutablePath);
                         StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
                         break;
+                    case "openPanelInBrowser": preferences.OpenPanelInBrowser = request.Value; SavePreferences(); preferencesSaved = true; break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
@@ -345,10 +346,10 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 6, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 7, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));

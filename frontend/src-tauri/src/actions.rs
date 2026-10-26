@@ -7,7 +7,7 @@ pub struct BasicProfile { pub volume: Option<u8>, pub spatial_format: Option<Str
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled }
+pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, OpenPanelInBrowser }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
@@ -44,6 +44,10 @@ impl Action {
             Self::Preference { key, value } => json!({"Action":match key {
                 Preference::DarkMode => "darkMode", Preference::GameMode => "gameMode", Preference::AskOnConnect => "ask",
                 Preference::IncludeCommunications => "communications", Preference::UseDevicePriority => "priority", Preference::AutoUpdateEnabled => "automaticUpdates",
+                Preference::OpenPanelInBrowser => {
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 7 { return Err("此设置需要新版后台。".into()); }
+                    "openPanelInBrowser"
+                },
             }, "Value":value}),
             Self::Reorder { flow, ids } => {
                 if *flow > 1 || ids.len() > 4096 { return Err("设备排序无效。".into()); }
@@ -71,6 +75,12 @@ mod tests {
             json!({"kind":"switch","id":"x","Action":"refresh"}), json!({"kind":"saveBasic","id":"x","profile":{"Volume":0,"SpatialFormat":null,"Dolby":{}} ,"rule":0,"expectedRule":0})] {
             assert!(serde_json::from_value::<Action>(value).is_err());
         }
+    }
+    #[test]
+    fn tray_preference_requires_capability_and_only_saves() {
+        let action = Action::Preference { key:Preference::OpenPanelInBrowser, value:true };
+        assert!(action.request(&json!({"PanelApiVersion":6})).is_err());
+        assert_eq!(action.request(&json!({"PanelApiVersion":7})).unwrap(), json!({"Action":"openPanelInBrowser","Value":true}));
     }
     #[test]
     fn basic_save_is_never_apply_and_preserves_null_and_zero() {

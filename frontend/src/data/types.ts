@@ -17,12 +17,12 @@ export interface DeviceProfile {
 }
 export interface Preferences {
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
-  IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean
+  IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; OpenPanelInBrowser: boolean
   DeviceProfiles: Record<string, DeviceProfile>
   DeviceRules: Record<string, DeviceRule>
   DeviceOrder: Record<Flow, string[]>
 }
-export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeCommunications' | 'UseDevicePriority' | 'AutoUpdateEnabled'
+export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeCommunications' | 'UseDevicePriority' | 'AutoUpdateEnabled' | 'OpenPanelInBrowser'
 export interface Snapshot {
   DolbyProfiles?: Record<string, DolbyProfile | null>
   CanEditDolby?: boolean
@@ -39,6 +39,7 @@ export interface Snapshot {
   CanManageBackup?: boolean
   CanCheckMaintenance?: boolean
   CanManageUpdates?: boolean
+  CanSetTrayBehavior?: boolean
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {

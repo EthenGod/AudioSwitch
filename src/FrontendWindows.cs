@@ -33,19 +33,20 @@ namespace AudioSwitch
         }
         internal static bool IsModern(string directory) { return IsCandidate(directory) || UpdatePackage.IsDesktop(directory); }
         internal static void Validate(string directory, string version) { Validate(directory, version, ValidateExecutable, UpdatePackage.IsDesktop(directory)); }
-        internal static ProcessStartInfo Select(string backend, bool prompt, int owner)
+        internal static ProcessStartInfo Select(string backend, bool prompt, int owner, bool browser = false)
         {
             if (owner <= 0) throw new ArgumentException("后台进程无效。");
             string directory = Path.GetDirectoryName(Path.GetFullPath(backend));
             string panel = Path.Combine(directory, "audio-switch-panel.exe");
             bool modern = IsModern(directory);
+            if (browser && (prompt || !modern)) throw new InvalidOperationException("浏览器面板需要完整桌面包。");
             if (modern) {
                 try { Validate(directory, AppVersion.Number); }
                 catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整" + (UpdatePackage.IsDesktop(directory) ? "桌面" : "候选") + "包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }
-                WebViewRuntime.Require(UpdatePackage.Desktop);
+                if (!browser) WebViewRuntime.Require(UpdatePackage.Desktop);
             }
-            return new ProcessStartInfo(modern ? panel : backend, (prompt ? "--prompt" : modern ? "" : "--ui") + " --owner=" + owner) {
-                UseShellExecute = false, WorkingDirectory = directory
+            return new ProcessStartInfo(modern ? panel : backend, (browser ? "--browser" : prompt ? "--prompt" : modern ? "" : "--ui") + " --owner=" + owner) {
+                UseShellExecute = false, WorkingDirectory = directory, RedirectStandardInput = browser, CreateNoWindow = browser
             };
         }
         internal static void Validate(string directory, string version, Action<string, string> verifyExecutable, bool desktop = false)
@@ -109,12 +110,22 @@ namespace AudioSwitch
     {
         private readonly Func<bool, ProcessStartInfo> select;
         private readonly Func<ProcessStartInfo, IFrontendWindow> start;
-        private IFrontendWindow panel, prompt;
+        private readonly Func<ProcessStartInfo> selectBrowser;
+        private IFrontendWindow panel, prompt, browser;
         private bool closing;
-        internal FrontendWindows(string backend) : this(p => PanelLaunch.Select(backend, p, Process.GetCurrentProcess().Id), info => new NativeFrontend(Process.Start(info), Path.GetFileName(info.FileName) == "audio-switch-panel.exe", info.Arguments.Contains("--prompt"))) { }
-        internal FrontendWindows(Func<bool, ProcessStartInfo> select, Func<ProcessStartInfo, IFrontendWindow> start) { this.select = select; this.start = start; }
+        internal FrontendWindows(string backend) : this(p => PanelLaunch.Select(backend, p, Process.GetCurrentProcess().Id), info => info.RedirectStandardInput ? (IFrontendWindow)new BrowserFrontend(Process.Start(info)) : new NativeFrontend(Process.Start(info), Path.GetFileName(info.FileName) == "audio-switch-panel.exe", info.Arguments.Contains("--prompt")), () => PanelLaunch.Select(backend, false, Process.GetCurrentProcess().Id, true)) { }
+        internal FrontendWindows(Func<bool, ProcessStartInfo> select, Func<ProcessStartInfo, IFrontendWindow> start, Func<ProcessStartInfo> selectBrowser = null) { this.select = select; this.start = start; this.selectBrowser = selectBrowser; }
         internal int PanelPid { get { return panel != null && !panel.Exited ? panel.Id : 0; } }
         internal int PromptPid { get { return prompt != null && !prompt.Exited ? prompt.Id : 0; } }
+        internal void ShowBrowser()
+        {
+            if (closing) return;
+            if (browser != null && !browser.Exited) { browser.Activate(); return; }
+            if (selectBrowser == null) throw new InvalidOperationException("浏览器面板不可用。");
+            var info = selectBrowser();
+            if (browser != null) { browser.Dispose(); browser = null; }
+            browser = start(info);
+        }
         internal void Show(bool isPrompt)
         {
             if (closing) return;
@@ -131,8 +142,19 @@ namespace AudioSwitch
             if (closing) return; closing = true;
             if (panel != null && !panel.Exited) panel.Close();
             if (prompt != null && !prompt.Exited) prompt.Close();
+            if (browser != null && !browser.Exited) browser.Close();
         }
-        public void Dispose() { Close(); if (panel != null) { panel.Dispose(); panel = null; } if (prompt != null) { prompt.Dispose(); prompt = null; } }
+        public void Dispose() { Close(); if (panel != null) { panel.Dispose(); panel = null; } if (prompt != null) { prompt.Dispose(); prompt = null; } if (browser != null) { browser.Dispose(); browser = null; } }
+        private sealed class BrowserFrontend : IFrontendWindow
+        {
+            private readonly Process process;
+            internal BrowserFrontend(Process process) { if (process == null) throw new InvalidOperationException("无法打开浏览器面板。"); this.process = process; }
+            public int Id { get { return process.Id; } }
+            public bool Exited { get { return process.HasExited; } }
+            public void Activate() { process.StandardInput.WriteLine("open"); process.StandardInput.Flush(); }
+            public void Close() { try { if (!process.HasExited) { process.StandardInput.WriteLine("close"); process.StandardInput.Flush(); } } catch (IOException) { } catch (InvalidOperationException) { } }
+            public void Dispose() { process.Dispose(); }
+        }
         private sealed class NativeFrontend : IFrontendWindow
         {
             private readonly Process process;
@@ -145,7 +167,7 @@ namespace AudioSwitch
             [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
             [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
             [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
-            internal NativeFrontend(Process process, bool modern, bool prompt) { if (process == null) throw new InvalidOperationException("无法启动界面。"); this.process = process; title = modern ? (prompt ? "声间 · 设备提示" : "声间 · 设备面板") : null; }
+            internal NativeFrontend(Process process, bool modern, bool prompt) { if (process == null) throw new InvalidOperationException("无法启动界面。"); this.process = process; title = modern ? (prompt ? "声间 设备提示" : "声间 设备面板") : null; }
             public int Id { get { return process.Id; } }
             public bool Exited { get { return process.HasExited; } }
             private IntPtr WindowHandle() {

@@ -3,6 +3,15 @@ import { createDesktopGateway, mapSnapshot } from './desktop'
 import { backendFixture } from '../test/backendFixture'
 
 describe('read-only backend boundary', () => {
+  it('keeps old tray defaults and only enables browser selection on capable backends', () => {
+    const old = backendFixture()
+    expect(mapSnapshot(old).Preferences.OpenPanelInBrowser).toBe(false)
+    expect(mapSnapshot(old).CanSetTrayBehavior).toBe(false)
+    const current = { ...old, PanelApiVersion: 7, Preferences: { ...old.Preferences, OpenPanelInBrowser: true } }
+    expect(mapSnapshot(current).CanSetTrayBehavior).toBe(true)
+    expect(mapSnapshot(current).Preferences.OpenPanelInBrowser).toBe(true)
+    expect(() => mapSnapshot({ ...current, Preferences: { ...current.Preferences, OpenPanelInBrowser: 'true' } })).toThrow()
+  })
   it('preserves IDs, independent roles, offline order and null/zero/off distinctions', () => {
     const result = mapSnapshot(backendFixture())
     expect(result.Devices.map(d => [d.Id, d.Name, d.Online])).toEqual([
