@@ -5,12 +5,13 @@ import { OperationFailure } from '@/data/desktop'
 import { useDolbyApply } from './useDolbyApply'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
+import { Select } from './ui/select'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from './ui/sheet'
 
 function NumberField({ value, onValue, min, max, step, label, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; disabled?: boolean }) {
   const [text, setText] = useState(value === null ? '' : String(value))
   useEffect(() => { setText(value === null ? '' : String(value)) }, [value])
-  return <input aria-label={label} type="number" min={min} max={max} step={step} disabled={disabled} value={text} onChange={e => {
+  return <input aria-label={label} type="number" min={min} max={max} step={step} disabled={disabled} placeholder={value === null ? '保持不变' : undefined} value={text} onChange={e => {
     setText(e.target.value); const n = e.target.valueAsNumber
     if (Number.isFinite(n) && n >= min && n <= max && (step !== 1 || Number.isInteger(n))) onValue(n)
   }} onBlur={() => setText(value === null ? '' : String(value))} />
@@ -24,7 +25,7 @@ function EqSlider({ label, value, onValue }: { label: string; value: number; onV
     onChange={e => { if (!pointer.current || pointer.current.moved) onValue(e.target.valueAsNumber) }} />
 }
 
-export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onChange: (p: DolbyProfile) => void }) {
+export function DolbyFields({ value: p, onChange, disabled = false }: { value: DolbyProfile; onChange: (p: DolbyProfile) => void; disabled?: boolean }) {
   const [advanced, setAdvanced] = useState(false), rememberedEq = useRef(p.Eq ?? Array<number>(20).fill(0))
   if (p.Eq) rememberedEq.current = p.Eq
   const raw = p.Eq ?? rememberedEq.current, ten = toTen(raw), custom = p.MainProfile === 4
@@ -34,17 +35,16 @@ export function DolbyFields({ value: p, onChange }: { value: DolbyProfile; onCha
     const next = [...ten]; next[index] = value; change('Eq', toTwenty(next))
   }
   return <div className="dolby-fields">
-    <label htmlFor="dolby-preset">Dolby 预设</label><select id="dolby-preset" value={p.MainProfile === 0 ? 'movie' : custom ? String(p.SubProfile) : 'keep'} onChange={e => {
-      const preset = e.target.value
+    <label htmlFor="dolby-preset">Dolby 预设</label><Select disabled={disabled} id="dolby-preset" label="Dolby 预设" value={p.MainProfile === 0 ? 'movie' : custom ? String(p.SubProfile) : 'keep'} onValueChange={preset => {
       onChange({ ...p, MainProfile:preset === 'movie' ? 0 : preset === 'keep' ? null : 4, SubProfile:preset === '4' ? 4 : preset === '5' ? 5 : null, Ieq:preset === 'movie' ? p.Ieq : null, Eq:preset === '4' || preset === '5' ? p.Eq : null })
-    }}><option value="keep">保持当前预设</option><option value="movie">电影</option><option value="4">自定义 1</option><option value="5">自定义 2</option></select>
-    <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <label key={key}>{label}<select aria-label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onChange={e => change(key, e.target.value === 'keep' ? null : e.target.value === 'on')}><option value="keep">保持不变</option><option value="on">开启</option><option value="off">关闭</option></select></label>)}</div>
-    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label><input type="checkbox" checked={p[key] !== null} onChange={e => change(key, e.target.checked ? 0.5 : null)} />{label}</label><NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={p[key] === null} value={p[key] === null ? null : Number((p[key] * 100).toFixed(8))} onValue={n => change(key, n / 100)} /><span>%</span></div>)}</div>
-    <p className="field-help">未勾选的强度保持原值；驱动可能按档位取整。</p>
-    <label htmlFor="dolby-ieq">智能均衡器（电影）</label><select id="dolby-ieq" disabled={p.MainProfile !== 0} value={p.Ieq ?? 'keep'} onChange={e => change('Ieq', e.target.value === 'keep' ? null : Number(e.target.value) as 0 | 2)}><option value="keep">保持不变</option><option value="0">关闭</option><option value="2">平衡</option></select>
-    <section className="sheet-section"><label className="dolby-eq-toggle"><input type="checkbox" disabled={!custom} checked={p.Eq !== null} onChange={e => change('Eq', e.target.checked ? [...rememberedEq.current] : null)} />应用均衡器（自定义预设）</label>
+    }} options={[{ value: 'keep', label: '保持当前预设' }, { value: 'movie', label: '电影' }, { value: '4', label: '自定义 1' }, { value: '5', label: '自定义 2' }]} />
+    <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: '保持不变' }, { value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]} /></div>)}</div>
+    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label htmlFor={`dolby-${key}`}>{label}</label><NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={p[key] === null} value={p[key] === null ? null : Number((p[key] * 100).toFixed(8))} onValue={n => change(key, n / 100)} /><span>{p[key] !== null ? '%' : ''}</span><Switch disabled={disabled} id={`dolby-${key}`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
+    <p className="field-help">强度可能按驱动档位取整。</p>
+    <label htmlFor="dolby-ieq">智能均衡器（电影）</label><Select id="dolby-ieq" label="智能均衡器（电影）" disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: '保持不变' }, { value: '0', label: '关闭' }, { value: '2', label: '平衡' }]} />
+    <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">均衡器（自定义预设）</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
       <div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div>
-      <p className="field-help">{advanced ? '原始驱动单位，范围 −192～192，不是 dB。' : '范围 −12～12 dB。修改任意一点会重新换算 20 段曲线。'}切换视图不会修改曲线。</p>
+      <p className="field-help">{advanced ? '驱动单位 −192～192，非 dB。' : '−12～12 dB。编辑后重新换算 20 段曲线。'}</p>
       <fieldset className={`dolby-eq${advanced ? '' : ' dolby-eq-curve'}`} disabled={!custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
         {advanced ? raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>) : ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /></label>)}
       </fieldset>
@@ -125,8 +125,8 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
       {message && <p role={job?.Status === 'error' ? 'alert' : 'status'}>{message}</p>}
       {error && <p role="alert" className="field-help">{error}</p>}
       {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>重新读取状态</Button>}
-      <div className="volume-toggle"><label htmlFor="use-dolby">此设备成为输出时自动应用 Dolby 方案</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
-      <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} /></fieldset>
+      <div className="volume-toggle"><label htmlFor="use-dolby">成为输出时自动应用此方案</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
+      <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} disabled={blocked || !enabled} /></fieldset>
     </div>
     <footer className="sheet-footer">
       {application.job && <p role={['error','warning','cancelled'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Headphones, Mic, X } from 'lucide-react'
 import { Button } from './components/ui/button'
+import { Select } from './components/ui/select'
 import { canRestore, PromptFailure, type PromptAction, type PromptGateway, type PromptState } from './data/prompt'
 
 export function PromptApp({ gateway }: { gateway: PromptGateway }) {
@@ -82,10 +83,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
           <p>当前：{devices.find(d => d.Id === currentId)?.Name ?? '没有可用设备'}</p>
           {state.pending.length > 1 && <p className="muted">还有 {state.pending.length - 1} 个提示待处理</p>}
           <label htmlFor="prompt-device">{arrival.Flow === 0 ? '声音输出' : '麦克风输入'}</label>
-          <select id="prompt-device" value={selected} disabled={disabled || !devices.length} onChange={e => { selection.current.id = e.target.value; setSelected(e.target.value) }}>
-            {!devices.length && <option value="">没有可用设备</option>}
-            {devices.map((d, i) => <option key={d.Id} value={d.Id}>{d.Name}{devices.some(other => other.Id !== d.Id && other.Name === d.Name) ? `（${i + 1}）` : ''}</option>)}
-          </select>
+          <Select id="prompt-device" label={arrival.Flow === 0 ? '声音输出' : '麦克风输入'} value={devices.length ? selected : ''} disabled={disabled || !devices.length} onValueChange={value => { selection.current.id = value; setSelected(value) }} options={devices.length ? devices.map((d, i) => ({ value: d.Id, label: `${d.Name}${devices.some(other => other.Id !== d.Id && other.Name === d.Name) ? `（${i + 1}）` : ''}` })) : [{ value: '', label: '没有可用设备' }]} />
           <p className="muted">{state.snapshot.Preferences.IncludeCommunications ? '同时切换通话设备' : '保留通话设备选择'}</p>
           {!state.snapshot.CanWrite && <p role="status">当前后台仅支持查看，请更新后台后再操作。</p>}
         </>}

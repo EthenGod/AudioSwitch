@@ -20,7 +20,7 @@ describe('desktop read-only experience', () => {
     const sheet = screen.getByRole('dialog')
     expect(within(sheet).getByRole('switch', { name: '使用指定音量' })).toHaveAttribute('aria-disabled', 'true')
     expect(within(sheet).queryByRole('button', { name: /保存/ })).not.toBeInTheDocument()
-    expect(within(sheet).getByRole('combobox', { name: '空间音效预设' })).toHaveValue('{unknown-format}')
+    expect(within(sheet).getByRole('combobox', { name: '空间音效预设' })).toHaveTextContent('保留已有音效格式')
     await user.click(within(sheet).getByRole('button', { name: '关闭' }))
     await user.click(screen.getByRole('button', { name: '自动切换' }))
     expect(screen.getByRole('button', { name: '下移 离线耳机' })).toBeDisabled()

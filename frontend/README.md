@@ -14,6 +14,7 @@ React + TypeScript + Tailwind + shadcn（Base UI）。浏览器使用内存模�
 页面复用实际组件，只用模拟数据。刷新页面后重置，不连接后台，不保存真实配置。
 需要指定输出位置时，执行 `npm run build:preview -- ../staging/自选目录/预览.html`。
 输出必须位于项目 `staging/`，不生成 Release 附件。
+预览地址加 `?view=prompt` 可查看模拟设备提示窗口，加 `&light` 可查看浅色。
 
 ## 桌面版（第四阶段分项迁移）
 

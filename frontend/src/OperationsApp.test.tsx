@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { createDesktopGateway } from './data/desktop'
 import { backendFixture } from './test/backendFixture'
+import { chooseOption } from './test/select'
 
 function fixture() { return { ...backendFixture(), PanelApiVersion: 1, OperationError: null as string | null } }
 const details = { DeviceSettings: { CurrentVolume: 42, VolumeError: null, SpatialError: null,
@@ -16,8 +17,11 @@ describe('desktop write UI with isolated transport', () => {
     render(<StrictMode><App gateway={createDesktopGateway(read, call)} /></StrictMode>)
     await screen.findByRole('table')
     await user.click(screen.getAllByRole('button', { name: /设置 同名扬声器/ }).at(-1)!)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '空间音效预设' })).toBeEnabled())
+    await user.click(screen.getByRole('combobox', { name: '空间音效预设' }))
     await screen.findByRole('option', { name: '真实驱动选项' })
     expect(screen.queryByRole('option', { name: /示例/ })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('switch', { name: '使用指定音量' }))
     fireEvent.focus(window)
     expect(screen.getByRole('dialog')).toBeVisible()
@@ -33,10 +37,10 @@ describe('desktop write UI with isolated transport', () => {
     await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: /设置 离线耳机/ }))
     expect(screen.getByLabelText('空间音效预设')).toBeDisabled()
-    await user.selectOptions(screen.getByLabelText('白名单规则'), '1')
+    await chooseOption('白名单规则', '接受系统选择，不弹窗')
     await user.click(screen.getByRole('button', { name: '仅保存' }))
     await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('其他窗口修改'))
-    expect(screen.getByLabelText('白名单规则')).toHaveValue('1')
+    expect(screen.getByLabelText('白名单规则')).toHaveTextContent('接受系统选择，不弹窗')
     expect(call).toHaveBeenCalledWith('panel_action', { action: { kind: 'saveBasic', id: 'offline',
       profile: { Volume: 35, SpatialFormat: '{unknown-format}' }, expectedProfile: { Volume: 35, SpatialFormat: '{unknown-format}' }, rule: 1, expectedRule: 0 } })
   })
@@ -52,7 +56,7 @@ describe('desktop write UI with isolated transport', () => {
     await user.click(screen.getAllByRole('button', { name: /设置 同名扬声器/ })[0])
     await screen.findByText(/读取失败：中文错误/)
     expect(screen.getByRole('switch', { name: '使用指定音量' })).toHaveAttribute('aria-disabled', 'true')
-    await user.selectOptions(screen.getByLabelText('白名单规则'), '1')
+    await chooseOption('白名单规则', '接受系统选择，不弹窗')
     await user.click(screen.getByRole('button', { name: '仅保存' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(call).toHaveBeenLastCalledWith('panel_action', { action: { kind: 'saveBasic', id: 'endpoint-b',

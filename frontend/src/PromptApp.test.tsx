@@ -25,9 +25,10 @@ describe('device prompt', () => {
   })
   it('same names use IDs, offline and opposite flow are excluded', async () => {
     const { call, gateway: g } = gateway(); render(<PromptApp gateway={g} />)
-    const select = await screen.findByRole('combobox'); expect(select).toHaveValue('endpoint-b')
+    const select = await screen.findByRole('combobox'); expect(select).toHaveTextContent('同名扬声器（1）')
+    const user = userEvent.setup(); await user.click(select)
     expect(screen.getAllByRole('option')).toHaveLength(2)
-    fireEvent.change(select, { target: { value: 'endpoint-a' } }); fireEvent.click(screen.getByRole('button', { name: '切换' }))
+    await user.click(screen.getByRole('option', { name: '同名扬声器（2）' })); fireEvent.click(screen.getByRole('button', { name: '切换' }))
     await waitFor(() => expect(call).toHaveBeenCalledWith('prompt_action', { action: { kind: 'selected', token: 'output', id: 'endpoint-a' } }))
     await waitFor(() => expect(call).toHaveBeenCalledWith('close_prompt'))
   })
@@ -55,7 +56,7 @@ describe('device prompt', () => {
     expect(call.mock.calls.filter(([c]) => c === 'prompt_action')).toHaveLength(1)
     expect(screen.getByRole('button', { name: '关闭提示' })).toBeDisabled()
     finish({ ...raw, Pending: [{ ...raw.Pending[0], Token: 'input', Flow: 1, NewDevices: [{ Id: 'mic', Flow: 1 }], PreviousDefaults: {} }] })
-    await screen.findByRole('heading', { name: '发现新的麦克风' }); expect(screen.getByRole('combobox')).toHaveValue('mic')
+    await screen.findByRole('heading', { name: '发现新的麦克风' }); expect(screen.getByRole('combobox')).toHaveTextContent('麦克风')
   })
   it('uncertain response stops polling and blocks another write until manual refresh', async () => {
     const raw = fixture(), call = vi.fn(async (command: string) => { if (command === 'prompt_action') throw new Error('回复丢失'); return raw })

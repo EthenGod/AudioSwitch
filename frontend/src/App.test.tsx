@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { createMockGateway } from './data/mock'
+import { chooseOption } from './test/select'
 
 async function setup() {
   const gateway = createMockGateway(0)
@@ -13,6 +14,18 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('escapes a select without closing the device sheet or changing its draft', async () => {
+    const { user } = await setup()
+    await user.click(screen.getByRole('button', { name: /^设置 Studio 耳机/ }))
+    const trigger = screen.getByRole('combobox', { name: '空间音效预设' })
+    await user.click(trigger)
+    await screen.findByRole('option', { name: '关闭空间音效' })
+    await user.keyboard('{ArrowDown}{Escape}')
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
+    expect(screen.getByRole('dialog', { name: '设备设置' })).toBeVisible()
+    expect(trigger).toHaveTextContent('保持不变')
+    expect(trigger).toHaveFocus()
+  })
   it('returns to the top when navigating to another page', async () => {
     const { user } = await setup()
     const main = screen.getByRole('main')
@@ -49,7 +62,7 @@ describe('preview workflows', () => {
     expect((await gateway.read()).Preferences.DeviceProfiles['demo-headphones'].Volume).toBe(65)
     await open()
     await user.click(screen.getByRole('switch', { name: '使用指定音量' }))
-    await user.selectOptions(screen.getByLabelText('空间音效预设'), 'off')
+    await chooseOption('空间音效预设', '关闭空间音效')
     await user.click(screen.getByRole('button', { name: '仅保存（模拟）' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     const state = await gateway.read()
@@ -66,9 +79,9 @@ describe('preview workflows', () => {
   })
   it('supports empty/error scenarios and recovers via retry', async () => {
     const { user } = await setup()
-    await user.selectOptions(screen.getByLabelText('预览场景'), 'empty')
+    await chooseOption('预览场景', '空设备')
     await screen.findByText('还没有声音设备')
-    await user.selectOptions(screen.getByLabelText('预览场景'), 'error')
+    await chooseOption('预览场景', '连接错误')
     await screen.findByRole('alert')
     await user.click(screen.getByRole('button', { name: '重试' }))
     await screen.findByRole('table')

@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { DolbyFields, DolbySheet } from './components/DolbySheet'
 import { dolbyProfile, emptyDolby, toTen, toTwenty, type DolbyRead } from './data/dolby'
 import { createMockGateway } from './data/mock'
 import { createDesktopGateway, mapSnapshot } from './data/desktop'
 import { backendFixture } from './test/backendFixture'
+import { chooseOption } from './test/select'
 const curve = [-27,16,26,56,77,60,43,26,25,24,23,40,56,77,51,21,-22,-31,-42,-66]
 const profile = () => ({ ...emptyDolby(), MainProfile:4 as const, SubProfile:4 as const, Eq:[...curve] })
 async function setup(overrides = {}) {
@@ -15,6 +17,38 @@ async function setup(overrides = {}) {
   return { gateway, snapshot, onSaved, onClose, onFailure }
 }
 describe('Dolby editor and calibrated EQ', () => {
+  it('does not edit custom switches or open menus while Dolby controls are blocked', async () => {
+    const changed = vi.fn(), user = userEvent.setup()
+    render(<fieldset disabled><DolbyFields disabled value={profile()} onChange={changed} /></fieldset>)
+    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
+    await user.click(screen.getByRole('switch', { name: '均衡器（自定义预设）' }))
+    await user.click(screen.getByRole('combobox', { name: 'Dolby 预设' }))
+    expect(changed).not.toHaveBeenCalled()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+  it('keeps a zero strength distinct from keep-unchanged with the new switch', async () => {
+    const saveDolby = vi.fn(async () => mapSnapshot(backendFixture()))
+    const { onSaved } = await setup({ saveDolby }), user = userEvent.setup()
+    const toggle = screen.getByRole('switch', { name: '环绕强度' })
+    expect(screen.getByRole('spinbutton', { name: '环绕强度百分比' })).toHaveAttribute('placeholder', '保持不变')
+    await user.click(toggle)
+    const number = screen.getByRole('spinbutton', { name: '环绕强度百分比' })
+    await user.clear(number); await user.type(number, '0'); await user.tab()
+    await user.click(screen.getByRole('button', { name: '仅保存（模拟）' }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce())
+    expect(saveDolby).toHaveBeenCalledWith('demo-headphones', { ...profile(), SurroundStrength: 0 }, profile())
+  })
+  it('turns off a strength as null and preserves an EQ curve when toggled off and on', async () => {
+    const saveDolby = vi.fn(async () => mapSnapshot(backendFixture()))
+    const { onSaved } = await setup({ saveDolby }), user = userEvent.setup()
+    const strength = screen.getByRole('switch', { name: '环绕强度' })
+    await user.click(strength); await user.click(strength)
+    const eq = screen.getByRole('switch', { name: '均衡器（自定义预设）' })
+    await user.click(eq); await user.click(eq)
+    await user.click(screen.getByRole('button', { name: '仅保存（模拟）' }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce())
+    expect(saveDolby).toHaveBeenCalledWith('demo-headphones', profile(), profile())
+  })
   it('matches independently captured Access curves including extrapolation', () => {
     expect(toTwenty(toTen(curve))).toEqual(curve)
     const points = toTen(curve); points[0] = 173/16; points[1] = 189/16; points[9] = 12
@@ -48,7 +82,7 @@ describe('Dolby editor and calibrated EQ', () => {
   })
   it('cancel after editing does not save', async () => {
     const saveDolby=vi.fn(), { onClose }=await setup({ saveDolby })
-    fireEvent.change(screen.getByRole('combobox',{ name:'Dolby 总开关' }),{ target:{ value:'off' } })
+    await chooseOption('Dolby 总开关', '关闭')
     fireEvent.click(screen.getByRole('button',{ name:'取消' }))
     await waitFor(()=>expect(onClose).toHaveBeenCalled()); expect(saveDolby).not.toHaveBeenCalled()
   })

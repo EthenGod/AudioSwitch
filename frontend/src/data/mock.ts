@@ -76,7 +76,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
     },
     async readDolby(token) {
       if (!dolbyRead || dolbyRead.Token !== token) throw new Error('读取已失效。')
-      if (dolbyRead.Status === 'running' && Date.now() >= dolbyReady) dolbyRead = { Token:token, Status:'ready', Message:'已填入示例方案，未读取实际 Dolby。', Profile:{ ...emptyDolby(), MainProfile:4, SubProfile:4, Enabled:true, Eq:[-27,16,26,56,77,60,43,26,25,24,23,40,56,77,51,21,-22,-31,-42,-66] } }
+      if (dolbyRead.Status === 'running' && Date.now() >= dolbyReady) dolbyRead = { Token:token, Status:'ready', Message:'已填入示例方案。', Profile:{ ...emptyDolby(), MainProfile:4, SubProfile:4, Enabled:true, Eq:[-27,16,26,56,77,60,43,26,25,24,23,40,56,77,51,21,-22,-31,-42,-66] } }
       return structuredClone(dolbyRead)
     },
     async cancelDolbyRead(token) {

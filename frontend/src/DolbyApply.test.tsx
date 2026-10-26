@@ -6,6 +6,7 @@ import { createDesktopGateway, OperationFailure } from './data/desktop'
 import { emptyDolby, type DolbyOperation } from './data/dolby'
 import type { Snapshot, UiGateway } from './data/types'
 import { backendFixture } from './test/backendFixture'
+import { chooseOption } from './test/select'
 const profile = { ...emptyDolby(), Enabled:false }
 const button = () => screen.getByRole('button', { name:'保存并应用（模拟）' })
 const operation = (token: string, Status: DolbyOperation['Status'] = 'running', Message = '已保存，尚未应用完成'): DolbyOperation => ({ Token:token, DeviceId:'demo-headphones', Status, Message })
@@ -28,9 +29,9 @@ describe('Dolby save and apply', () => {
   })
   it('keeps saved state distinct from driver failure and retains the edited draft', async () => {
     const { onResult } = await setup(snapshot => ({ startDolbyApply:async (_id,_p,_e,t) => ({snapshot,operation:operation(t)}), readDolbyApply:async t=>operation(t,'error','方案已保存，但恢复失败，请检查音效。') }))
-    fireEvent.change(screen.getByRole('combobox',{name:'人声增强'}),{target:{value:'on'}})
+    await chooseOption('人声增强', '开启')
     fireEvent.click(button()); await screen.findByRole('alert')
-    expect(screen.getByRole('alert')).toHaveTextContent('恢复失败'); expect(screen.getByRole('combobox',{name:'人声增强'})).toHaveValue('on')
+    expect(screen.getByRole('alert')).toHaveTextContent('恢复失败'); expect(screen.getByRole('combobox',{name:'人声增强'})).toHaveTextContent('开启')
     expect(onResult).toHaveBeenCalledWith('方案已保存，但恢复失败，请检查音效。',true)
   })
   it('cancel acknowledgement does not close until restoration has settled', async () => {
