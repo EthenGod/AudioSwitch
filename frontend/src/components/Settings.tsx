@@ -1,10 +1,9 @@
 import { Download, Upload, RefreshCw, ShieldCheck, ChevronRight, Moon, Sun } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PreferenceKey, Snapshot } from '@/data/types'
 import { SettingRow, ToggleRow } from './shared'
 import { APP_VERSION } from '../version'
 import { Select } from './ui/select'
-import { Button } from './ui/button'
 
 export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onBrowserPort, onStartup, onBackup, onMaintenance }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; desktop?: boolean; onPreference: (key: PreferenceKey, value: boolean) => void
@@ -35,22 +34,36 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
   </>
 }
 
-function BrowserPort({ value, disabled, onSave }: { value: number; disabled: boolean; onSave: (port: number) => Promise<boolean> }) {
+export function BrowserPort({ value, disabled, onSave }: { value: number; disabled: boolean; onSave: (port: number) => Promise<boolean> }) {
   const saved = value === 0 ? '' : String(value)
   const [draft, setDraft] = useState(saved)
+  const [failed, setFailed] = useState(false)
+  const attempted = useRef<string | null>(null)
+  const saving = useRef(false)
+  const save = useRef(onSave); save.current = onSave
   useEffect(() => { setDraft(saved) }, [saved])
   const valid = draft === '' || (/^\d+$/.test(draft) && Number(draft) >= 1 && Number(draft) <= 65535)
-  return <SettingRow title="浏览器端口" description="更改在下次开启服务时生效。">
-    <form className="browser-port" onSubmit={async event => {
-      event.preventDefault()
-      if (!disabled && valid && draft !== saved && await onSave(draft === '' ? 0 : Number(draft))) setDraft(draft === '' ? '' : String(Number(draft)))
-    }}>
-      <div className="browser-port-controls">
-        <input aria-label="端口号" inputMode="numeric" autoComplete="off" maxLength={5} placeholder="自动分配" value={draft} disabled={disabled} aria-invalid={!valid} aria-describedby={!valid ? 'browser-port-error' : undefined} onChange={event => setDraft(event.target.value)} />
-        <Button variant="outline" type="button" disabled={disabled || draft === ''} onClick={() => setDraft('')}>自动</Button>
-        <Button type="submit" disabled={disabled || !valid || draft === saved}>保存端口</Button>
-      </div>
-      {!valid && <p id="browser-port-error" role="alert">请输入 1–65535，或留空自动分配。</p>}
-    </form>
+  async function commit(retry = false) {
+    if (disabled || saving.current || !valid || draft === saved || (!retry && attempted.current === draft)) return
+    attempted.current = draft; saving.current = true; setFailed(false)
+    try {
+      if (await save.current(draft === '' ? 0 : Number(draft))) setDraft(draft === '' ? '' : String(Number(draft)))
+      else setFailed(true)
+    } catch { setFailed(true) }
+    finally { saving.current = false }
+  }
+  const commitRef = useRef(commit); commitRef.current = commit
+  useEffect(() => {
+    if (disabled || !valid || draft === saved) return
+    const timer = setTimeout(() => { void commitRef.current() }, 600)
+    return () => clearTimeout(timer)
+  }, [draft, saved, valid, disabled])
+  return <SettingRow title="浏览器端口" description="下次开启服务时生效。">
+    <div className="browser-port">
+      <input aria-label="端口号" inputMode="numeric" autoComplete="off" maxLength={5} placeholder="自动分配" value={draft} disabled={disabled} aria-invalid={!valid} aria-describedby={!valid || failed ? 'browser-port-error' : undefined}
+        onChange={event => { attempted.current = null; setFailed(false); setDraft(event.target.value) }}
+        onBlur={() => { void commit() }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit(true) } }} />
+      {(!valid || failed) && <p id="browser-port-error" role="alert">{!valid ? '请输入 1–65535，或留空。' : '未保存，按 Enter 重试。'}</p>}
+    </div>
   </SettingRow>
 }

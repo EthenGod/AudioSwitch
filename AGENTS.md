@@ -38,7 +38,7 @@
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
-| `src/ThemedMenu.cs`、`src/GameModeMenu.cs` | 托盘菜单的配色、图标、开关及原生菜单绘制 |
+| `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
 | `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |
 
 ## 必须保留的行为

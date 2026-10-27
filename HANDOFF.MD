@@ -55,11 +55,13 @@
 
 ## 托盘菜单
 
-- `ThemedMenu` 使用独立的 Radix Slate / Indigo 色值。不要为托盘配色改动其他 WinForms 窗口的 Palette。
-- 菜单继续使用原生键盘导航、子菜单和系统进入退出动画。悬停颜色使用 150 ms ease-out，从当前值继续过渡。计时器仅在过渡期间运行，结束或关闭菜单时停止；遵从 Windows 菜单动画和客户区动画开关。没有 WebView。
+- 托盘已替换为 `TrayPopup`，不再使用 ContextMenuStrip。每次打开建立一个短时 STA 界面线程，关闭后销毁窗口并结束线程；不加载 WebView。`TrayMenuModel` 只读取后台已有快照，选中的命令在窗口关闭后回到后台线程执行。
+- 弹窗缓存图标和字体，使用双缓冲及独立的 Radix Slate / Indigo 配色。不能从此界面线程更改全局 Palette 或直接访问音频对象。设备列表在同一窗口内展开，用左方向键或返回按钮退出；滚动条使用同一配色。
+- 进入淡入 250 ms ease-out，非提交关闭淡出 200 ms ease-in，悬停颜色 150 ms ease-out。点击命令立即关闭，不为动画延迟操作。动画从当前值继续，结束和关闭时停止计时器，遵从 Windows 菜单和客户区动画开关。
 - 左侧图标用统一 24 单位网格绘制，显示为 20 px，线宽 1.5 px。标题复用 AppIcon 波形和前端 Indigo 色。勾选、箭头及分隔线使用同一 DPI／字号比例。
-- `TrayToggleItem` 保留原生 Checked 状态，同时绘制开关。不能只画开关而丢失键盘和无障碍状态。
+- 开关和已选设备需暴露无障碍 Checked 状态；返回按钮必须能通过键盘及无障碍接口访问。
 - 渲染测试需包含实际的两种打开入口、设备子菜单和两个开关。只检查普通菜单项不能覆盖新布局。
+- 端口输入停输 600 ms 自动保存，失焦／Enter 立即保存，清空保存为 0。不能每输入一位就写配置；失败保留草稿且停止自动重试。端口生效时机仍为下次服务启动。
 
 ## 本轮证据
 
@@ -74,4 +76,8 @@
 
 2026-10-27 自定义端口与托盘图标：前端 104 项、Rust 40 项（3 项可选测试跳过）、后台 811 项、渲染 1151 项通过。已查看菜单深浅色和 200% 字号渲染，确认动画结束及菜单关闭后计时器停止。已在浏览器模拟预览中保存端口并检查深浅色设置页。真实的隔离服务使用指定回环端口，拒绝无凭据请求，release 后退出并释放端口；端口占用拒绝由 Rust 实际套接字测试覆盖。未启动真实音频后台，也未验证日常托盘中的音频操作。
 
-最新测试包：`staging/test-0.12.1-custom-port-20261027/v0.12.1/`。仅 EXE 和 ZIP，两附件及展开校验通过。记录为 `staging/custom-port-package.log`、`staging/custom-port-smoke.log`。离线模拟预览为 `staging/custom-port-preview/声间-UI预览.html`。没有修改 bin 或 Release 附件。
+上轮测试包：`staging/test-0.12.1-custom-port-20261027/v0.12.1/`。仅 EXE 和 ZIP，两附件及展开校验通过。记录为 `staging/custom-port-package.log`、`staging/custom-port-smoke.log`。离线模拟预览为 `staging/custom-port-preview/声间-UI预览.html`。没有修改 bin 或 Release 附件。
+
+2026-10-27 托盘换实现与端口自动保存：前端 106 项通过，最终包后台 818 项通过，两附件和展开校验通过。完整渲染 1176 项通过；最后一次键盘修正后用 `AudioSwitch.Tests.exe --tray-popup-render` 定向复查，77 项通过。此入口只检查模拟菜单，不启动真实音频后台。已查看深浅色与 200% 菜单图片，验证长列表滚动、键盘返回、动画停表，以及正常／立即关闭时独立界面线程回收。日常后台繁忙时的实际手感仍由用户试用确认。
+
+最新测试包：`staging/test-0.12.1-tray-popup-20261027-r2/v0.12.1/`。记录为 `staging/tray-popup-package-r2.log`、`staging/tray-popup-focused.log`。新版离线预览为 `staging/tray-popup-preview/声间-UI预览.html`，只展示模拟前端，不包含原生托盘窗口。内置浏览器拒绝 file 协议，因此本轮 HTML 未做浏览器实看；自动保存交互已由组件测试覆盖。未修改真实配置、音频、bin 或 Release 附件。

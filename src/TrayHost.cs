@@ -17,6 +17,7 @@ namespace AudioSwitch
         private readonly AudioService audio;
         private readonly ArrivalTracker tracker;
         private readonly NotifyIcon tray;
+        private readonly TrayPopupHost trayPopup;
         private readonly DeviceEventBatch debounce;
         private readonly PipeServer server;
         private readonly DolbyQueue dolby;
@@ -54,9 +55,17 @@ namespace AudioSwitch
             tray = new NotifyIcon { Text = "声间 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
             tray.DoubleClick += delegate { if (preferences.OpenPanelInBrowser) frontends.ShowBrowser(); else ShowFrontend(false); };
             tray.BalloonTipClicked += delegate { ShowFrontend(true); };
-            var menu = new ThemedMenu();
-            menu.Opening += delegate { BuildMenu(menu); };
-            tray.ContextMenuStrip = menu;
+            trayPopup = new TrayPopupHost(action => {
+                if (!exiting && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)(() => {
+                    if (exiting) return;
+                    try { action(); }
+                    catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "操作未完成", ex.Message, ToolTipIcon.Warning); }
+                }));
+            }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, "菜单未能打开", ex.Message, ToolTipIcon.Warning); });
+            tray.MouseUp += delegate(object sender, MouseEventArgs e) {
+                if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, TrayMenuModel.Create(tracker.Current, preferences,
+                    PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)), tracker.Pending.Count, ShowFrontend, frontends.ShowBrowser, RunMenuCommand, ExitThread), preferences.DarkMode);
+            };
             debounce = new DeviceEventBatch(() => RefreshAudio(true, true));
             debounce.SetGameMode(preferences.GameMode);
             audio.Listen(delegate {
@@ -160,51 +169,10 @@ namespace AudioSwitch
             string id = state.Default(0, 1); DeviceProfile profile;
             dolby.Observe(id, id != null && preferences.DeviceProfiles.TryGetValue(id, out profile) ? profile.Dolby : null, force);
         }
-        private void BuildMenu(ContextMenuStrip menu)
+        private void RunMenuCommand(Request request)
         {
-            Palette.Apply(preferences.DarkMode);
-            while (menu.Items.Count > 0) { var item = menu.Items[0]; menu.Items.RemoveAt(0); item.Dispose(); }
-            menu.Items.Add(new TrayMenuHeading());
-            var panel = new TrayActionItem("打开主面板", TrayGlyph.Panel);
-            panel.Click += delegate { ShowFrontend(false); }; menu.Items.Add(panel);
-            var browser = new TrayActionItem("在浏览器打开", TrayGlyph.Browser) { Enabled = PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)) };
-            browser.Click += delegate { frontends.ShowBrowser(); }; menu.Items.Add(browser);
-            if (tracker.Pending.Count > 0) {
-                var pending = new TrayActionItem("处理设备变化", TrayGlyph.Devices);
-                pending.Click += delegate { ShowFrontend(true); }; menu.Items.Add(pending);
-            }
-            menu.Items.Add(new ToolStripSeparator());
-            foreach (int flow in new[] { 0, 1 })
-            {
-                var current = tracker.Current.Devices.FirstOrDefault(d => d.Id == tracker.Current.Default(flow, 1));
-                var group = new TrayDeviceGroup(flow == 0 ? "声音输出" : "麦克风输入", current == null ? "暂无默认设备" : current.Name) { DropDown = new ThemedMenu() };
-                foreach (var device in DevicePriority.Ordered(tracker.Current.Devices, preferences, tracker.Current, flow))
-                {
-                    var captured = device;
-                    var item = new ToolStripMenuItem(device.Name) { Checked = tracker.Current.Default(flow, 1) == device.Id };
-                    item.Click += delegate {
-                        var result = Handle(new Request { Action = "switch", DeviceId = captured.Id });
-                        if (result.Error != null) tray.ShowBalloonTip(5000, "切换未完成", result.Error, ToolTipIcon.Warning);
-                    };
-                    group.DropDownItems.Add(item);
-                }
-                if (group.DropDownItems.Count == 0) group.DropDownItems.Add("暂无可用设备").Enabled = false;
-                menu.Items.Add(group);
-            }
-            menu.Items.Add(new ToolStripSeparator());
-            var priority = new TrayToggleItem("自动切换", TrayGlyph.Devices) { Checked = preferences.UseDevicePriority, ToolTipText = "按设备优先级自动选择" };
-            priority.Click += delegate {
-                var result = Handle(new Request { Action = "priority", Value = !preferences.UseDevicePriority });
-                if (result.Error != null) tray.ShowBalloonTip(5000, "设备优先级", result.Error, ToolTipIcon.Warning);
-            };
-            menu.Items.Add(priority);
-            menu.Items.Add(GameModeMenu.Create(preferences.GameMode, value => {
-                var result = Handle(new Request { Action = "gameMode", Value = value });
-                if (result.Error != null) tray.ShowBalloonTip(5000, "游戏模式未更改", result.Error, ToolTipIcon.Warning);
-            }));
-            menu.Items.Add(new ToolStripSeparator());
-            var exit = new TrayActionItem("退出声间", TrayGlyph.Exit);
-            exit.Click += delegate { ExitThread(); }; menu.Items.Add(exit);
+            var result = Handle(request);
+            if (result.Error != null) tray.ShowBalloonTip(5000, "操作未完成", result.Error, ToolTipIcon.Warning);
         }
         private Reply Handle(Request request)
         {
@@ -499,7 +467,7 @@ namespace AudioSwitch
                 if (tray != null)
                 {
                     tray.Visible = false;
-                    if (tray.ContextMenuStrip != null) tray.ContextMenuStrip.Dispose();
+                    if (trayPopup != null) trayPopup.Dispose();
                     if (tray.Icon != null) tray.Icon.Dispose();
                     tray.Dispose();
                 }

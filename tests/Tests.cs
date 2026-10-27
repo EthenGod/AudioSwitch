@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -37,6 +37,7 @@ namespace AudioSwitch
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
+                if (args.Contains("--tray-popup-render")) { TrayPopupTests.Run(Check); TrayPopupTests.Render(Check); Console.WriteLine("PASS: " + passed + " tray checks"); return 0; }
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
                 if (args.Contains("--update-activity")) { BackgroundUpdateTests.NativeActivity(Check); return 0; }
                 if (args.Contains("--startup-process")) { StartupTests.BackgroundProcess(Check); return 0; }
@@ -69,7 +70,7 @@ namespace AudioSwitch
                 GameModeTests.Run(Check);
                 AutoUpdatePreferenceTests.Run(Check);
                 IntegrityTests.Run(Check);
-                FrontendLaunchTests.Run(Check);
+                FrontendLaunchTests.Run(Check); TrayPopupTests.Run(Check);
                 CandidateUpdateTests.Run(Check);
                 DesktopUpdateTests.Run(Check);
                 RunDolbyTests();
@@ -97,6 +98,7 @@ namespace AudioSwitch
                 if (args.Contains("--lifecycle")) Lifecycle();
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
+                if (args.Contains("--render")) TrayPopupTests.Render(Check);
                 if (args.Contains("--render")) StartupTests.Render(Check);
                 if (args.Contains("--render")) GameModeTests.Render(Check);
                 if (args.Contains("--render")) AutoUpdatePreferenceTests.Render(Check);
@@ -654,55 +656,7 @@ namespace AudioSwitch
                     SaveUi(notice, "notice-confirm-" + suffix + ".png");
                     notice.CancelButton.PerformClick(); Check(notice.DialogResult == DialogResult.Cancel, "cancelling the styled confirmation returns Cancel"); notice.Close();
                 }
-                foreach (float textScale in new[] { 1F, 1.5F, 2F })
-                using (var scaledMenuFont = new Font("Microsoft YaHei UI", 10.5F * textScale))
-                using (var host = new Form { ClientSize = new Size(700, 430), BackColor = Palette.Background })
-                using (var menu = new ThemedMenu()) {
-                    menu.Font = scaledMenuFont;
-                    string menuSuffix = suffix + (textScale == 1F ? "" : "-" + (int)(textScale * 100));
-                    int commands = 0;
-                    menu.Items.Add(new TrayMenuHeading());
-                    var panelItem = new TrayActionItem("打开主面板", TrayGlyph.Panel); panelItem.Click += delegate { commands++; }; menu.Items.Add(panelItem);
-                    menu.Items.Add(new TrayActionItem("在浏览器打开", TrayGlyph.Browser));
-                    menu.Items.Add(new ToolStripSeparator());
-                    var group = new TrayDeviceGroup("声音输出", "耳机 (Realtek Audio)") { DropDown = new ThemedMenu() };
-                    group.DropDown.Font = scaledMenuFont;
-                    group.DropDownItems.Add(new ToolStripMenuItem("耳机 (Realtek Audio)") { Checked = true });
-                    group.DropDownItems.Add(new ToolStripMenuItem("USB 音频设备 很长的设备名称，用于检查菜单省略和完整悬停说明"));
-                    group.DropDownItems.Add(new ToolStripMenuItem("暂无可用设备") { Enabled = false }); menu.Items.Add(group);
-                    menu.Items.Add(new TrayDeviceGroup("麦克风输入", "USB 麦克风")); menu.Items.Add(new ToolStripSeparator());
-                    menu.Items.Add(new TrayToggleItem("自动切换", TrayGlyph.Devices) { Checked = true });
-                    menu.Items.Add(GameModeMenu.Create(false, value => commands++)); menu.Items.Add(new ToolStripSeparator());
-                    menu.Items.Add(new TrayActionItem("退出声间", TrayGlyph.Exit));
-                    host.Show(); menu.Show(host, new Point(20, 20)); Application.DoEvents();
-                    using (var graphics = menu.CreateGraphics()) {
-                        int line = (int)Math.Ceiling(scaledMenuFont.GetHeight(graphics));
-                        Check(group.Height >= line * 2 + 6 * textScale, "tray device rows fit two readable lines at text scale " + textScale + " in " + suffix);
-                    }
-                    Check(menu.Items.Cast<ToolStripItem>().Where(item => item.Available).All(item => menu.ClientRectangle.Contains(item.Bounds)),
-                        "tray items stay inside the menu at text scale " + textScale + " in " + suffix);
-                    Check(menu.Items.OfType<ToolStripMenuItem>().All(item => menu.Width - item.Bounds.Right <= menu.Padding.Right + 3),
-                        "tray hit areas extend to the menu edge without an empty submenu gap in " + suffix);
-                    using (var bitmap = new Bitmap(menu.Width, menu.Height)) { menu.DrawToBitmap(bitmap, menu.ClientRectangle); bitmap.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "tray-menu-" + menuSuffix + ".png")); }
-                    group.ShowDropDown(); Application.DoEvents();
-                    Check(group.DropDownItems.Cast<ToolStripItem>().All(item => group.DropDown.ClientRectangle.Contains(item.Bounds)),
-                        "long device submenu rows fit the popup rather than painting past its edge at text scale " + textScale + " in " + suffix);
-                    using (var bitmap = new Bitmap(group.DropDown.Width, group.DropDown.Height)) { group.DropDown.DrawToBitmap(bitmap, group.DropDown.ClientRectangle); bitmap.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "tray-devices-" + menuSuffix + ".png")); }
-                    Check(commands == 0 && ((ToolStripMenuItem)group.DropDownItems[0]).Checked && !group.DropDownItems[2].Enabled, "opening themed tray menus preserves check states and runs no commands in " + suffix);
-                    group.HideDropDown(); menu.Items[1].PerformClick(); Check(commands == 1, "tray command still activates exactly once");
-                    menu.Close();
-                    var originalMenuSize = menu.Size;
-                    var workArea = Screen.FromControl(host).WorkingArea;
-                    menu.Show(new Point(workArea.Right - 4, workArea.Bottom - 4)); Application.DoEvents();
-                    Check(menu.Size == originalMenuSize && workArea.Contains(menu.Bounds), "reopening tray menu at the screen edge keeps stable size and stays visible at text scale " + textScale + " in " + suffix);
-                    panelItem.Select(); menu.Refresh();
-                    var animationWait = System.Diagnostics.Stopwatch.StartNew();
-                    while (animationWait.ElapsedMilliseconds < 220) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
-                    Check(!menu.Animating, "tray hover animation settles without an idle timer");
-                    group.Select(); menu.Refresh(); menu.Close();
-                    Check(!menu.Animating, "closing tray immediately stops pending animation");
-                    host.Close();
-                }
+
             }
             Palette.Apply(false);
         }
