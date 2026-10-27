@@ -18,8 +18,8 @@ export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Sna
   if (!device.Online) return <span className="subtle-label"><Circle size={7} /> 离线</span>
   return <div className="badges">{active.length ? active.map(role => <span className={`role-badge ${role === 1 ? 'primary-badge' : ''}`} key={role}>{role === 1 && <Check size={11} />}{['控制台', '多媒体', '通话'][role]}</span>) : <span className="subtle-label"><span className="online-dot" /> 可用</span>}</div>
 }
-export function SettingRow({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <div className="setting-row"><div><div className="setting-title">{title}</div>{description && <p>{description}</p>}</div><div className="setting-control">{children}</div></div>
+export function SettingRow({ title, description, children, message }: { title: string; description?: string; children: ReactNode; message?: ReactNode }) {
+  return <div className={`setting-row${message !== undefined ? ' setting-row-validation' : ''}`}><div><div className="setting-title">{title}</div>{description && <p>{description}</p>}</div><div className="setting-control">{children}</div>{message}</div>
 }
 export function ToggleRow({ title, description, value, disabled, onChange }: { title: string; description?: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
   return <SettingRow title={title} description={description}><Switch aria-label={title} checked={value} disabled={disabled} onCheckedChange={onChange} /></SettingRow>

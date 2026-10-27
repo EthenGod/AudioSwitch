@@ -58,12 +58,11 @@ export function BrowserPort({ value, disabled, onSave }: { value: number; disabl
     const timer = setTimeout(() => { void commitRef.current() }, 600)
     return () => clearTimeout(timer)
   }, [draft, saved, valid, disabled])
-  return <SettingRow title="浏览器端口" description="下次开启服务时生效。">
+  return <SettingRow title="浏览器端口" description="下次开启服务时生效。" message={(!valid || failed) ? <p className="setting-error" id="browser-port-error" role="alert">{!valid ? '请输入 1–65535，或留空。' : '未保存，按 Enter 重试。'}</p> : null}>
     <div className="browser-port">
       <input aria-label="端口号" inputMode="numeric" autoComplete="off" maxLength={5} placeholder="自动分配" value={draft} disabled={disabled} aria-invalid={!valid} aria-describedby={!valid || failed ? 'browser-port-error' : undefined}
         onChange={event => { attempted.current = null; setFailed(false); setDraft(event.target.value) }}
         onBlur={() => { void commit() }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void commit(true) } }} />
-      {(!valid || failed) && <p id="browser-port-error" role="alert">{!valid ? '请输入 1–65535，或留空。' : '未保存，按 Enter 重试。'}</p>}
     </div>
   </SettingRow>
 }
