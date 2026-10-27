@@ -70,7 +70,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   const preferences: Preferences = {
     DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),
-    AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
+    AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), KeepBrowserPortOpen: prefs.KeepBrowserPortOpen === undefined ? false : boolean(prefs.KeepBrowserPortOpen), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
   }
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
@@ -82,6 +82,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     CanManageBackup: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 2,
     CanCheckMaintenance: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 3,
     CanManageUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 6,
+    CanKeepBrowserPortOpen: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 8 && typeof prefs.KeepBrowserPortOpen === 'boolean',
     CanSetTrayBehavior: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 7 && typeof prefs.OpenPanelInBrowser === 'boolean',
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }

@@ -19,7 +19,7 @@ function initial(): Snapshot {
     Defaults: { '0:0': 'demo-headphones', '0:1': 'demo-headphones', '0:2': 'demo-speakers', '1:0': 'demo-microphone', '1:1': 'demo-microphone', '1:2': 'demo-microphone' },
     Preferences: {
       DarkMode: true, GameMode: false, AskOnConnect: true, IncludeCommunications: true,
-      UseDevicePriority: true, AutoUpdateEnabled: true, OpenPanelInBrowser: false,
+      UseDevicePriority: true, AutoUpdateEnabled: true, OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
       DeviceProfiles: { 'demo-headphones': { Volume: 65, SpatialFormat: null }, 'demo-bluetooth': { Volume: 45, SpatialFormat: '' } },
       DeviceRules: { 'demo-headphones': 2 },
       DeviceOrder: { 0: devices.filter(d => d.Flow === 0).map(d => d.Id), 1: devices.filter(d => d.Flow === 1).map(d => d.Id) },

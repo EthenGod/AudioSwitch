@@ -51,7 +51,7 @@ namespace AudioSwitch
                 }
             });
             panelDolby = new PanelDolbyApply(dolby);
-            tray = new NotifyIcon { Text = "声间 · 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
+            tray = new NotifyIcon { Text = "声间 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
             tray.DoubleClick += delegate { if (preferences.OpenPanelInBrowser) frontends.ShowBrowser(); else ShowFrontend(false); };
             tray.BalloonTipClicked += delegate { ShowFrontend(true); };
             var menu = new ThemedMenu();
@@ -94,6 +94,8 @@ namespace AudioSwitch
                 updates.Tick(UpdateIdle.IsIdle(), pressure || dolby.Applying || tracker.Pending.Count > 0 || DateTime.UtcNow < updateBusyUntil || UpdateInstaller.IsUpdating());
             };
             UpdateGameMode();
+            try { frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen); }
+            catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "浏览器端口未开启", ex.Message, ToolTipIcon.Warning); }
             if (show) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
         }
         private void RefreshAudio(bool notify, bool automatic = false)
@@ -163,8 +165,14 @@ namespace AudioSwitch
             Palette.Apply(preferences.DarkMode);
             while (menu.Items.Count > 0) { var item = menu.Items[0]; menu.Items.RemoveAt(0); item.Dispose(); }
             menu.Items.Add(new TrayMenuHeading());
-            menu.Items.Add("打开管理面板", null, delegate { ShowFrontend(false); });
-            if (tracker.Pending.Count > 0) menu.Items.Add("有设备变化待处理…", null, delegate { ShowFrontend(true); });
+            var panel = new TrayActionItem("打开主面板", TrayGlyph.Panel);
+            panel.Click += delegate { ShowFrontend(false); }; menu.Items.Add(panel);
+            var browser = new TrayActionItem("在浏览器打开", TrayGlyph.Browser) { Enabled = PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)) };
+            browser.Click += delegate { frontends.ShowBrowser(); }; menu.Items.Add(browser);
+            if (tracker.Pending.Count > 0) {
+                var pending = new TrayActionItem("处理设备变化", TrayGlyph.Devices);
+                pending.Click += delegate { ShowFrontend(true); }; menu.Items.Add(pending);
+            }
             menu.Items.Add(new ToolStripSeparator());
             foreach (int flow in new[] { 0, 1 })
             {
@@ -184,7 +192,7 @@ namespace AudioSwitch
                 menu.Items.Add(group);
             }
             menu.Items.Add(new ToolStripSeparator());
-            var priority = new ToolStripMenuItem("按设备优先级自动选择") { Checked = preferences.UseDevicePriority };
+            var priority = new TrayToggleItem("自动切换", TrayGlyph.Devices) { Checked = preferences.UseDevicePriority, ToolTipText = "按设备优先级自动选择" };
             priority.Click += delegate {
                 var result = Handle(new Request { Action = "priority", Value = !preferences.UseDevicePriority });
                 if (result.Error != null) tray.ShowBalloonTip(5000, "设备优先级", result.Error, ToolTipIcon.Warning);
@@ -194,7 +202,9 @@ namespace AudioSwitch
                 var result = Handle(new Request { Action = "gameMode", Value = value });
                 if (result.Error != null) tray.ShowBalloonTip(5000, "游戏模式未更改", result.Error, ToolTipIcon.Warning);
             }));
-            menu.Items.Add("退出", null, delegate { ExitThread(); });
+            menu.Items.Add(new ToolStripSeparator());
+            var exit = new TrayActionItem("退出声间", TrayGlyph.Exit);
+            exit.Click += delegate { ExitThread(); }; menu.Items.Add(exit);
         }
         private Reply Handle(Request request)
         {
@@ -228,6 +238,9 @@ namespace AudioSwitch
                         StartupRegistration.Set(request.Value, Application.ExecutablePath, new RegistryStartupStore(), null, true, request.ExpectedStartupCommand);
                         break;
                     case "openPanelInBrowser": preferences.OpenPanelInBrowser = request.Value; SavePreferences(); preferencesSaved = true; break;
+                    case "keepBrowserPortOpen":
+                        preferences.KeepBrowserPortOpen = request.Value; SavePreferences(); preferencesSaved = true;
+                        frontends.SetBrowserPersistent(request.Value); break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
@@ -248,6 +261,7 @@ namespace AudioSwitch
                         tracker.Pending.Clear(); presetWarnings.Clear(); priorityError = null; audioError = null;
                         dolby.Cancel();
                         if (preferences.GameMode != beforePreferences.GameMode || preferences.AutoUpdateEnabled != beforePreferences.AutoUpdateEnabled) UpdateGameMode();
+                        frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen);
                         break;
                     case "dismissWarning":
                         // A stale close click must not discard a newer warning.
@@ -346,10 +360,10 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 7, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 8, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));

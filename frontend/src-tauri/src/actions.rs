@@ -7,7 +7,7 @@ pub struct BasicProfile { pub volume: Option<u8>, pub spatial_format: Option<Str
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, OpenPanelInBrowser }
+pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, OpenPanelInBrowser, KeepBrowserPortOpen }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
@@ -44,6 +44,10 @@ impl Action {
             Self::Preference { key, value } => json!({"Action":match key {
                 Preference::DarkMode => "darkMode", Preference::GameMode => "gameMode", Preference::AskOnConnect => "ask",
                 Preference::IncludeCommunications => "communications", Preference::UseDevicePriority => "priority", Preference::AutoUpdateEnabled => "automaticUpdates",
+                Preference::KeepBrowserPortOpen => {
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 8 { return Err("此设置需要新版后台。".into()); }
+                    "keepBrowserPortOpen"
+                },
                 Preference::OpenPanelInBrowser => {
                     if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 7 { return Err("此设置需要新版后台。".into()); }
                     "openPanelInBrowser"
@@ -81,6 +85,12 @@ mod tests {
         let action = Action::Preference { key:Preference::OpenPanelInBrowser, value:true };
         assert!(action.request(&json!({"PanelApiVersion":6})).is_err());
         assert_eq!(action.request(&json!({"PanelApiVersion":7})).unwrap(), json!({"Action":"openPanelInBrowser","Value":true}));
+    }
+    #[test]
+    fn keep_port_requires_new_backend_and_only_changes_preference() {
+        let action = Action::Preference { key:Preference::KeepBrowserPortOpen, value:true };
+        assert!(action.request(&json!({"PanelApiVersion":7})).is_err());
+        assert_eq!(action.request(&json!({"PanelApiVersion":8})).unwrap(), json!({"Action":"keepBrowserPortOpen","Value":true}));
     }
     #[test]
     fn basic_save_is_never_apply_and_preserves_null_and_zero() {

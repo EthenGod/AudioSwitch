@@ -14,6 +14,7 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
   return <>
     <section className="settings-group" aria-label="应用偏好">
       <SettingRow title="双击托盘图标"><Select label="双击托盘图标" value={prefs.OpenPanelInBrowser ? 'browser' : 'panel'} options={[{ value: 'panel', label: '打开主面板' }, { value: 'browser', label: '在浏览器打开' }]} disabled={busy || readOnly || (desktop && !snapshot.CanSetTrayBehavior)} onValueChange={v => onPreference('OpenPanelInBrowser', v === 'browser')} /></SettingRow>
+      <ToggleRow title="保持浏览器端口开放" description="随声间启动，关闭浏览器后仍保留本机服务。" value={prefs.KeepBrowserPortOpen} disabled={busy || readOnly || (desktop && !snapshot.CanKeepBrowserPortOpen)} onChange={v => onPreference('KeepBrowserPortOpen', v)} />
       <SettingRow title="外观"><div className="segmented"><button aria-label="浅色模式" aria-pressed={!prefs.DarkMode} disabled={busy} onClick={() => onPreference('DarkMode', false)}><Sun size={14} />浅色</button><button aria-label="深色模式" aria-pressed={prefs.DarkMode} disabled={busy} onClick={() => onPreference('DarkMode', true)}><Moon size={14} />深色</button></div></SettingRow>
       <ToggleRow title="游戏模式" description="暂停后台自动更新。" value={prefs.GameMode} disabled={busy || readOnly} onChange={v => onPreference('GameMode', v)} />
       <ToggleRow title="开机自启" description={desktop ? snapshot.StartupMessage || (snapshot.StartupAvailable && !readOnly ? '仅启动托盘。' : '当前连接无法修改自启设置。') : '仅启动托盘。'} value={snapshot.StartupEnabled} disabled={busy || readOnly || (desktop && !snapshot.StartupAvailable)} onChange={onStartup} />

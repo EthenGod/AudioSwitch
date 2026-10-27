@@ -5,13 +5,14 @@ use std::{collections::HashMap, io::{BufRead, Read, Write}, net::{TcpListener, T
 const MAX_BODY: usize = 2 * 1024 * 1024;
 const SECURITY: &str = "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'\r\n";
 
-struct Lifetime { clients: usize, deadline: Instant }
+struct Lifetime { clients: usize, deadline: Instant, keep_open: bool }
 impl Lifetime {
-    fn new() -> Self { Self { clients: 0, deadline: Instant::now() + Duration::from_secs(60) } }
+    fn new() -> Self { Self { clients: 0, deadline: Instant::now() + Duration::from_secs(60), keep_open: false } }
+    fn keep(&mut self, value: bool) { self.keep_open = value; if !value { self.deadline = Instant::now() + Duration::from_secs(8); } }
     fn opened(&mut self) { self.deadline = Instant::now() + Duration::from_secs(60); }
     fn joined(&mut self) { self.clients += 1; }
     fn left(&mut self) { self.clients -= 1; if self.clients == 0 { self.deadline = Instant::now() + Duration::from_secs(8); } }
-    fn expired(&self) -> bool { self.clients == 0 && Instant::now() >= self.deadline }
+    fn expired(&self) -> bool { !self.keep_open && self.clients == 0 && Instant::now() >= self.deadline }
 }
 struct Host { authority: String, token: String, lifetime: Mutex<Lifetime>, connections: AtomicUsize, stop: AtomicBool }
 struct Connection(Arc<Host>);
@@ -25,12 +26,17 @@ pub fn start(app: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // OS-generated GUIDs avoid predictable credentials. The token never goes into a query string.
     let token = unsafe { format!("{:?}{:?}", windows::Win32::System::Com::CoCreateGuid()?, windows::Win32::System::Com::CoCreateGuid()?) }.replace('-', "");
     let host = Arc::new(Host { authority: listener.local_addr()?.to_string(), token, lifetime: Mutex::new(Lifetime::new()), connections: AtomicUsize::new(0), stop: AtomicBool::new(false) });
-    open(&host)?;
+    host.lifetime.lock().unwrap().keep(std::env::args().any(|arg| arg == "--keep-browser"));
+    // Do not shorten the initial wait when using the default on-demand mode.
+    host.lifetime.lock().unwrap().opened();
+    if !std::env::args().any(|arg| arg == "--browser-idle") { open(&host)?; }
     let commands = host.clone();
     std::thread::spawn(move || {
         for line in std::io::stdin().lock().lines() {
             match line.as_deref() {
                 Ok("open") => { commands.lifetime.lock().unwrap().opened(); let _ = open(&commands); },
+                Ok("keep") => commands.lifetime.lock().unwrap().keep(true),
+                Ok("release") => commands.lifetime.lock().unwrap().keep(false),
                 Ok("close") | Err(_) => break,
                 _ => (),
             }
@@ -46,7 +52,7 @@ pub fn start(app: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     std::thread::spawn(move || { let _ = serve(stream, &connection.0, &app); });
                 },
                 Ok(_) => (),
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => std::thread::sleep(Duration::from_millis(100)),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => std::thread::sleep(Duration::from_millis(250)),
                 Err(_) => break,
             }
         }
@@ -222,6 +228,13 @@ mod tests {
         life.deadline = Instant::now(); assert!(!life.expired()); life.left(); assert!(!life.expired());
         life.deadline = Instant::now(); assert!(life.expired()); life.joined(); assert!(!life.expired());
         life.left(); life.opened(); assert!(life.deadline > Instant::now() + Duration::from_secs(30));
+    }
+    #[test] fn retained_port_expires_only_after_release_and_last_client() {
+        let mut life = Lifetime::new(); life.keep(true); life.deadline = Instant::now();
+        assert!(!life.expired()); life.joined(); life.left(); life.deadline = Instant::now(); assert!(!life.expired());
+        life.keep(false); assert!(!life.expired()); life.deadline = Instant::now(); assert!(life.expired());
+        life.joined(); life.keep(false); life.deadline = Instant::now(); assert!(!life.expired());
+        life.left(); assert!(!life.expired()); life.deadline = Instant::now(); assert!(life.expired());
     }
     #[test] fn assets_are_fixed_and_rpc_rejects_extra_envelope_fields() {
         for path in ["/../settings.json", "/%2e%2e/config", "/assets/old.js", "/rpc?token=secret"] { assert!(asset(path).is_none()); }

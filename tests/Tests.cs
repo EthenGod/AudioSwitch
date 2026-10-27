@@ -655,21 +655,25 @@ namespace AudioSwitch
                     notice.CancelButton.PerformClick(); Check(notice.DialogResult == DialogResult.Cancel, "cancelling the styled confirmation returns Cancel"); notice.Close();
                 }
                 foreach (float textScale in new[] { 1F, 1.5F, 2F })
-                using (var scaledMenuFont = new Font("Microsoft YaHei UI", 9F * textScale))
+                using (var scaledMenuFont = new Font("Microsoft YaHei UI", 10.5F * textScale))
                 using (var host = new Form { ClientSize = new Size(700, 430), BackColor = Palette.Background })
                 using (var menu = new ThemedMenu()) {
                     menu.Font = scaledMenuFont;
                     string menuSuffix = suffix + (textScale == 1F ? "" : "-" + (int)(textScale * 100));
                     int commands = 0;
-                    menu.Items.Add(new TrayMenuHeading()); menu.Items.Add("打开管理面板", null, delegate { commands++; });
+                    menu.Items.Add(new TrayMenuHeading());
+                    var panelItem = new TrayActionItem("打开主面板", TrayGlyph.Panel); panelItem.Click += delegate { commands++; }; menu.Items.Add(panelItem);
+                    menu.Items.Add(new TrayActionItem("在浏览器打开", TrayGlyph.Browser));
                     menu.Items.Add(new ToolStripSeparator());
                     var group = new TrayDeviceGroup("声音输出", "耳机 (Realtek Audio)") { DropDown = new ThemedMenu() };
                     group.DropDown.Font = scaledMenuFont;
                     group.DropDownItems.Add(new ToolStripMenuItem("耳机 (Realtek Audio)") { Checked = true });
-                    group.DropDownItems.Add(new ToolStripMenuItem("USB 音频设备 · 很长的设备名称，用于检查菜单省略和完整悬停说明"));
+                    group.DropDownItems.Add(new ToolStripMenuItem("USB 音频设备 很长的设备名称，用于检查菜单省略和完整悬停说明"));
                     group.DropDownItems.Add(new ToolStripMenuItem("暂无可用设备") { Enabled = false }); menu.Items.Add(group);
                     menu.Items.Add(new TrayDeviceGroup("麦克风输入", "USB 麦克风")); menu.Items.Add(new ToolStripSeparator());
-                    menu.Items.Add(new ToolStripMenuItem("按设备优先级自动选择") { Checked = true }); menu.Items.Add("退出");
+                    menu.Items.Add(new TrayToggleItem("自动切换", TrayGlyph.Devices) { Checked = true });
+                    menu.Items.Add(GameModeMenu.Create(false, value => commands++)); menu.Items.Add(new ToolStripSeparator());
+                    menu.Items.Add(new TrayActionItem("退出声间", TrayGlyph.Exit));
                     host.Show(); menu.Show(host, new Point(20, 20)); Application.DoEvents();
                     using (var graphics = menu.CreateGraphics()) {
                         int line = (int)Math.Ceiling(scaledMenuFont.GetHeight(graphics));

@@ -14,6 +14,19 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('keeps browser port preference independent from tray open mode', async () => {
+    const { gateway, user } = await setup()
+    await user.click(screen.getByRole('button', { name: '应用设置' }))
+    const toggle = screen.getByRole('switch', { name: '保持浏览器端口开放' })
+    expect(toggle).not.toBeChecked()
+    await user.click(toggle)
+    await waitFor(() => expect(toggle).toBeChecked())
+    const saved = await gateway.read()
+    expect(saved.Preferences.KeepBrowserPortOpen).toBe(true)
+    expect(saved.Preferences.OpenPanelInBrowser).toBe(false)
+    await user.click(toggle)
+    await waitFor(() => expect(toggle).not.toBeChecked())
+  })
   it('changes tray double-click choice and preserves it when returning to settings', async () => {
     const { gateway, user } = await setup()
     await user.click(screen.getByRole('button', { name: '应用设置' }))

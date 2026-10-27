@@ -106,6 +106,7 @@ namespace AudioSwitch
         void Activate();
         void Close();
     }
+    internal interface IBrowserFrontend : IFrontendWindow { void KeepOpen(bool value); }
     internal sealed class FrontendWindows : IDisposable
     {
         private readonly Func<bool, ProcessStartInfo> select;
@@ -113,6 +114,7 @@ namespace AudioSwitch
         private readonly Func<ProcessStartInfo> selectBrowser;
         private IFrontendWindow panel, prompt, browser;
         private bool closing;
+        private bool keepBrowserOpen;
         internal FrontendWindows(string backend) : this(p => PanelLaunch.Select(backend, p, Process.GetCurrentProcess().Id), info => info.RedirectStandardInput ? (IFrontendWindow)new BrowserFrontend(Process.Start(info)) : new NativeFrontend(Process.Start(info), Path.GetFileName(info.FileName) == "audio-switch-panel.exe", info.Arguments.Contains("--prompt")), () => PanelLaunch.Select(backend, false, Process.GetCurrentProcess().Id, true)) { }
         internal FrontendWindows(Func<bool, ProcessStartInfo> select, Func<ProcessStartInfo, IFrontendWindow> start, Func<ProcessStartInfo> selectBrowser = null) { this.select = select; this.start = start; this.selectBrowser = selectBrowser; }
         internal int PanelPid { get { return panel != null && !panel.Exited ? panel.Id : 0; } }
@@ -121,8 +123,23 @@ namespace AudioSwitch
         {
             if (closing) return;
             if (browser != null && !browser.Exited) { browser.Activate(); return; }
+            StartBrowser(true);
+        }
+        internal void SetBrowserPersistent(bool value)
+        {
+            if (closing) return;
+            keepBrowserOpen = value;
+            if (browser != null && !browser.Exited) {
+                var control = browser as IBrowserFrontend;
+                if (control != null) control.KeepOpen(value);
+            } else if (value) StartBrowser(false);
+        }
+        private void StartBrowser(bool open)
+        {
             if (selectBrowser == null) throw new InvalidOperationException("浏览器面板不可用。");
             var info = selectBrowser();
+            if (keepBrowserOpen) info.Arguments += " --keep-browser";
+            if (!open) info.Arguments += " --browser-idle";
             if (browser != null) { browser.Dispose(); browser = null; }
             browser = start(info);
         }
@@ -145,13 +162,14 @@ namespace AudioSwitch
             if (browser != null && !browser.Exited) browser.Close();
         }
         public void Dispose() { Close(); if (panel != null) { panel.Dispose(); panel = null; } if (prompt != null) { prompt.Dispose(); prompt = null; } if (browser != null) { browser.Dispose(); browser = null; } }
-        private sealed class BrowserFrontend : IFrontendWindow
+        private sealed class BrowserFrontend : IBrowserFrontend
         {
             private readonly Process process;
             internal BrowserFrontend(Process process) { if (process == null) throw new InvalidOperationException("无法打开浏览器面板。"); this.process = process; }
             public int Id { get { return process.Id; } }
             public bool Exited { get { return process.HasExited; } }
             public void Activate() { process.StandardInput.WriteLine("open"); process.StandardInput.Flush(); }
+            public void KeepOpen(bool value) { process.StandardInput.WriteLine(value ? "keep" : "release"); process.StandardInput.Flush(); }
             public void Close() { try { if (!process.HasExited) { process.StandardInput.WriteLine("close"); process.StandardInput.Flush(); } } catch (IOException) { } catch (InvalidOperationException) { } }
             public void Dispose() { process.Dispose(); }
         }

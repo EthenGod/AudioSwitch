@@ -12,7 +12,7 @@ React + TypeScript + Tailwind + shadcn（Base UI）。开发预览与单文件 H
 
 `src/data/browser.ts` 使用同一套 desktop gateway。Rust `src-tauri/src/browser.rs` 只监听随机回环端口，校验 Host、Origin 和本次凭据，并限定可用命令及静态文件。凭据通过 URL 片段交付，随后清除地址栏片段，只在该来源的 sessionStorage 中保留以支持刷新。不使用跨域许可、固定密码或可变文件路径。
 
-浏览器流连接仅用于确认标签仍打开，不读取音频。关闭最后一个标签后保留 8 秒刷新宽限期；连接断开检测最多约 2 秒。未成功打开页面时 60 秒退出。后台通过标准输入要求再次打开或关闭；后台进程结束时退出。多个标签共享原有串行操作限制。
+浏览器流连接仅用于确认标签仍打开，不读取音频。默认关闭最后一个标签后保留 8 秒刷新宽限期；连接断开检测最多约 2 秒。未成功打开页面时 60 秒退出。开启 `KeepBrowserPortOpen` 后不因空闲退出；后台以 `--keep-browser --browser-idle` 启动服务，不打开浏览器。运行中通过标准输入的 `keep` / `release` 同步偏好；`open` 打开页面，`close` 退出。后台进程结束时始终退出。多个标签共享原有串行操作限制。
 
 ## 单文件 HTML 预览
 

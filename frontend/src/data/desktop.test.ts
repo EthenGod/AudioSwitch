@@ -3,6 +3,16 @@ import { createDesktopGateway, mapSnapshot } from './desktop'
 import { backendFixture } from '../test/backendFixture'
 
 describe('read-only backend boundary', () => {
+  it('gates persistent port settings and defaults old configurations to closed', () => {
+    const old = backendFixture()
+    expect(mapSnapshot(old).Preferences.KeepBrowserPortOpen).toBe(false)
+    expect(mapSnapshot(old).CanKeepBrowserPortOpen).toBe(false)
+    const current = { ...old, PanelApiVersion: 8, Preferences: { ...old.Preferences, KeepBrowserPortOpen: true } }
+    expect(mapSnapshot(current).CanKeepBrowserPortOpen).toBe(true)
+    expect(mapSnapshot(current).Preferences.KeepBrowserPortOpen).toBe(true)
+    expect(mapSnapshot({ ...current, PanelApiVersion: 7 }).CanKeepBrowserPortOpen).toBe(false)
+    expect(() => mapSnapshot({ ...current, Preferences: { ...current.Preferences, KeepBrowserPortOpen: 1 } })).toThrow()
+  })
   it('keeps old tray defaults and only enables browser selection on capable backends', () => {
     const old = backendFixture()
     expect(mapSnapshot(old).Preferences.OpenPanelInBrowser).toBe(false)

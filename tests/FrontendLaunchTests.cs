@@ -9,11 +9,13 @@ namespace AudioSwitch
 {
     internal static class FrontendLaunchTests
     {
-        private sealed class Window : IFrontendWindow
+        private sealed class Window : IBrowserFrontend
         {
             public int Id { get; set; }
             public bool Exited { get; set; }
             internal int Activations, Closes, Disposals;
+            internal bool Persistent;
+            public void KeepOpen(bool value) { Persistent = value; }
             public void Activate() { Activations++; }
             public void Close() { Closes++; }
             public void Dispose() { Disposals++; }
@@ -95,6 +97,19 @@ namespace AudioSwitch
                 check(created.Count == 3 && created[1].Closes == 1 && created[2].Closes == 1, "backend exit closes both panel transports and blocks reopen");
             }
             check(created.All(w => w.Disposals == 1), "browser handles disposed exactly once");
+            ProcessStartInfo launch = null; Window retained = null;
+            using (var windows = new FrontendWindows(p => new ProcessStartInfo("panel"), info => { launch = info; return retained = new Window { Id = 300 }; }, () => new ProcessStartInfo("browser", "--browser"))) {
+                windows.SetBrowserPersistent(true);
+                check(launch.Arguments.Contains("--keep-browser") && launch.Arguments.Contains("--browser-idle") && retained.Activations == 0, "persistent port starts without opening a browser window");
+                windows.ShowBrowser(); check(retained.Activations == 1, "opening retained browser uses existing host");
+                windows.SetBrowserPersistent(true); check(retained.Persistent, "existing browser host receives keep command");
+                windows.SetBrowserPersistent(false); check(!retained.Persistent && retained.Closes == 0, "disabling persistence releases idle lifetime without interrupting open tabs");
+                windows.Close(); check(retained.Closes == 1, "backend exit closes persistent port");
+            }
+            check(!PreferenceStore.Parse("{\"AskOnConnect\":true}").KeepBrowserPortOpen, "old configuration never keeps a port open");
+            PreferenceStore.Save(settingsPath, new Preferences { KeepBrowserPortOpen = true });
+            check(PreferenceStore.Load(settingsPath).KeepBrowserPortOpen && PreferenceStore.Parse(PreferenceStore.Export(PreferenceStore.Load(settingsPath))).KeepBrowserPortOpen, "persistent port preference survives save and backup roundtrip");
+            Reject(() => PreferenceStore.Parse("{\"KeepBrowserPortOpen\":1}"), check, "persistent port preference rejects non-boolean values");
         }
         private static void Reject(Action action, Action<bool,string> check, string name) { bool rejected = false; try { action(); } catch { rejected = true; } check(rejected,name); }
     }
