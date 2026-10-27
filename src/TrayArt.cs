@@ -4,19 +4,22 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 namespace AudioSwitch
 {
-    internal enum TrayGlyph { Panel, Browser, Output, Microphone, Devices, Game, Exit }
+    internal enum TrayGlyph { Panel, Browser, Output, Microphone, Devices, Game, Exit, Back }
     internal static class TrayArt
     {
             internal static void DrawGlyph(Graphics graphics, TrayGlyph glyph, float scale, int height, Color color)
             {
                 var saved = graphics.Save();
                 try {
-                    // One 24-unit grid, 20 px optical box and a shared 1.5 px stroke.
-                    graphics.TranslateTransform(11 * scale, height / 2F - 10 * scale); graphics.ScaleTransform(scale * 20 / 24, scale * 20 / 24);
+                    // Center an 18 px optical box in the cached 42 px cell; round 1.5 px strokes.
+                    graphics.TranslateTransform(12 * scale, height / 2F - 9 * scale); graphics.ScaleTransform(scale * 18 / 24, scale * 18 / 24);
                     graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                    using (var pen = new Pen(color, 1.8F)) {
+                    using (var pen = new Pen(color, 2F)) {
                         pen.StartCap = pen.EndCap = LineCap.Round; pen.LineJoin = LineJoin.Round;
                         switch (glyph) {
+                            case TrayGlyph.Back:
+                                graphics.DrawLines(pen, new[] { new PointF(12, 5), new PointF(5, 12), new PointF(12, 19) });
+                                graphics.DrawLine(pen, 5, 12, 19, 12); break;
                             case TrayGlyph.Panel:
                                 using (var path = Palette.Round(new RectangleF(3, 4, 18, 16), 3)) graphics.DrawPath(pen, path);
                                 graphics.DrawLine(pen, 9, 4, 9, 20); break;
@@ -27,19 +30,24 @@ namespace AudioSwitch
                                 using (var path = Palette.Round(new RectangleF(3, 12, 4, 8), 2)) graphics.DrawPath(pen, path);
                                 using (var path = Palette.Round(new RectangleF(17, 12, 4, 8), 2)) graphics.DrawPath(pen, path); break;
                             case TrayGlyph.Microphone:
-                                using (var path = Palette.Round(new RectangleF(9, 2, 6, 13), 3)) graphics.DrawPath(pen, path);
-                                graphics.DrawArc(pen, 5, 5, 14, 14, 0, 180); graphics.DrawLine(pen, 12, 19, 12, 22); graphics.DrawLine(pen, 9, 22, 15, 22); break;
+                                using (var path = Palette.Round(new RectangleF(9, 2, 6, 12), 3)) graphics.DrawPath(pen, path);
+                                graphics.DrawArc(pen, 5, 7, 14, 12, 0, 180);
+                                graphics.DrawLine(pen, 5, 10, 5, 13); graphics.DrawLine(pen, 19, 10, 19, 13);
+                                graphics.DrawLine(pen, 12, 19, 12, 22); graphics.DrawLine(pen, 9, 22, 15, 22); break;
                             case TrayGlyph.Devices:
                                 graphics.DrawLine(pen, 4, 7, 20, 7); graphics.DrawLines(pen, new[] { new PointF(16,3), new PointF(20,7), new PointF(16,11) });
                                 graphics.DrawLine(pen, 20, 17, 4, 17); graphics.DrawLines(pen, new[] { new PointF(8,13), new PointF(4,17), new PointF(8,21) }); break;
                             case TrayGlyph.Game:
                                 using (var path = new GraphicsPath()) {
-                                    path.AddBezier(7, 6, 3, 6, 3, 9, 2, 16); path.AddBezier(2, 16, 1, 22, 6, 20, 9, 16);
-                                    path.AddLine(9, 16, 15, 16); path.AddBezier(15, 16, 18, 20, 23, 22, 22, 16);
-                                    path.AddBezier(22, 16, 21, 9, 21, 6, 17, 6); path.CloseFigure(); graphics.DrawPath(pen, path);
+                                    path.AddLine(7, 6, 17, 6);
+                                    path.AddBezier(17, 6, 20, 6, 21, 9, 22, 16);
+                                    path.AddBezier(22, 16, 22.5F, 19.5F, 20, 20, 18, 18);
+                                    path.AddLine(18, 18, 16, 16); path.AddLine(16, 16, 8, 16); path.AddLine(8, 16, 6, 18);
+                                    path.AddBezier(6, 18, 4, 20, 1.5F, 19.5F, 2, 16);
+                                    path.AddBezier(2, 16, 3, 9, 4, 6, 7, 6); path.CloseFigure(); graphics.DrawPath(pen, path);
                                 }
                                 graphics.DrawLine(pen, 5, 11, 9, 11); graphics.DrawLine(pen, 7, 9, 7, 13);
-                                graphics.DrawLine(pen, 16, 10, 16.1F, 10); graphics.DrawLine(pen, 19, 13, 19.1F, 13); break;
+                                using (var brush = new SolidBrush(color)) { graphics.FillEllipse(brush, 15, 9, 2, 2); graphics.FillEllipse(brush, 18, 12, 2, 2); } break;
                             case TrayGlyph.Exit:
                                 graphics.DrawArc(pen, 3, 3, 18, 18, -50, 280); graphics.DrawLine(pen, 12, 2, 12, 11); break;
                         }
