@@ -94,7 +94,7 @@ namespace AudioSwitch
                 updates.Tick(UpdateIdle.IsIdle(), pressure || dolby.Applying || tracker.Pending.Count > 0 || DateTime.UtcNow < updateBusyUntil || UpdateInstaller.IsUpdating());
             };
             UpdateGameMode();
-            try { frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen); }
+            try { frontends.SetBrowserPort(preferences.BrowserPort); frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen); }
             catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "浏览器端口未开启", ex.Message, ToolTipIcon.Warning); }
             if (show) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
         }
@@ -241,6 +241,11 @@ namespace AudioSwitch
                     case "keepBrowserPortOpen":
                         preferences.KeepBrowserPortOpen = request.Value; SavePreferences(); preferencesSaved = true;
                         frontends.SetBrowserPersistent(request.Value); break;
+                    case "browserPort":
+                        if (!request.BrowserPort.HasValue) throw new InvalidOperationException("缺少浏览器端口。");
+                        FrontendWindows.ValidateBrowserPort(request.BrowserPort.Value);
+                        preferences.BrowserPort = request.BrowserPort.Value; SavePreferences(); preferencesSaved = true;
+                        frontends.SetBrowserPort(preferences.BrowserPort); break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
@@ -261,7 +266,7 @@ namespace AudioSwitch
                         tracker.Pending.Clear(); presetWarnings.Clear(); priorityError = null; audioError = null;
                         dolby.Cancel();
                         if (preferences.GameMode != beforePreferences.GameMode || preferences.AutoUpdateEnabled != beforePreferences.AutoUpdateEnabled) UpdateGameMode();
-                        frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen);
+                        frontends.SetBrowserPort(preferences.BrowserPort); frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen);
                         break;
                     case "dismissWarning":
                         // A stale close click must not discard a newer warning.
@@ -360,10 +365,10 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 8, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 9, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));

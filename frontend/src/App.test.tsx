@@ -14,6 +14,24 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('validates a port draft, saves explicitly and can restore automatic allocation', async () => {
+    const { gateway, user } = await setup()
+    const before = await gateway.read()
+    await user.click(screen.getByRole('button', { name: '应用设置' }))
+    const input = screen.getByRole('textbox', { name: '端口号' })
+    const save = screen.getByRole('button', { name: '保存端口' })
+    expect(input).toHaveValue(''); expect(save).toBeDisabled()
+    await user.type(input, '65536'); expect(save).toBeDisabled(); expect(screen.getByRole('alert')).toHaveTextContent('1–65535')
+    await user.clear(input); await user.type(input, '43210')
+    expect((await gateway.read()).Preferences.BrowserPort).toBe(0)
+    await user.click(save)
+    await waitFor(() => expect(save).toBeDisabled())
+    expect((await gateway.read()).Preferences.BrowserPort).toBe(43210)
+    expect((await gateway.read()).Defaults).toEqual(before.Defaults)
+    await user.click(screen.getByRole('button', { name: /^自动$/ }))
+    await user.click(save)
+    await waitFor(async () => expect((await gateway.read()).Preferences.BrowserPort).toBe(0))
+  })
   it('keeps browser port preference independent from tray open mode', async () => {
     const { gateway, user } = await setup()
     await user.click(screen.getByRole('button', { name: '应用设置' }))

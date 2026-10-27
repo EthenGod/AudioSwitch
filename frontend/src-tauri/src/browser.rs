@@ -20,8 +20,26 @@ impl Drop for Connection { fn drop(&mut self) { self.0.connections.fetch_sub(1, 
 struct Client(Arc<Host>);
 impl Drop for Client { fn drop(&mut self) { self.0.lifetime.lock().unwrap().left(); } }
 
+fn port_from_args(args: impl Iterator<Item = String>) -> Result<u16, String> {
+    let mut port = None;
+    for arg in args {
+        if let Some(value) = arg.strip_prefix("--browser-port=") {
+            if port.is_some() || value.is_empty() || !value.bytes().all(|c| c.is_ascii_digit()) { return Err("浏览器端口无效。".into()); }
+            port = Some(value.parse::<u16>().map_err(|_| "浏览器端口应为 1–65535，或用 0 自动分配。")?);
+        }
+    }
+    Ok(port.unwrap_or(0))
+}
+
+fn bind_port(port: u16) -> Result<TcpListener, String> {
+    TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map_err(|error| {
+        if port != 0 { format!("无法使用本机端口 {port}。端口可能已被占用或被系统保留，请在主面板的应用设置中更换端口。") }
+        else { format!("无法开启本机浏览器服务：{error}") }
+    })
+}
+
 pub fn start(app: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
+    let listener = bind_port(port_from_args(std::env::args())?)?;
     listener.set_nonblocking(true)?;
     // OS-generated GUIDs avoid predictable credentials. The token never goes into a query string.
     let token = unsafe { format!("{:?}{:?}", windows::Win32::System::Com::CoCreateGuid()?, windows::Win32::System::Com::CoCreateGuid()?) }.replace('-', "");
@@ -193,6 +211,17 @@ async fn dispatch(app: &tauri::AppHandle, rpc: Rpc) -> Result<Value, BridgeError
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn custom_port_stays_on_loopback_and_conflicts_never_fall_back() {
+        assert_eq!(port_from_args(Vec::<String>::new().into_iter()).unwrap(), 0);
+        for port in [0, 1, 43210, 65535] { assert_eq!(port_from_args(vec![format!("--browser-port={port}")].into_iter()).unwrap(), port); }
+        for value in ["", "-1", "65536", "1.5", "+1", "localhost:80"] { assert!(port_from_args(vec![format!("--browser-port={value}")].into_iter()).is_err()); }
+        assert!(port_from_args(vec!["--browser-port=1".into(), "--browser-port=2".into()].into_iter()).is_err());
+        let first = bind_port(0).unwrap(); let address = first.local_addr().unwrap();
+        assert_eq!(address.ip(), std::net::Ipv4Addr::LOCALHOST);
+        assert!(bind_port(address.port()).unwrap_err().contains(&address.port().to_string()));
+        drop(first);
+        assert_eq!(bind_port(address.port()).unwrap().local_addr().unwrap(), address);
+    }
     #[test] fn os_secret_matches_browser_format() {
         let token = unsafe { format!("{:?}{:?}", windows::Win32::System::Com::CoCreateGuid().unwrap(), windows::Win32::System::Com::CoCreateGuid().unwrap()) }.replace('-', "");
         assert_eq!(token.len(), 64); assert!(token.bytes().all(|b| b.is_ascii_hexdigit()));

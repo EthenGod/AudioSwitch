@@ -16,6 +16,7 @@ export interface DeviceProfile {
   SpatialFormat: string | null
 }
 export interface Preferences {
+  BrowserPort: number
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
   IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; OpenPanelInBrowser: boolean; KeepBrowserPortOpen: boolean
   DeviceProfiles: Record<string, DeviceProfile>
@@ -41,6 +42,7 @@ export interface Snapshot {
   CanManageUpdates?: boolean
   CanSetTrayBehavior?: boolean
   CanKeepBrowserPortOpen?: boolean
+  CanSetBrowserPort?: boolean
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {
@@ -84,6 +86,7 @@ export interface AudioGateway {
   switchDevice(id: string): Promise<Snapshot>
   saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule, expectedProfile?: DeviceProfile | null, expectedRule?: DeviceRule): Promise<Snapshot>
   setPreference(key: PreferenceKey, value: boolean): Promise<Snapshot>
+  setBrowserPort(port: number): Promise<Snapshot>
   setStartup(value: boolean): Promise<Snapshot>
   reorder(flow: Flow, ids: string[]): Promise<Snapshot>
   exportBackup(): Promise<{ Path: string } | null>

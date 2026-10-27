@@ -244,10 +244,10 @@ fn main() {
         .manage(dolby_apply::Session::default())
         .setup(move |app| {
             if is_browser {
-                if browser::start(app.handle().clone()).is_err() {
+                if let Err(error) = browser::start(app.handle().clone()) {
                     // A setup error otherwise becomes a panic before run() can return it.
                     use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
-                    let message: Vec<u16> = "无法打开浏览器面板。请检查 Windows 默认浏览器设置，或在应用设置中改为打开主面板。\0".encode_utf16().collect();
+                    let message: Vec<u16> = format!("无法打开浏览器面板。\n{error}\0").encode_utf16().collect();
                     let title: Vec<u16> = "声间\0".encode_utf16().collect();
                     unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
                     app.handle().exit(1);

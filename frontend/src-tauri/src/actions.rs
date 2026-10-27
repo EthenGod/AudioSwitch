@@ -15,6 +15,7 @@ pub enum Action {
     Switch { id: String },
     SaveBasic { id: String, profile: BasicProfile, expected_profile: Option<BasicProfile>, rule: u8, expected_rule: u8 },
     Preference { key: Preference, value: bool },
+    BrowserPort { port: u16 },
     Reorder { flow: u8, ids: Vec<String> },
     Startup { value: bool, expected_command: Option<String> },
 }
@@ -35,6 +36,10 @@ impl Action {
         }
         Ok(match self {
             Self::Switch { id: device } => { id(device)?; json!({"Action":"switch", "DeviceId": device}) },
+            Self::BrowserPort { port } => {
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 9 { return Err("自定义端口需要新版后台。".into()); }
+                json!({"Action":"browserPort", "BrowserPort":port})
+            },
             Self::SaveBasic { id: device, profile: next, expected_profile, rule, expected_rule } => {
                 id(device)?;
                 if *rule > 2 || *expected_rule > 2 { return Err("白名单规则无效。".into()); }
@@ -73,6 +78,16 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn browser_port_has_strict_range_capability_and_no_audio_action() {
+        for port in [0, 1, 43210, 65535] {
+            let action: Action = serde_json::from_value(json!({"kind":"browserPort", "port":port})).unwrap();
+            assert!(action.request(&json!({"PanelApiVersion":8})).is_err());
+            assert_eq!(action.request(&json!({"PanelApiVersion":9})).unwrap(), json!({"Action":"browserPort", "BrowserPort":port}));
+        }
+        for value in [json!(-1), json!(65536), json!(1.5), json!("1234"), json!(null), json!(true)] {
+            assert!(serde_json::from_value::<Action>(json!({"kind":"browserPort", "port":value})).is_err());
+        }
+    }
     #[test]
     fn strict_command_allowlist_and_types() {
         for value in [json!({"kind":"importSettings"}), json!({"kind":"preference","key":"DarkMode","value":"true"}),

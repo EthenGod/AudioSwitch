@@ -18,6 +18,7 @@ function initial(): Snapshot {
     Devices: structuredClone(devices),
     Defaults: { '0:0': 'demo-headphones', '0:1': 'demo-headphones', '0:2': 'demo-speakers', '1:0': 'demo-microphone', '1:1': 'demo-microphone', '1:2': 'demo-microphone' },
     Preferences: {
+      BrowserPort: 0,
       DarkMode: true, GameMode: false, AskOnConnect: true, IncludeCommunications: true,
       UseDevicePriority: true, AutoUpdateEnabled: true, OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
       DeviceProfiles: { 'demo-headphones': { Volume: 65, SpatialFormat: null }, 'demo-bluetooth': { Volume: 45, SpatialFormat: '' } },
@@ -162,6 +163,10 @@ export function createMockGateway(latency = 260): PreviewGateway {
     },
     async setPreference(key: PreferenceKey, value: boolean) {
       await delay(); state.Preferences[key] = value; return copy()
+    },
+    async setBrowserPort(port) {
+      if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('端口应为 1–65535，留空则自动分配。')
+      await delay(); state.Preferences.BrowserPort = port; return copy()
     },
     async setStartup(value) { await delay(); state.StartupEnabled = value; return copy() },
     async reorder(flow: Flow, ids: string[]) {

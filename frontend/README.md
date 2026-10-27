@@ -10,7 +10,9 @@ React + TypeScript + Tailwind + shadcn（Base UI）。开发预览与单文件 H
 
 应用设置中的“双击托盘图标”控制打开方式，默认主面板。浏览器模式由完整包内的 `audio-switch-panel.exe --browser --owner=后台PID` 提供，不创建 WebView。不要手动把 Vite 预览当作真实面板。
 
-`src/data/browser.ts` 使用同一套 desktop gateway。Rust `src-tauri/src/browser.rs` 只监听随机回环端口，校验 Host、Origin 和本次凭据，并限定可用命令及静态文件。凭据通过 URL 片段交付，随后清除地址栏片段，只在该来源的 sessionStorage 中保留以支持刷新。不使用跨域许可、固定密码或可变文件路径。
+`src/data/browser.ts` 使用同一套 desktop gateway。Rust `src-tauri/src/browser.rs` 只监听回环端口，校验 Host、Origin 和本次凭据，并限定可用命令及静态文件。凭据通过 URL 片段交付，随后清除地址栏片段，只在该来源的 sessionStorage 中保留以支持刷新。不使用跨域许可、固定密码或可变文件路径。
+
+`BrowserPort` 缺省为 0，表示自动分配。自定义范围为 1–65535，由后台通过 `--browser-port=` 传给服务。`PanelApiVersion >= 9` 才允许修改。设置和导入只改变下次服务启动的端口，避免中断当前浏览器请求。端口冲突会报错，不回退到随机端口。
 
 浏览器流连接仅用于确认标签仍打开，不读取音频。默认关闭最后一个标签后保留 8 秒刷新宽限期；连接断开检测最多约 2 秒。未成功打开页面时 60 秒退出。开启 `KeepBrowserPortOpen` 后不因空闲退出；后台以 `--keep-browser --browser-idle` 启动服务，不打开浏览器。运行中通过标准输入的 `keep` / `release` 同步偏好；`open` 打开页面，`close` 退出。后台进程结束时始终退出。多个标签共享原有串行操作限制。
 

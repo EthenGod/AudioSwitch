@@ -115,6 +115,13 @@ namespace AudioSwitch
         private IFrontendWindow panel, prompt, browser;
         private bool closing;
         private bool keepBrowserOpen;
+        private int browserPort;
+        internal static void ValidateBrowserPort(int value)
+        {
+            if (value < 0 || value > 65535) throw new ArgumentOutOfRangeException("value", "浏览器端口应为 1–65535，或用 0 自动分配。");
+        }
+        // A saved port applies to the next host. Never break the browser saving it.
+        internal void SetBrowserPort(int value) { ValidateBrowserPort(value); browserPort = value; }
         internal FrontendWindows(string backend) : this(p => PanelLaunch.Select(backend, p, Process.GetCurrentProcess().Id), info => info.RedirectStandardInput ? (IFrontendWindow)new BrowserFrontend(Process.Start(info)) : new NativeFrontend(Process.Start(info), Path.GetFileName(info.FileName) == "audio-switch-panel.exe", info.Arguments.Contains("--prompt")), () => PanelLaunch.Select(backend, false, Process.GetCurrentProcess().Id, true)) { }
         internal FrontendWindows(Func<bool, ProcessStartInfo> select, Func<ProcessStartInfo, IFrontendWindow> start, Func<ProcessStartInfo> selectBrowser = null) { this.select = select; this.start = start; this.selectBrowser = selectBrowser; }
         internal int PanelPid { get { return panel != null && !panel.Exited ? panel.Id : 0; } }
@@ -138,6 +145,7 @@ namespace AudioSwitch
         {
             if (selectBrowser == null) throw new InvalidOperationException("浏览器面板不可用。");
             var info = selectBrowser();
+            info.Arguments += " --browser-port=" + browserPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (keepBrowserOpen) info.Arguments += " --keep-browser";
             if (!open) info.Arguments += " --browser-idle";
             if (browser != null) { browser.Dispose(); browser = null; }

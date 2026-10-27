@@ -11,6 +11,10 @@ function object(value: unknown): ObjectValue {
 }
 function string(value: unknown): string { if (typeof value !== 'string') throw invalid(); return value }
 function boolean(value: unknown): boolean { if (typeof value !== 'boolean') throw invalid(); return value }
+function browserPort(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 65535) throw invalid()
+  return value
+}
 function array(value: unknown): unknown[] { if (!Array.isArray(value)) throw invalid(); return value }
 function optionalText(value: unknown): string { return value == null ? '' : string(value) }
 function endpoint(value: unknown, online: boolean): Device {
@@ -68,6 +72,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     rules[id] = rule
   }
   const preferences: Preferences = {
+    BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
     DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),
     AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), KeepBrowserPortOpen: prefs.KeepBrowserPortOpen === undefined ? false : boolean(prefs.KeepBrowserPortOpen), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
@@ -83,6 +88,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     CanCheckMaintenance: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 3,
     CanManageUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 6,
     CanKeepBrowserPortOpen: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 8 && typeof prefs.KeepBrowserPortOpen === 'boolean',
+    CanSetBrowserPort: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 9 && typeof prefs.BrowserPort === 'number',
     CanSetTrayBehavior: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 7 && typeof prefs.OpenPanelInBrowser === 'boolean',
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
@@ -153,6 +159,7 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       if (!actual.CanWrite || !Object.hasOwn(raw, 'OperationError')) throw new OperationFailure('后台未确认操作结果，请刷新后检查。', actual, true)
       let matched = true
       if (action.kind === 'preference') matched = actual.Preferences[action.key as keyof Preferences] === action.value
+      if (action.kind === 'browserPort') matched = actual.Preferences.BrowserPort === action.port && raw.PreferencesSaved === true
       if (action.kind === 'startup') matched = actual.StartupEnabled === action.value
       if (action.kind === 'switch') {
         const device = actual.Devices.find(d => d.Id === action.id)
@@ -297,6 +304,11 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule })
     },
     setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
+    setBrowserPort: port => {
+      if (!snapshot?.CanSetBrowserPort) return Promise.reject(new OperationFailure('自定义端口需要新版后台。'))
+      if (!Number.isInteger(port) || port < 0 || port > 65535) return Promise.reject(new OperationFailure('端口应为 1–65535，留空则自动分配。'))
+      return mutate({ kind: 'browserPort', port })
+    },
     setStartup: value => mutate({ kind: 'startup', value, expectedCommand: snapshot?.StartupCommand ?? null }),
     reorder: (flow, ids) => mutate({ kind: 'reorder', flow, ids }),
   }

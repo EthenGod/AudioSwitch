@@ -113,6 +113,7 @@ namespace AudioSwitch
         public bool AutoUpdateEnabled { get; set; }
         public bool OpenPanelInBrowser { get; set; }
         public bool KeepBrowserPortOpen { get; set; }
+        public int BrowserPort { get; set; }
         internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
         public bool AskOnConnect { get; set; }
@@ -136,6 +137,7 @@ namespace AudioSwitch
         public string DeviceId { get; set; }
         public string Token { get; set; }
         public bool Value { get; set; }
+        public int? BrowserPort { get; set; }
         public DeviceProfile Profile { get; set; }
         // Optimistic check for the basic editor; Dolby remains owned by the backend.
         public DeviceProfile ExpectedProfile { get; set; }

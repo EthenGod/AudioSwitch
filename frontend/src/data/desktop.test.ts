@@ -3,6 +3,27 @@ import { createDesktopGateway, mapSnapshot } from './desktop'
 import { backendFixture } from '../test/backendFixture'
 
 describe('read-only backend boundary', () => {
+  it('defaults missing ports to automatic and rejects malformed port values', () => {
+    expect(mapSnapshot(backendFixture()).Preferences.BrowserPort).toBe(0)
+    expect(mapSnapshot(backendFixture()).CanSetBrowserPort).toBe(false)
+    const raw = backendFixture()
+    expect(mapSnapshot({ ...raw, PanelApiVersion: 9, Preferences: { ...raw.Preferences, BrowserPort: 43210 } }).CanSetBrowserPort).toBe(true)
+    for (const BrowserPort of [-1, 65536, 1.5, '43210', null, true]) expect(() => mapSnapshot({ ...raw, Preferences: { ...raw.Preferences, BrowserPort } })).toThrow()
+  })
+  it('confirms the saved port and rejects an unchanged backend reply', async () => {
+    const raw = backendFixture()
+    const reply = { ...raw, PanelApiVersion: 9, PreferencesSaved: true, OperationError: null, Preferences: { ...raw.Preferences, BrowserPort: 0 } }
+    const call = vi.fn().mockResolvedValue(reply)
+    const gateway = createDesktopGateway(call, call)
+    await gateway.read()
+    await expect(gateway.setBrowserPort(43210)).rejects.toThrow('不一致')
+    expect(call).toHaveBeenLastCalledWith('panel_action', { action: { kind: 'browserPort', port: 43210 } })
+    call.mockResolvedValue({ ...reply, Preferences: { ...reply.Preferences, BrowserPort: 43210 } })
+    await expect(gateway.setBrowserPort(43210)).resolves.toHaveProperty('Preferences.BrowserPort', 43210)
+    const count = call.mock.calls.length
+    await expect(gateway.setBrowserPort(65536)).rejects.toThrow('端口')
+    expect(call).toHaveBeenCalledTimes(count)
+  })
   it('gates persistent port settings and defaults old configurations to closed', () => {
     const old = backendFixture()
     expect(mapSnapshot(old).Preferences.KeepBrowserPortOpen).toBe(false)

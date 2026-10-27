@@ -110,6 +110,23 @@ namespace AudioSwitch
             PreferenceStore.Save(settingsPath, new Preferences { KeepBrowserPortOpen = true });
             check(PreferenceStore.Load(settingsPath).KeepBrowserPortOpen && PreferenceStore.Parse(PreferenceStore.Export(PreferenceStore.Load(settingsPath))).KeepBrowserPortOpen, "persistent port preference survives save and backup roundtrip");
             Reject(() => PreferenceStore.Parse("{\"KeepBrowserPortOpen\":1}"), check, "persistent port preference rejects non-boolean values");
+            check(PreferenceStore.Parse("{\"AskOnConnect\":true}").BrowserPort == 0, "old config keeps automatic browser port");
+            foreach (int port in new[] { 0, 1, 43210, 65535 }) {
+                PreferenceStore.Save(settingsPath, new Preferences { BrowserPort = port });
+                check(PreferenceStore.Parse(PreferenceStore.Export(PreferenceStore.Load(settingsPath))).BrowserPort == port, "browser port survives save and import " + port);
+            }
+            foreach (string value in new[] { "-1", "65536", "1.5", "true", "null", "\"1234\"" })
+                Reject(() => PreferenceStore.Parse("{\"BrowserPort\":" + value + "}"), check, "browser port rejects " + value);
+            Reject(() => PreferenceStore.Export(new Preferences { BrowserPort = -1 }), check, "invalid typed port cannot be saved");
+            using (var windows = new FrontendWindows(p => new ProcessStartInfo("panel"), info => { launch = info; return retained = new Window { Id = 400 }; }, () => new ProcessStartInfo("browser", "--browser"))) {
+                windows.SetBrowserPort(43210); windows.SetBrowserPersistent(true);
+                check(launch.Arguments.Contains("--browser-port=43210"), "custom port reaches headless host");
+                var firstLaunch = launch; windows.SetBrowserPort(43211); windows.ShowBrowser();
+                check(Object.ReferenceEquals(launch, firstLaunch) && retained.Closes == 0 && retained.Activations == 1, "saving a port never disconnects the current browser");
+                retained.Exited = true; windows.ShowBrowser();
+                check(launch.Arguments.Contains("--browser-port=43211"), "next service start uses saved port");
+                Reject(() => windows.SetBrowserPort(65536), check, "launcher rejects invalid port");
+            }
         }
         private static void Reject(Action action, Action<bool,string> check, string name) { bool rejected = false; try { action(); } catch { rejected = true; } check(rejected,name); }
     }

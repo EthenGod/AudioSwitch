@@ -695,7 +695,13 @@ namespace AudioSwitch
                     var workArea = Screen.FromControl(host).WorkingArea;
                     menu.Show(new Point(workArea.Right - 4, workArea.Bottom - 4)); Application.DoEvents();
                     Check(menu.Size == originalMenuSize && workArea.Contains(menu.Bounds), "reopening tray menu at the screen edge keeps stable size and stays visible at text scale " + textScale + " in " + suffix);
-                    menu.Close(); host.Close();
+                    panelItem.Select(); menu.Refresh();
+                    var animationWait = System.Diagnostics.Stopwatch.StartNew();
+                    while (animationWait.ElapsedMilliseconds < 220) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
+                    Check(!menu.Animating, "tray hover animation settles without an idle timer");
+                    group.Select(); menu.Refresh(); menu.Close();
+                    Check(!menu.Animating, "closing tray immediately stops pending animation");
+                    host.Close();
                 }
             }
             Palette.Apply(false);
