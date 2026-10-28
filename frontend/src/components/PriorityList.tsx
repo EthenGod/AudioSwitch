@@ -50,11 +50,15 @@ export function PriorityList({ order, devices, busy, readOnly, label, onReorder 
     const current = active.current, host = list.current
     if (!current || !host) return
     const last = current.tops.length - 1
-    const y = Math.max(current.tops[0], Math.min(clientY - current.grab - host.getBoundingClientRect().top, current.tops[last] + current.heights[last] - current.heights[current.start]))
+    const firstY = current.tops[0], lastY = current.tops[last] + current.heights[last] - current.heights[current.start]
+    const y = Math.max(firstY, Math.min(clientY - current.grab - host.getBoundingClientRect().top, lastY))
     const center = y + current.heights[current.start] / 2
     let target = current.start
     for (let i = 0; i < current.start; i++) if (center < current.tops[i] + current.heights[i] / 2) { target = i; break }
     for (let i = current.start + 1; i < current.tops.length; i++) if (center > current.tops[i] + current.heights[i] / 2) target = i
+    // Clamping can prevent the centre from crossing an edge row, especially with unequal heights.
+    if (y <= firstY) target = 0
+    else if (y >= lastY) target = last
     const next = { ...current, y, target, clientY }
     active.current = next; setDrag(next)
   }

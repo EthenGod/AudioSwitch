@@ -4,7 +4,7 @@ import { PriorityList } from './PriorityList'
 import { createMockGateway } from '@/data/mock'
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
-async function setup() {
+async function setup(heights = [56, 56, 56, 56]) {
   vi.stubGlobal('PointerEvent', MouseEvent)
   const snapshot = await createMockGateway(0).read()
   let finish!: (okay: boolean) => void
@@ -12,11 +12,26 @@ async function setup() {
   const props = { order: snapshot.Preferences.DeviceOrder[0], devices: snapshot.Devices, busy: false, readOnly: false, label: '优先级', onReorder: save }
   const view = render(<PriorityList {...props} />)
   const rows = [...view.container.querySelectorAll<HTMLElement>('.priority-row')]
-  rows.forEach((row, index) => vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({ top: index * 56, height: 56 } as DOMRect))
+  rows.forEach((row, index) => vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({ top: heights.slice(0, index).reduce((sum, height) => sum + height, 0), height: heights[index] } as DOMRect))
   const handles = screen.getAllByRole('button', { name: /^拖动/ })
   handles.forEach(handle => { handle.setPointerCapture = vi.fn(); handle.releasePointerCapture = vi.fn(); handle.hasPointerCapture = () => true })
   return { ...view, props, rows, handles, save, finish: (okay: boolean) => finish(okay) }
 }
+it.each([
+  [1, 0, 56], [2, 0, 56], [1, 3, 56], [2, 3, 56],
+  [1, 0, 55], [2, 0, 55], [1, 3, 55], [2, 3, 55],
+])('drags middle row %i to boundary %i when the first row height is %i', async (from, to, firstHeight) => {
+  const { handles, save, props, finish } = await setup([firstHeight, 56, 56, 56])
+  const start = firstHeight + (from - 1) * 56 + 28
+  const edge = to === 0 ? -100 : 400
+  fireEvent.pointerDown(handles[from], { button: 0, clientY: start })
+  fireEvent.pointerMove(handles[from], { clientY: edge })
+  expect(save).not.toHaveBeenCalled()
+  fireEvent.pointerUp(handles[from], { clientY: edge })
+  const expected = [...props.order]; expected.splice(to, 0, ...expected.splice(from, 1))
+  expect(save).toHaveBeenCalledExactlyOnceWith(expected)
+  await act(async () => finish(true))
+})
 it('previews a multi-row pointer drag and submits once on release, restoring the order if saving fails', async () => {
   const { handles, rows, save, props, finish } = await setup()
   fireEvent.pointerDown(handles[0], { button: 0, clientY: 28 })
