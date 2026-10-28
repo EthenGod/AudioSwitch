@@ -134,6 +134,7 @@ namespace AudioSwitch
         private string pendingKey;
         private bool pageMoving;
         private double pageAmount = 1, pageDuration = 250;
+        private int pageDistance;
         private bool closing, shown;
         private int topColumn;
         private int navigationVersion;
@@ -391,13 +392,16 @@ namespace AudioSwitch
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), S(12)))
             using (var pen = new Pen(theme.Border)) e.Graphics.DrawPath(pen, path);
-            if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), PopupTheme.Mix(theme.Card, theme.Text, pageAmount), TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), theme.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
         private void StartPageMotion(int direction)
         {
             if (!motion || !shown) return;
-            // Keep geometry and text stationary. Reverse from the currently visible contrast.
-            pageFrom = pageMoving ? pageAmount : .12;
+            // Move the whole content layer inside a fixed viewport, never individual labels.
+            // The new page enters from its own direction even if the preceding one was interrupted.
+            pageDistance = direction * S(24);
+            list.SetTransitionOffset(pageDistance);
+            pageFrom = pageMoving ? pageAmount : .8;
             pageDuration = direction > 0 ? 250 : 200;
             pageStarted = Now; pageMoving = true; pageAmount = pageFrom; timer.Start();
         }
@@ -424,6 +428,7 @@ namespace AudioSwitch
             if (pageMoving) {
                 double t = Math.Min(1, (now - pageStarted) / pageDuration);
                 pageAmount = 1 - (1 - pageFrom) * Math.Pow(1 - t, 3);
+                list.SetTransitionOffset((int)Math.Round(pageDistance * Math.Pow(1 - t, 3)));
                 Invalidate(true);
                 pageMoving = t < 1; running |= pageMoving;
                 if (!pageMoving) RepaintSurface();
@@ -445,7 +450,7 @@ namespace AudioSwitch
             internal readonly Panel Content = new BufferedPanel();
             private readonly ScrollThumb rail;
             private readonly int railWidth;
-            private int total;
+            private int total, transitionOffset;
             internal int Offset { get; private set; }
             internal PopupViewport(PopupTheme theme, float scale)
             {
@@ -455,13 +460,19 @@ namespace AudioSwitch
             internal void Configure(int height)
             {
                 total = height; rail.Visible = total > Height;
-                Content.SetBounds(0, -Offset, Width - (rail.Visible ? railWidth : 0), Math.Max(Height, total));
+                Content.SetBounds(transitionOffset, -Offset, Width - (rail.Visible ? railWidth : 0), Math.Max(Height, total));
                 rail.SetBounds(Width - railWidth, 0, railWidth, Height); rail.BringToFront(); ScrollTo(Offset);
             }
             internal void ScrollTo(int value)
             {
                 Offset = Math.Max(0, Math.Min(Math.Max(0, total - Height), value));
                 Content.Top = -Offset; rail.Invalidate(); Content.Invalidate(true);
+            }
+            internal void SetTransitionOffset(int value)
+            {
+                if (transitionOffset == value) return;
+                transitionOffset = value; Content.Left = value;
+                Invalidate(true);
             }
             internal void Reveal(Control row)
             {
@@ -606,7 +617,7 @@ namespace AudioSwitch
                     if (tile || focusRing) using (var pen = new Pen(focusRing ? theme.Accent : theme.Border)) g.DrawPath(pen, path);
                 }
                 g.DrawImageUnscaled(icon, iconOnly ? (Width - icon.Width) / 2 : -S(3) + offset, (Height - icon.Height) / 2);
-                if (iconOnly) { PaintPageFade(g); return; }
+                if (iconOnly) return;
                 int right = Command.Toggle ? S(54) : Command.Children != null || Command.KeepOpen || Command.Checked ? S(28) : S(10);
                 var bounds = new Rectangle(S(36) + offset, 0, Math.Max(1, Width - S(36) - right), Height);
                 var flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
