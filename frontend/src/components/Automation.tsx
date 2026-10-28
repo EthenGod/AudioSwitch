@@ -17,9 +17,9 @@ export function Automation({ snapshot, busy, readOnly = false, desktop = false, 
   }
   return <>
     <section className="settings-group" aria-label="自动切换选项">
-      <ToggleRow title="按设备优先级选择" description="开启后立即切换到优先设备。" value={prefs.UseDevicePriority} disabled={busy || readOnly} onChange={v => onPreference('UseDevicePriority', v)} />
-      <ToggleRow title="新设备接入时询问" description="已设接入规则的设备不询问。" value={prefs.AskOnConnect} disabled={busy || readOnly} onChange={v => onPreference('AskOnConnect', v)} />
-      <ToggleRow title="同时切换通话设备" value={prefs.IncludeCommunications} disabled={busy || readOnly} onChange={v => onPreference('IncludeCommunications', v)} />
+      <ToggleRow title="按设备优先级选择" description="开启后立即切换到优先设备。" value={prefs.UseDevicePriority} pending={busy} disabled={readOnly} onChange={v => onPreference('UseDevicePriority', v)} />
+      <ToggleRow title="新设备接入时询问" description="已设接入规则的设备不询问。" value={prefs.AskOnConnect} pending={busy} disabled={readOnly} onChange={v => onPreference('AskOnConnect', v)} />
+      <ToggleRow title="同时切换通话设备" value={prefs.IncludeCommunications} pending={busy} disabled={readOnly} onChange={v => onPreference('IncludeCommunications', v)} />
     </section>
     <div className="section-heading"><h2>设备优先级</h2></div>
     <div className="list-toolbar"><div className="segmented" aria-label="优先级设备类型"><button aria-pressed={flow === 0} onClick={() => setFlow(0)}><Headphones size={14} />声音输出</button><button aria-pressed={flow === 1} onClick={() => setFlow(1)}><Mic size={14} />麦克风输入</button></div><span className="section-caption">{readOnly ? '只读' : ''}</span></div>
@@ -27,7 +27,7 @@ export function Automation({ snapshot, busy, readOnly = false, desktop = false, 
     <div className="priority-list" aria-label={flow === 0 ? '输出优先级列表' : '输入优先级列表'}>
       {order.map((id, index) => {
         const device = snapshot.Devices.find(d => d.Id === id)!
-        return <div className="priority-row" key={id}><span className="order-number">{String(index + 1).padStart(2, '0')}</span><DeviceIdentity device={device} /><span className="priority-state">{device.Online ? '在线' : '离线'}</span><div className="row-actions"><Button variant="ghost" size="icon" aria-label={`上移 ${device.Name}`} disabled={busy || readOnly || index === 0} onClick={() => move(index, -1)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label={`下移 ${device.Name}`} disabled={busy || readOnly || index === order.length - 1} onClick={() => move(index, 1)}><ArrowDown /></Button></div></div>
+        return <div className="priority-row" key={id}><span className="order-number">{String(index + 1).padStart(2, '0')}</span><DeviceIdentity device={device} /><span className="priority-state">{device.Online ? '在线' : '离线'}</span><div className="row-actions"><Button variant="ghost" size="icon" aria-label={`上移 ${device.Name}`} pending={busy} disabled={readOnly || index === 0} onClick={() => move(index, -1)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label={`下移 ${device.Name}`} pending={busy} disabled={readOnly || index === order.length - 1} onClick={() => move(index, 1)}><ArrowDown /></Button></div></div>
       })}
       {!order.length && <div className="empty-state"><p>暂无可排序的设备。</p></div>}
     </div>

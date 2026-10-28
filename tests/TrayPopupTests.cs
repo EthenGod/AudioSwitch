@@ -40,6 +40,11 @@ namespace AudioSwitch
             check(game.Checked && requests.Last().Action == "gameMode" && !requests.Last().Value, "game mode uses confirmed snapshot and does not switch audio");
             var empty = TrayMenuModel.Create(new AudioState(), new Preferences(), true, 0, p => { }, () => { }, requests.Add, () => { });
             check(empty.Single(i => i.Text == "声音输出").Children.All(i => !i.Enabled), "empty tray device page has no clickable false device");
+            var typed = State(); typed.FormFactors["output-0"] = 1; typed.FormFactors["output-1"] = 3; typed.FormFactors["output-2"] = 9; typed.FormFactors["mic"] = 5;
+            check(TrayMenuModel.DeviceGlyph(typed.Devices[0], typed) == TrayGlyph.Speaker && TrayMenuModel.DeviceGlyph(typed.Devices[1], typed) == TrayGlyph.Output && TrayMenuModel.DeviceGlyph(typed.Devices[2], typed) == TrayGlyph.Monitor, "same-name endpoints use Windows form factors by ID");
+            check(TrayMenuModel.DeviceGlyph(typed.Devices.Last(), typed) == TrayGlyph.Microphone, "headset input retains microphone icon");
+            typed.FormFactors.Clear();
+            check(TrayMenuModel.DeviceGlyph(typed.Devices[0], typed) == TrayGlyph.Output, "missing type metadata falls back to a recognizable headphone name");
         }
         private static void Pump(int milliseconds)
         {

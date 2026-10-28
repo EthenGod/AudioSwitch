@@ -19,7 +19,9 @@ namespace AudioSwitch
         public List<Endpoint> Devices { get; set; }
         // Keys are flow:role; role 0 = console, 1 = multimedia, 2 = communications.
         public Dictionary<string, string> Defaults { get; set; }
-        public AudioState() { Devices = new List<Endpoint>(); Defaults = new Dictionary<string, string>(); }
+        // Presentation metadata only; never persisted in Preferences.DeviceOrder.
+        public Dictionary<string, int> FormFactors { get; set; }
+        public AudioState() { Devices = new List<Endpoint>(); Defaults = new Dictionary<string, string>(); FormFactors = new Dictionary<string, int>(); }
         public string Default(int flow, int role)
         {
             string value;

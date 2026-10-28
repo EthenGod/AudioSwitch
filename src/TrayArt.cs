@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 namespace AudioSwitch
 {
-    internal enum TrayGlyph { Panel, Browser, Output, Microphone, Devices, Game, Exit, Back }
+    internal enum TrayGlyph { Panel, Browser, Output, Speaker, Monitor, Microphone, Devices, Game, Exit, Back }
     internal static class TrayArt
     {
             internal static void DrawGlyph(Graphics graphics, TrayGlyph glyph, float scale, int height, Color color)
@@ -29,6 +29,12 @@ namespace AudioSwitch
                                 graphics.DrawArc(pen, 3, 3, 18, 18, 180, 180);
                                 using (var path = Palette.Round(new RectangleF(3, 12, 4, 8), 2)) graphics.DrawPath(pen, path);
                                 using (var path = Palette.Round(new RectangleF(17, 12, 4, 8), 2)) graphics.DrawPath(pen, path); break;
+                            case TrayGlyph.Speaker:
+                                using (var path = Palette.Round(new RectangleF(5, 2, 14, 20), 2)) graphics.DrawPath(pen, path);
+                                graphics.DrawEllipse(pen, 8, 10, 8, 8); graphics.DrawEllipse(pen, 11, 5, 2, 2); break;
+                            case TrayGlyph.Monitor:
+                                using (var path = Palette.Round(new RectangleF(2, 3, 20, 14), 2)) graphics.DrawPath(pen, path);
+                                graphics.DrawLine(pen, 12, 17, 12, 21); graphics.DrawLine(pen, 8, 21, 16, 21); break;
                             case TrayGlyph.Microphone:
                                 using (var path = Palette.Round(new RectangleF(9, 2, 6, 12), 3)) graphics.DrawPath(pen, path);
                                 graphics.DrawArc(pen, 5, 7, 14, 12, 0, 180);

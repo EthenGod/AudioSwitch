@@ -3,6 +3,18 @@ import { createDesktopGateway, mapSnapshot } from './desktop'
 import { backendFixture } from '../test/backendFixture'
 
 describe('read-only backend boundary', () => {
+  it('uses endpoint form factors by ID, with safe old-backend and offline fallbacks', () => {
+    const raw = backendFixture()
+    const current = mapSnapshot({ ...raw, State: { ...raw.State, FormFactors: { 'endpoint-a': 3, 'endpoint-b': 9, mic: 5 } } })
+    expect(current.Devices.find(d => d.Id === 'endpoint-a')?.Kind).toBe('headphones')
+    expect(current.Devices.find(d => d.Id === 'endpoint-b')?.Kind).toBe('monitor')
+    expect(current.Devices.find(d => d.Id === 'mic')?.Kind).toBe('microphone')
+    expect(current.Devices.find(d => d.Id === 'offline')?.Kind).toBe('headphones')
+    expect(mapSnapshot(raw).Devices.find(d => d.Id === 'endpoint-a')?.Kind).toBe('speaker')
+    raw.State.Devices[0].Name = '耳机 (USB)'
+    expect(mapSnapshot(raw).Devices.find(d => d.Id === 'endpoint-a')?.Kind).toBe('headphones')
+    expect(mapSnapshot({ ...raw, State: { ...raw.State, FormFactors: { 'endpoint-a': 1 } } }).Devices.find(d => d.Id === 'endpoint-a')?.Kind).toBe('speaker')
+  })
   it('defaults missing ports to automatic and rejects malformed port values', () => {
     expect(mapSnapshot(backendFixture()).Preferences.BrowserPort).toBe(0)
     expect(mapSnapshot(backendFixture()).CanSetBrowserPort).toBe(false)

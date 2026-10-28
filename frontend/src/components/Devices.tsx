@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowRight, Check, ChevronRight, Headphones, Mic, Search, SlidersHorizontal, Unplug } from 'lucide-react'
 import type { Device, Flow, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
-import { DeviceIdentity, RoleBadges } from './shared'
+import { DeviceIcon, DeviceIdentity, RoleBadges } from './shared'
 
 export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings, onAutomation }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; onSwitch: (device: Device) => void
@@ -16,8 +16,8 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
       const current = snapshot.Devices.find(d => d.Id === snapshot.Defaults[`${flow}:1`])
       const Icon = flow === 0 ? Headphones : Mic
       return <section className="summary-card" key={flow} aria-label={flow === 0 ? '当前声音输出' : '当前麦克风'}>
-        <div className="summary-top"><span><Icon size={14} />{flow === 0 ? '当前声音输出' : '当前麦克风'}</span></div>
-        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? '暂无可用设备'}</h2><p>{current?.Connection}</p></div><Button variant="ghost" size="icon" disabled={!current || busy} aria-label={flow === 0 ? '设置当前输出' : '设置当前麦克风'} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
+        <div className="summary-top"><span>{current ? <DeviceIcon device={current} size={14} /> : <Icon size={14} />}{flow === 0 ? '当前声音输出' : '当前麦克风'}</span></div>
+        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? '暂无可用设备'}</h2><p>{current?.Connection}</p></div><Button variant="ghost" size="icon" pending={busy} disabled={!current} aria-label={flow === 0 ? '设置当前输出' : '设置当前麦克风'} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
       </section>
     })}</div>
     <section className="device-section" aria-labelledby="device-list-title">
@@ -34,8 +34,8 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
             <div role="cell"><DeviceIdentity device={device} /></div>
             <div role="cell"><RoleBadges device={device} snapshot={snapshot} /></div>
             <div role="cell" className="row-actions">
-              <Button variant="ghost" size="sm" disabled={readOnly || !device.Online || busy || current} aria-label={`${current ? '正在使用' : '切换到'} ${device.Name}，${device.Connection}`} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? '使用中' : readOnly ? '只读' : '切换'}</Button>
-              <Button variant="ghost" size="icon" disabled={busy} aria-label={`设置 ${device.Name}，${device.Connection}`} title="设备设置" onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
+              <Button variant="ghost" size="sm" pending={busy} disabled={readOnly || !device.Online || current} aria-label={`${current ? '正在使用' : '切换到'} ${device.Name}，${device.Connection}`} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? '使用中' : readOnly ? '只读' : '切换'}</Button>
+              <Button variant="ghost" size="icon" pending={busy} aria-label={`设置 ${device.Name}，${device.Connection}`} title="设备设置" onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
             </div>
           </div>
         })}

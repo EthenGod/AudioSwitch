@@ -13,7 +13,8 @@
     "windows": [{
       "label": "main", "title": "声间 设备面板",
       "width": 1100, "height": 740, "minWidth": 980, "minHeight": 680,
-      "center": true, "resizable": true, "dragDropEnabled": false
+      "center": true, "resizable": true, "dragDropEnabled": false,
+      "visible": false, "backgroundColor": "#111113"
     }],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'",

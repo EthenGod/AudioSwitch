@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -31,17 +31,54 @@ describe('desktop read-only experience', () => {
     expect(document.documentElement).not.toHaveClass('dark')
     expect(preference).not.toHaveBeenCalled()
   })
-  it('clears stale devices after disconnect and refreshes on focus without a timer', async () => {
+  it('retains the last view but blocks writes after disconnect, then recovers on focus', async () => {
     const read = vi.fn().mockResolvedValueOnce(backendFixture()).mockRejectedValueOnce('后台已退出').mockResolvedValue(backendFixture())
     const user = userEvent.setup(); render(<App gateway={createDesktopGateway(read)} />)
     await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: '刷新状态' }))
     await screen.findByText('后台已退出')
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(screen.getByText('连接中断，仅显示上次状态')).toBeVisible()
+    expect(screen.getByRole('button', { name: /切换到 同名扬声器/ })).toBeDisabled()
     expect(screen.queryByText('当前已关闭优先级')).not.toBeInTheDocument()
     fireEvent.focus(window)
     await screen.findByRole('table')
     await waitFor(() => expect(read).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(screen.queryByText('连接中断，仅显示上次状态')).not.toBeInTheDocument())
+  })
+  it('refreshes in place without losing the device search or settings draft', async () => {
+    let finish!: (value: ReturnType<typeof backendFixture>) => void
+    const read = vi.fn().mockResolvedValue(backendFixture())
+    const user = userEvent.setup(); render(<App gateway={createDesktopGateway(read)} />)
+    const table = await screen.findByRole('table')
+    const search = screen.getByRole('textbox', { name: /搜索设备/ })
+    await user.type(search, '同名')
+    read.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    fireEvent.focus(window)
+    await waitFor(() => expect(finish).toBeTypeOf('function'))
+    expect(screen.getByRole('table')).toBe(table)
+    expect(search).toHaveValue('同名')
+    expect(screen.queryByText('正在读取设备状态…')).not.toBeInTheDocument()
+    await act(async () => finish(backendFixture()))
+    expect(screen.getByRole('table')).toBe(table)
+    expect(search).toHaveValue('同名')
+  })
+  it('announces readiness once after the saved theme and page are committed, including errors', async () => {
+    const reply = backendFixture(); reply.Preferences.DarkMode = false
+    const ready = vi.fn(() => {
+      expect(document.documentElement).not.toHaveClass('dark')
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
+    const view = render(<App gateway={createDesktopGateway(async () => reply)} onReady={ready} />)
+    await waitFor(() => expect(ready).toHaveBeenCalledExactlyOnceWith(false))
+    fireEvent.focus(window)
+    await waitFor(() => expect(screen.getByRole('button', { name: '刷新状态' })).toBeEnabled())
+    expect(ready).toHaveBeenCalledTimes(1)
+    view.unmount()
+    const failed = vi.fn()
+    render(<App gateway={createDesktopGateway(async () => { throw new Error('后台未运行') })} onReady={failed} />)
+    await screen.findByText('后台未运行')
+    await waitFor(() => expect(failed).toHaveBeenCalledTimes(1))
   })
   it('keeps a dismissed backend warning hidden when the same snapshot is read again', async () => {
     const reply = backendFixture(); reply.Warning = '原预设未能应用'

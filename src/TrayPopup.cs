@@ -133,7 +133,7 @@ namespace AudioSwitch
         private double presentationOpacity = 1;
         private string pendingKey;
         private bool pageMoving;
-        private int pageOffset;
+        private double pageAmount = 1, pageDuration = 250;
         private bool closing, shown;
         private int topColumn;
         private int navigationVersion;
@@ -179,13 +179,13 @@ namespace AudioSwitch
         {
             if (closing || command.Children == null) return;
             navigationVersion++;
-            page = command; BuildPage(); StartPageMotion(1); FocusFirst();
+            page = command; StartPageMotion(1); BuildPage(); FocusFirst();
         }
         internal void GoBack()
         {
             if (page == null || closing) return;
             navigationVersion++;
-            var previous = page; page = null; BuildPage(); StartPageMotion(-1);
+            var previous = page; page = null; StartPageMotion(-1); BuildPage();
             var row = rows.FirstOrDefault(r => Object.ReferenceEquals(r.Command, previous));
             if (row != null) row.Focus();
         }
@@ -391,14 +391,15 @@ namespace AudioSwitch
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), S(12)))
             using (var pen = new Pen(theme.Border)) e.Graphics.DrawPath(pen, path);
-            if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), theme.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), PopupTheme.Mix(theme.Card, theme.Text, pageAmount), TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
         private void StartPageMotion(int direction)
         {
             if (!motion || !shown) return;
-            // Redirect from the current presentation position on a quick reversal.
-            pageFrom = pageMoving ? pageOffset : S(4) * direction;
-            pageStarted = Now; pageMoving = true; pageOffset = (int)Math.Round(pageFrom); list.Invalidate(true); timer.Start();
+            // Keep geometry and text stationary. Reverse from the currently visible contrast.
+            pageFrom = pageMoving ? pageAmount : .55;
+            pageDuration = direction > 0 ? 250 : 200;
+            pageStarted = Now; pageMoving = true; pageAmount = pageFrom; timer.Start();
         }
         internal double Now { get { return clock.Elapsed.TotalMilliseconds; } }
         internal bool Motion { get { return motion; } }
@@ -421,9 +422,9 @@ namespace AudioSwitch
             if (motion && now - opened < 250) { double t = Math.Min(1, (now - opened) / 250); SetOpacity(1 - (1 - openingFrom) * Math.Pow(1 - t, 3)); running = true; }
             else if (presentationOpacity != 1) SetOpacity(1);
             if (pageMoving) {
-                double t = Math.Min(1, (now - pageStarted) / 250);
-                int offset = (int)Math.Round(pageFrom * Math.Pow(1 - t, 3));
-                if (offset != pageOffset) { pageOffset = offset; list.Invalidate(true); }
+                double t = Math.Min(1, (now - pageStarted) / pageDuration);
+                pageAmount = 1 - (1 - pageFrom) * Math.Pow(1 - t, 3);
+                Invalidate(true);
                 pageMoving = t < 1; running |= pageMoving;
                 if (!pageMoving) RepaintSurface();
             }
@@ -596,7 +597,7 @@ namespace AudioSwitch
             protected override void OnPaint(PaintEventArgs e)
             {
                 var g = e.Graphics; g.Clear(theme.Card); g.SmoothingMode = SmoothingMode.AntiAlias;
-                int offset = iconOnly ? 0 : owner.pageOffset;
+                const int offset = 0;
                 Color resting = Command.Toggle ? theme.Card : PopupTheme.Mix(theme.Card, theme.Selected, selectionAmount);
                 Color hovered = Command.Toggle ? theme.Hover : PopupTheme.Mix(theme.Hover, theme.Selected, selectionAmount);
                 bool focusRing = Focused && owner.KeyboardNavigation;
@@ -605,7 +606,7 @@ namespace AudioSwitch
                     if (tile || focusRing) using (var pen = new Pen(focusRing ? theme.Accent : theme.Border)) g.DrawPath(pen, path);
                 }
                 g.DrawImageUnscaled(icon, iconOnly ? (Width - icon.Width) / 2 : -S(3) + offset, (Height - icon.Height) / 2);
-                if (iconOnly) return;
+                if (iconOnly) { PaintPageFade(g); return; }
                 int right = Command.Toggle ? S(54) : Command.Children != null || Command.KeepOpen || Command.Checked ? S(28) : S(10);
                 var bounds = new Rectangle(S(36) + offset, 0, Math.Max(1, Width - S(36) - right), Height);
                 var flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
@@ -627,6 +628,12 @@ namespace AudioSwitch
                     g.DrawLines(pen, Command.Children == null ? new[] { new PointF(x - S(4), y), new PointF(x - S(1), y + S(3)), new PointF(x + S(5), y - S(4)) }
                         : new[] { new PointF(x - S(2), y - S(3)), new PointF(x + S(1), y), new PointF(x - S(2), y + S(3)) });
                 }
+                PaintPageFade(g);
+            }
+            private void PaintPageFade(Graphics graphics)
+            {
+                if (owner.pageAmount >= 1) return;
+                using (var brush = new SolidBrush(Color.FromArgb((int)Math.Round(255 * (1 - owner.pageAmount)), theme.Card))) graphics.FillRectangle(brush, ClientRectangle);
             }
             protected override AccessibleObject CreateAccessibilityInstance() { return new RowAccessibility(this); }
             private sealed class RowAccessibility : ControlAccessibleObject

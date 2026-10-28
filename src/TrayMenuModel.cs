@@ -8,6 +8,20 @@ namespace AudioSwitch
 {
     internal static class TrayMenuModel
     {
+        internal static TrayGlyph DeviceGlyph(Endpoint device, AudioState state)
+        {
+            if (device.Flow == 1) return TrayGlyph.Microphone;
+            int factor;
+            if (state.FormFactors != null && state.FormFactors.TryGetValue(device.Id, out factor)) {
+                if (factor == 3 || factor == 5) return TrayGlyph.Output;
+                if (factor == 9) return TrayGlyph.Monitor;
+                if (factor >= 0 && factor < 10) return TrayGlyph.Speaker;
+            }
+            string name = (device.Name ?? "").ToLowerInvariant();
+            if (name.Contains("耳机") || name.Contains("耳麦") || name.Contains("headphone") || name.Contains("headset")) return TrayGlyph.Output;
+            if (name.Contains("显示器") || name.Contains("hdmi") || name.Contains("displayport") || name.Contains("monitor")) return TrayGlyph.Monitor;
+            return TrayGlyph.Speaker;
+        }
         internal static IList<TrayCommand> Create(AudioState state, Preferences preferences, bool browser, int pending,
             Action<bool> open, Action openBrowser, Action<Request> request, Action exit)
         {
@@ -21,11 +35,11 @@ namespace AudioSwitch
                 var children = new List<TrayCommand>();
                 foreach (var device in DevicePriority.Ordered(state.Devices, preferences, state, flow)) {
                     string id = device.Id;
-                    children.Add(new TrayCommand(device.Name, flow == 0 ? TrayGlyph.Output : TrayGlyph.Microphone, () => request(new Request { Action = "switch", DeviceId = id })) { Key = "device:" + id, KeepOpen = true, Checked = current == id });
+                    children.Add(new TrayCommand(device.Name, DeviceGlyph(device, state), () => request(new Request { Action = "switch", DeviceId = id })) { Key = "device:" + id, KeepOpen = true, Checked = current == id });
                 }
                 if (children.Count == 0) children.Add(new TrayCommand("暂无可用设备", flow == 0 ? TrayGlyph.Output : TrayGlyph.Microphone) { Key = "empty:" + flow, Enabled = false });
                 var selected = state.Devices.FirstOrDefault(d => d.Id == current);
-                items.Add(new TrayCommand(flow == 0 ? "声音输出" : "麦克风输入", flow == 0 ? TrayGlyph.Output : TrayGlyph.Microphone) {
+                items.Add(new TrayCommand(flow == 0 ? "声音输出" : "麦克风输入", selected == null ? (flow == 0 ? TrayGlyph.Speaker : TrayGlyph.Microphone) : DeviceGlyph(selected, state)) {
                     Key = "flow:" + flow, Detail = selected == null ? "暂无默认设备" : selected.Name, Children = children, BreakBefore = flow == 0
                 });
             }

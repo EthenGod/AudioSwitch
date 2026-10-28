@@ -17,15 +17,24 @@ function browserPort(value: unknown): number {
 }
 function array(value: unknown): unknown[] { if (!Array.isArray(value)) throw invalid(); return value }
 function optionalText(value: unknown): string { return value == null ? '' : string(value) }
-function endpoint(value: unknown, online: boolean): Device {
+function deviceKind(name: string, flow: number, factor?: unknown): Device['Kind'] {
+  if (flow === 1) return 'microphone'
+  if (factor === 3 || factor === 5) return 'headphones'
+  if (factor === 9) return 'monitor'
+  if (typeof factor === 'number' && Number.isInteger(factor) && factor >= 0 && factor < 10) return 'speaker'
+  if (/耳机|耳麦|headphones?|headset/i.test(name)) return 'headphones'
+  if (/显示器|hdmi|displayport|monitor/i.test(name)) return 'monitor'
+  return 'speaker'
+}
+function endpoint(value: unknown, online: boolean, factors: ObjectValue = {}): Device {
   const row = object(value)
   if (row.Flow !== 0 && row.Flow !== 1) throw invalid()
   const id = string(row.Id)
   if (!id) throw invalid()
-  // The existing snapshot does not report connector or form factor. Do not guess USB/Bluetooth.
+  // Form factor is optional display metadata. Older backends and offline rows use a name fallback.
   return { Id: id, Name: string(row.Name), Flow: row.Flow, Online: online,
     Connection: row.Flow === 0 ? '声音输出' : '麦克风输入',
-    Kind: row.Flow === 0 ? 'speaker' : 'microphone' }
+    Kind: deviceKind(string(row.Name), row.Flow, factors[id]) }
 }
 
 /** Map src/Models.cs Reply without reading configuration files or changing backend state. */
@@ -34,6 +43,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   const error = optionalText(reply.Error)
   if (!reply.State || !reply.Preferences) throw new Error(error || invalid().message)
   const state = object(reply.State), prefs = object(reply.Preferences)
+  const factors = state.FormFactors && typeof state.FormFactors === 'object' && !Array.isArray(state.FormFactors) ? state.FormFactors as ObjectValue : {}
   const devices = new Map<string, Device>()
   const orders: Record<Flow, string[]> = { 0: [], 1: [] }
   for (const entry of array(prefs.DeviceOrder)) {
@@ -43,7 +53,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   }
   const active = new Set<string>()
   for (const entry of array(state.Devices)) {
-    const device = endpoint(entry, true), previous = devices.get(device.Id)
+    const device = endpoint(entry, true, factors), previous = devices.get(device.Id)
     if (active.has(device.Id) || (previous && previous.Flow !== device.Flow)) throw invalid()
     active.add(device.Id)
     if (!previous) orders[device.Flow].push(device.Id)

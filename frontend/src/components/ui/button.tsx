@@ -15,6 +15,6 @@ const buttonVariants = cva(
   }, defaultVariants: { variant: 'default', size: 'default' } },
 )
 
-export function Button({ className, variant, size, ...props }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return <ButtonPrimitive data-slot="button" data-variant={variant ?? 'default'} className={cn(buttonVariants({ variant, size }), className)} {...props} />
+export function Button({ className, variant, size, pending = false, disabled, ...props }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { pending?: boolean }) {
+  return <ButtonPrimitive data-slot="button" data-variant={variant ?? 'default'} className={cn(buttonVariants({ variant, size }), className)} {...props} disabled={disabled || pending} focusableWhenDisabled={pending && !disabled} data-pending={pending && !disabled || undefined} aria-busy={pending || undefined} />
 }
