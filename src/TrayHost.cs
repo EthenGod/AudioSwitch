@@ -61,10 +61,9 @@ namespace AudioSwitch
                     try { action(); }
                     catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "操作未完成", ex.Message, ToolTipIcon.Warning); }
                 }));
-            }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, "菜单未能打开", ex.Message, ToolTipIcon.Warning); });
+            }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, "菜单未能打开", ex.Message, ToolTipIcon.Warning); }, CreateTrayCommands);
             tray.MouseUp += delegate(object sender, MouseEventArgs e) {
-                if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, TrayMenuModel.Create(tracker.Current, preferences,
-                    PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)), tracker.Pending.Count, ShowFrontend, frontends.ShowBrowser, RunMenuCommand, ExitThread), preferences.DarkMode);
+                if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, CreateTrayCommands(), preferences.DarkMode);
             };
             debounce = new DeviceEventBatch(() => RefreshAudio(true, true));
             debounce.SetGameMode(preferences.GameMode);
@@ -133,6 +132,7 @@ namespace AudioSwitch
                 }
             }
             catch (Exception ex) { audioError = "更新音频设备失败：" + ex.Message; Program.Log(ex); }
+            finally { PublishTraySnapshot(); }
         }
         private void ApplyPriority(System.Collections.Generic.List<Endpoint> targets)
         {
@@ -172,7 +172,16 @@ namespace AudioSwitch
         private void RunMenuCommand(Request request)
         {
             var result = Handle(request);
-            if (result.Error != null) tray.ShowBalloonTip(5000, "操作未完成", result.Error, ToolTipIcon.Warning);
+            if (result.Error != null) throw new InvalidOperationException(result.Error);
+        }
+        private IList<TrayCommand> CreateTrayCommands()
+        {
+            return TrayMenuModel.Create(tracker.Current, preferences, PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)),
+                tracker.Pending.Count, ShowFrontend, frontends.ShowBrowser, RunMenuCommand, ExitThread);
+        }
+        private void PublishTraySnapshot()
+        {
+            if (!exiting && trayPopup != null && trayPopup.Running) trayPopup.Update(CreateTrayCommands());
         }
         private Reply Handle(Request request)
         {
@@ -336,6 +345,7 @@ namespace AudioSwitch
                 if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
+            if (request.Action != "snapshot") PublishTraySnapshot();
             return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 9, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,

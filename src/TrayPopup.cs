@@ -12,12 +12,12 @@ using System.Windows.Forms;
 
 namespace AudioSwitch
 {
-    // Immutable for the life of one popup. Commands are posted to the backend only after closing.
+    // Detached command snapshots. Audio work is always posted to the backend dispatcher.
     internal sealed class TrayCommand
     {
-        internal string Text, Detail;
+        internal string Text, Detail, Key;
         internal TrayGlyph Glyph;
-        internal bool Enabled = true, Checked, Toggle, BreakBefore;
+        internal bool Enabled = true, Checked, Toggle, BreakBefore, KeepOpen, AnimateClose;
         internal Action Execute;
         internal IList<TrayCommand> Children;
         internal TrayCommand(string text, TrayGlyph glyph, Action execute = null) { Text = text; Glyph = glyph; Execute = execute; }
@@ -29,23 +29,39 @@ namespace AudioSwitch
         private readonly object sync = new object();
         private readonly Action<Action> post;
         private readonly Action<Exception> error;
+        private readonly Func<IList<TrayCommand>> snapshot;
         private TrayPopup popup;
         private Thread thread;
-        private bool disposed;
+        private bool disposed, commandPending;
         private Action pendingShow;
+        private IList<TrayCommand> latestCommands;
         internal bool Running { get { lock (sync) return thread != null; } }
-        internal TrayPopupHost(Action<Action> post, Action<Exception> error) { this.post = post; this.error = error; }
+        internal TrayPopupHost(Action<Action> post, Action<Exception> error, Func<IList<TrayCommand>> snapshot = null) { this.post = post; this.error = error; this.snapshot = snapshot; }
         internal void Show(Point anchor, IList<TrayCommand> commands, bool dark)
         {
             lock (sync) {
                 if (disposed) return;
-                // A click during construction or dismissal must not be consumed as a close.
-                if (thread != null) { pendingShow = () => Show(anchor, commands, dark); CloseCurrent(); return; }
+                latestCommands = commands;
+                if (thread != null) {
+                    pendingShow = () => Show(anchor, commands, dark);
+                    var existing = popup;
+                    if (existing != null && existing.IsHandleCreated && !existing.IsDisposed) {
+                        try { existing.BeginInvoke((Action)(() => { if (!existing.IsDisposed) { lock (sync) pendingShow = null; existing.UpdateSnapshot(commands); existing.Reopen(); } })); return; }
+                        catch (InvalidOperationException) { }
+                    }
+                    return;
+                }
                 thread = new Thread(delegate() {
                     Action chosen = null;
                     try {
-                        using (var window = new TrayPopup(commands, anchor, dark)) {
-                            window.HandleCreated += delegate { lock (sync) { if (disposed || pendingShow != null) window.BeginInvoke((Action)(() => window.Close())); } };
+                        using (var window = new TrayPopup(commands, anchor, dark, dispatch: Dispatch)) {
+                            window.HandleCreated += delegate { lock (sync) {
+                                if (disposed) window.BeginInvoke((Action)(() => window.Close()));
+                                else if (pendingShow != null) window.BeginInvoke((Action)(() => {
+                                    IList<TrayCommand> next; lock (sync) { next = latestCommands; pendingShow = null; }
+                                    if (!window.IsDisposed) { window.UpdateSnapshot(next); window.Reopen(); }
+                                }));
+                            } };
                             lock (sync) { popup = window; if (disposed) return; }
                             Application.Run(window);
                             chosen = window.Chosen;
@@ -64,6 +80,29 @@ namespace AudioSwitch
                 thread.SetApartmentState(ApartmentState.STA); thread.Start();
             }
         }
+        internal void Update(IList<TrayCommand> commands)
+        {
+            lock (sync) {
+                var current = popup;
+                if (disposed || current == null || !current.IsHandleCreated || current.IsDisposed) return;
+                try { current.BeginInvoke((Action)(() => { if (!current.IsDisposed) current.UpdateSnapshot(commands); })); } catch (InvalidOperationException) { }
+            }
+        }
+        private void Dispatch(TrayCommand command, Action<IList<TrayCommand>, string> complete)
+        {
+            lock (sync) {
+                if (disposed) { complete(null, "声间正在退出。"); return; }
+                if (commandPending) { complete(null, "请等待上一次操作完成。"); return; }
+                commandPending = true;
+            }
+            try { post(() => {
+                string message = null; IList<TrayCommand> next = null;
+                try { command.Execute(); } catch (Exception ex) { message = ex.Message; }
+                try { if (snapshot != null) next = snapshot(); } catch (Exception ex) { message = message ?? ex.Message; }
+                lock (sync) commandPending = false;
+                complete(next, message ?? (next == null ? "状态未能刷新，请重新打开菜单。" : null));
+            }); } catch (Exception ex) { lock (sync) commandPending = false; complete(null, ex.Message); }
+        }
         private void CloseCurrent()
         {
             var current = popup;
@@ -75,7 +114,9 @@ namespace AudioSwitch
 
     internal sealed class TrayPopup : Form
     {
-        private readonly IList<TrayCommand> home;
+        private IList<TrayCommand> home;
+        private readonly Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch;
+        private readonly Label status = new Label();
         private readonly Point anchor;
         private readonly PopupViewport list;
         private readonly ToolTip tooltips = new ToolTip { InitialDelay = 500, ReshowDelay = 100, AutoPopDelay = 10000 };
@@ -88,20 +129,29 @@ namespace AudioSwitch
         private readonly float scale;
         private readonly bool motion;
         private TrayCommand page;
-        private double opened, closingAt, closingOpacity, pageStarted, pageFrom;
+        private double opened, openingFrom, closingAt, closingOpacity, pageStarted, pageFrom;
+        private double presentationOpacity = 1;
+        private string pendingKey;
         private bool pageMoving;
+        private int pageOffset;
         private bool closing, shown;
         private int topColumn;
+        private int navigationVersion;
         internal bool KeyboardNavigation { get; private set; }
         internal Action Chosen { get; private set; }
         internal bool Animating { get { return timer.Enabled; } }
+        internal bool Busy { get { return pendingKey != null; } }
+        internal bool Closing { get { return closing; } }
+        internal double PresentationOpacity { get { return presentationOpacity; } }
         internal IList<PopupRow> Rows { get { return rows.AsReadOnly(); } }
         [DllImport("user32.dll")] private static extern bool SystemParametersInfo(uint action, uint param, out int value, uint flags);
         [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
-        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null)
+        [DllImport("user32.dll", SetLastError = true)] private static extern bool SetLayeredWindowAttributes(IntPtr window, uint key, byte alpha, uint flags);
+        [DllImport("user32.dll")] private static extern bool RedrawWindow(IntPtr window, IntPtr rect, IntPtr region, uint flags);
+        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null, Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch = null)
         {
-            home = commands; this.anchor = anchor; theme = new PopupTheme(dark);
+            home = commands; this.anchor = anchor; this.dispatch = dispatch; theme = new PopupTheme(dark);
             // Do not create a Form handle before its styles, controls and lifecycle hooks exist.
             using (var g = Graphics.FromHwnd(IntPtr.Zero)) scale = textScale * g.DpiX / 96F;
             regular = new Font("Microsoft YaHei UI", 10.5F * textScale);
@@ -115,10 +165,12 @@ namespace AudioSwitch
             int enabled;
             motion = animations ?? (SystemInformation.IsMenuAnimationEnabled && SystemParametersInfo(0x1042, 0, out enabled, 0) && enabled != 0);
             list = new PopupViewport(theme, scale);
-            if (motion) Opacity = 0.18;
+            presentationOpacity = motion ? 0 : 1;
             back = new PopupRow(this, new TrayCommand("返回快捷菜单", TrayGlyph.Back), theme, regular, caption, scale, false, true);
             back.TabIndex = 0; Controls.Add(back); tooltips.SetToolTip(back, "返回");
             Controls.Add(list);
+            status.Font = caption; status.ForeColor = ColorTranslator.FromHtml(dark ? "#ff9592" : "#ce2c31"); status.AccessibleRole = AccessibleRole.Alert;
+            status.Visible = false; Controls.Add(status);
             timer.Tick += TickAnimation;
             BuildPage();
         }
@@ -126,17 +178,46 @@ namespace AudioSwitch
         internal void Navigate(TrayCommand command)
         {
             if (closing || command.Children == null) return;
+            navigationVersion++;
             page = command; BuildPage(); StartPageMotion(1); FocusFirst();
         }
         internal void GoBack()
         {
             if (page == null || closing) return;
+            navigationVersion++;
             var previous = page; page = null; BuildPage(); StartPageMotion(-1);
             var row = rows.FirstOrDefault(r => Object.ReferenceEquals(r.Command, previous));
             if (row != null) row.Focus();
         }
+        internal void UpdateSnapshot(IList<TrayCommand> commands)
+        {
+            if (commands == null || IsDisposed) return;
+            string pageKey = page == null ? null : page.Key;
+            var nextPage = pageKey == null ? null : commands.FirstOrDefault(c => c.Key == pageKey);
+            var next = nextPage == null ? commands : nextPage.Children;
+            bool sameRows = (page == null) == (nextPage == null) && rows.Count == next.Count && rows.Select(r => r.Command.Key).SequenceEqual(next.Select(c => c.Key));
+            var focus = rows.FirstOrDefault(r => r.Focused); string focusKey = focus == null ? null : focus.Command.Key;
+            int offset = list.Offset;
+            home = commands; page = nextPage;
+            if (sameRows) {
+                for (int i = 0; i < rows.Count; i++) { rows[i].UpdateCommand(next[i]); tooltips.SetToolTip(rows[i], next[i].Text + (next[i].Detail == null ? "" : "\n" + next[i].Detail)); }
+            } else {
+                BuildPage();
+                var restored = rows.FirstOrDefault(r => r.Command.Key == focusKey && r.Enabled);
+                if (restored != null && !closing) restored.Focus();
+                list.ScrollTo(offset);
+            }
+        }
+        private void SetStatus(string message)
+        {
+            message = message ?? "";
+            if (status.Text == message) return;
+            status.Text = message; status.AccessibleDescription = message; tooltips.SetToolTip(status, message);
+            LayoutPage(); RepaintSurface();
+        }
         private void BuildPage()
         {
+            SuspendLayout(); list.Content.SuspendLayout();
             list.SuspendLayout();
             foreach (var row in rows) { tooltips.SetToolTip(row, null); list.Content.Controls.Remove(row); row.Dispose(); }
             rows.Clear(); list.ScrollTo(0);
@@ -153,17 +234,45 @@ namespace AudioSwitch
                 if (item.Text.Length > 18 || (item.Detail != null && item.Detail.Length > 18)) tooltips.SetToolTip(row, item.Text + (item.Detail == null ? "" : "\n" + item.Detail));
                 if (!tile || i == 1) y += height;
             }
+            LayoutPage();
+            list.Content.ResumeLayout(false); list.ResumeLayout(false); ResumeLayout(false);
+            RepaintSurface();
+        }
+        private void RepaintSurface()
+        {
+            // Layered windows retain a composited surface: repaint every child after resizing,
+            // including controls that were below the old, shorter viewport's clipping area.
+            Invalidate(true);
+            if (IsHandleCreated) RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, 0x0001 | 0x0004 | 0x0080 | 0x0100);
+        }
+        private void LayoutPage()
+        {
+            int width = S(288), y = rows.Count == 0 ? 0 : rows.Max(r => r.Bottom);
             var area = Screen.FromPoint(anchor).WorkingArea;
-            int header = S(page == null ? 6 : 40), footer = S(6), available = Math.Max(S(90), area.Height - S(24) - header - footer);
+            int statusHeight = String.IsNullOrEmpty(status.Text) ? 0 : Math.Min(S(84), TextRenderer.MeasureText(status.Text, caption, new Size(width, 0), TextFormatFlags.WordBreak).Height) + S(8);
+            int header = S(page == null ? 6 : 40), footer = S(6) + statusHeight, available = Math.Max(S(90), area.Height - S(24) - header - footer);
             if (page != null) available = Math.Min(available, S(288));
             list.Bounds = new Rectangle(S(6), header, width, Math.Min(y, available));
-            if (y > available) foreach (var row in rows) row.Width -= S(14);
+            for (int i = 0; i < rows.Count; i++) rows[i].Width = (page == null && i < 2 ? (width - S(6)) / 2 : width) - (y > available ? S(14) : 0);
             list.Configure(y);
-            ClientSize = new Size(width + S(12), header + list.Height + footer);
-            Location = new Point(Math.Max(area.Left, Math.Min(anchor.X - Width, area.Right - Width)), Math.Max(area.Top, Math.Min(anchor.Y - Height, area.Bottom - Height)));
+            var size = new Size(width + S(12), header + list.Height + footer);
+            var location = new Point(Math.Max(area.Left, Math.Min(anchor.X - size.Width, area.Right - size.Width)), Math.Max(area.Top, Math.Min(anchor.Y - size.Height, area.Bottom - size.Height)));
+            Bounds = new Rectangle(location, size);
             back.Bounds = new Rectangle(S(10), S(6), S(28), S(28)); back.Visible = page != null;
-            list.ResumeLayout(true); Invalidate();
+            status.SetBounds(S(6), header + list.Height + S(4), width, Math.Max(0, statusHeight - S(4))); status.Visible = statusHeight != 0;
+            Invalidate();
             if (IsHandleCreated) PopupChrome.Round(Handle);
+        }
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            PopupChrome.Round(Handle); SetOpacity(presentationOpacity);
+        }
+        private void SetOpacity(double value)
+        {
+            presentationOpacity = Math.Max(0, Math.Min(1, value));
+            if (IsHandleCreated && !SetLayeredWindowAttributes(Handle, 0, (byte)Math.Round(presentationOpacity * 255), 2))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
         }
         protected override void SetVisibleCore(bool value)
         {
@@ -180,35 +289,64 @@ namespace AudioSwitch
             // TopMost alone does not reorder two existing topmost windows.
             SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002);
             SetForegroundWindow(Handle); Activate();
-            shown = true; opened = clock.Elapsed.TotalMilliseconds;
+            // Paint a complete frame while alpha is zero; never switch layered styles at alpha 255.
+            Refresh(); shown = true; opened = clock.Elapsed.TotalMilliseconds; openingFrom = presentationOpacity;
             if (motion) timer.Start();
             base.OnShown(e);
         }
         protected override CreateParams CreateParams
         {
-            get { var value = base.CreateParams; value.ExStyle |= 0x80; value.ClassStyle |= 0x20000; return value; }
+            get { var value = base.CreateParams; value.ExStyle |= 0x80 | 0x80000; return value; }
         }
         protected override void OnDeactivate(EventArgs e) { base.OnDeactivate(e); if (shown) Dismiss(); }
         internal void Dismiss()
         {
             if (closing || IsDisposed) return;
             if (!motion) { Close(); return; }
-            closing = true; closingAt = clock.Elapsed.TotalMilliseconds; closingOpacity = Opacity;
-            list.Enabled = false; timer.Start();
+            closing = true; closingAt = clock.Elapsed.TotalMilliseconds; closingOpacity = presentationOpacity;
+            timer.Start();
+        }
+        internal void Reopen()
+        {
+            if (IsDisposed || Chosen != null) return;
+            if (closing) { closing = false; opened = Now; openingFrom = presentationOpacity; if (motion) timer.Start(); else SetOpacity(1); }
+            SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002); SetForegroundWindow(Handle); Activate();
         }
         internal void ActivateCommand(TrayCommand command)
         {
             if (closing || !command.Enabled || Chosen != null) return;
             if (command.Children != null) { Navigate(command); return; }
             if (command.Execute == null) return;
-            // Commit without an artificial animation delay. Audio work runs after this window is gone.
-            Chosen = command.Execute; Close();
+            if (command.KeepOpen) {
+                if (Busy) return;
+                if (dispatch == null) { SetStatus("当前菜单未连接后台，请重新打开。"); return; }
+                pendingKey = command.Key; SetStatus(null);
+                int version = navigationVersion;
+                foreach (var row in rows) row.UpdateCommand(row.Command);
+                try { dispatch(command, (next, message) => {
+                    if (IsDisposed || !IsHandleCreated) return;
+                    try { BeginInvoke((Action)(() => {
+                        if (IsDisposed) return;
+                        string completedKey = pendingKey; pendingKey = null;
+                        if (next != null) UpdateSnapshot(next);
+                        else foreach (var row in rows) row.UpdateCommand(row.Command);
+                        SetStatus(message);
+                        var focus = rows.FirstOrDefault(r => r.Command.Key == completedKey && r.Enabled);
+                        if (!closing && version == navigationVersion && focus != null) focus.Focus();
+                    })); } catch (InvalidOperationException) { }
+                }); } catch (Exception ex) { pendingKey = null; foreach (var row in rows) row.UpdateCommand(row.Command); SetStatus(ex.Message); }
+                return;
+            }
+            // Opening another surface or exiting still releases this transient window.
+            Chosen = command.Execute;
+            if (command.AnimateClose) Dismiss(); else Close();
         }
         private void FocusFirst() { var row = rows.FirstOrDefault(r => r.Enabled); if (row != null) row.Focus(); }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         { return HandleNavigation(keyData) || base.ProcessCmdKey(ref msg, keyData); }
         internal bool HandleNavigation(Keys keyData)
         {
+            navigationVersion++;
             var key = keyData & Keys.KeyCode;
             if (key == Keys.Tab || key == Keys.Up || key == Keys.Down || key == Keys.Left || key == Keys.Right || key == Keys.Back || key == Keys.Home || key == Keys.End || key == Keys.Enter || key == Keys.Space)
                 SetKeyboardNavigation(true);
@@ -259,30 +397,35 @@ namespace AudioSwitch
         {
             if (!motion || !shown) return;
             // Redirect from the current presentation position on a quick reversal.
-            pageFrom = pageMoving ? pageFrom * Math.Pow(1 - Math.Min(1, (Now - pageStarted) / 250), 3) : S(4) * direction;
-            pageStarted = Now; pageMoving = true; list.Left = S(6) + (int)Math.Round(pageFrom); timer.Start();
+            pageFrom = pageMoving ? pageOffset : S(4) * direction;
+            pageStarted = Now; pageMoving = true; pageOffset = (int)Math.Round(pageFrom); list.Invalidate(true); timer.Start();
         }
         internal double Now { get { return clock.Elapsed.TotalMilliseconds; } }
         internal bool Motion { get { return motion; } }
-        internal void Animate() { if (!IsDisposed && !closing && motion) timer.Start(); }
+        internal void Animate() { if (!IsDisposed && !closing && shown && motion) timer.Start(); }
         internal void Reveal(PopupRow row) { list.Reveal(row); }
         internal void ScrollRows(int delta) { list.ScrollTo(list.Offset - delta / 120 * S(48)); }
         private void TickAnimation(object sender, EventArgs e)
         {
             double now = Now;
+            if (!shown) { timer.Stop(); return; }
             if (closing) {
+                foreach (var row in rows) row.Advance(now);
+                back.Advance(now);
                 double t = Math.Min(1, (now - closingAt) / 200);
-                Opacity = closingOpacity * (1 - t * t);
+                SetOpacity(closingOpacity * (1 - t * t));
                 if (t >= 1) Close();
                 return;
             }
             bool running = false;
-            if (motion && now - opened < 250) { double t = Math.Min(1, (now - opened) / 250); Opacity = 1 - 0.82 * Math.Pow(1 - t, 3); running = true; }
-            else Opacity = 1;
+            if (motion && now - opened < 250) { double t = Math.Min(1, (now - opened) / 250); SetOpacity(1 - (1 - openingFrom) * Math.Pow(1 - t, 3)); running = true; }
+            else if (presentationOpacity != 1) SetOpacity(1);
             if (pageMoving) {
                 double t = Math.Min(1, (now - pageStarted) / 250);
-                list.Left = S(6) + (int)Math.Round(pageFrom * Math.Pow(1 - t, 3));
+                int offset = (int)Math.Round(pageFrom * Math.Pow(1 - t, 3));
+                if (offset != pageOffset) { pageOffset = offset; list.Invalidate(true); }
                 pageMoving = t < 1; running |= pageMoving;
+                if (!pageMoving) RepaintSurface();
             }
             foreach (var row in rows) running |= row.Advance(now);
             running |= back.Advance(now);
@@ -295,7 +438,7 @@ namespace AudioSwitch
             base.Dispose(disposing);
             if (disposing) { timer.Dispose(); tooltips.Dispose(); regular.Dispose(); strong.Dispose(); caption.Dispose(); }
         }
-        private sealed class BufferedPanel : Panel { internal BufferedPanel() { DoubleBuffered = true; } }
+        private sealed class BufferedPanel : Panel { internal BufferedPanel() { DoubleBuffered = true; ResizeRedraw = true; } }
         private sealed class PopupViewport : Panel
         {
             internal readonly Panel Content = new BufferedPanel();
@@ -305,7 +448,7 @@ namespace AudioSwitch
             internal int Offset { get; private set; }
             internal PopupViewport(PopupTheme theme, float scale)
             {
-                DoubleBuffered = true; BackColor = Content.BackColor = theme.Card; railWidth = (int)Math.Round(14 * scale);
+                DoubleBuffered = true; ResizeRedraw = true; BackColor = Content.BackColor = theme.Card; railWidth = (int)Math.Round(14 * scale);
                 rail = new ScrollThumb(this, theme, scale); Controls.Add(Content); Controls.Add(rail);
             }
             internal void Configure(int height)
@@ -380,24 +523,42 @@ namespace AudioSwitch
         }
         internal sealed class PopupRow : Button
         {
-            internal readonly TrayCommand Command;
+            internal TrayCommand Command { get; private set; }
             private readonly TrayPopup owner;
             private readonly PopupTheme theme;
             private readonly Font caption;
             private readonly float scale;
             private readonly bool tile, iconOnly;
-            private readonly Bitmap icon;
+            private Bitmap icon;
             private bool hover, pressed;
             private double from, target, started, amount;
             private double pressFrom, pressStarted, pressAmount;
+            private double selectionFrom, selectionStarted, selectionAmount, selectionTarget;
             internal PopupRow(TrayPopup owner, TrayCommand command, PopupTheme theme, Font font, Font caption, float scale, bool tile, bool iconOnly = false)
             {
                 this.owner = owner; Command = command; this.theme = theme; this.caption = caption; this.scale = scale; this.tile = tile; this.iconOnly = iconOnly;
                 Font = font; Text = command.Text; AccessibleName = command.Text; AccessibleDescription = command.Detail;
-                Enabled = command.Enabled; FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
+                Enabled = command.Enabled; BackColor = theme.Card; FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
+                selectionFrom = selectionAmount = selectionTarget = command.Checked ? 1 : 0;
                 SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
                 icon = new Bitmap(S(42), S(42)); using (var g = Graphics.FromImage(icon)) TrayArt.DrawGlyph(g, command.Glyph, scale, icon.Height, command.Checked ? theme.AccentText : theme.Muted);
-                Click += delegate { if (iconOnly) owner.GoBack(); else owner.ActivateCommand(command); };
+                Click += delegate { if (iconOnly) owner.GoBack(); else owner.ActivateCommand(Command); };
+            }
+            internal void UpdateCommand(TrayCommand command)
+            {
+                bool changed = Command.Checked != command.Checked || Command.Glyph != command.Glyph;
+                if (Command.Checked != command.Checked) {
+                    selectionFrom = selectionAmount; selectionTarget = command.Checked ? 1 : 0; selectionStarted = owner.Now;
+                    if (!owner.Motion) selectionAmount = selectionTarget;
+                    owner.Animate();
+                }
+                Command = command; Text = command.Text; AccessibleName = command.Text; AccessibleDescription = command.Detail;
+                Enabled = command.Enabled;
+                if (changed) {
+                    icon.Dispose(); icon = new Bitmap(S(42), S(42));
+                    using (var g = Graphics.FromImage(icon)) TrayArt.DrawGlyph(g, command.Glyph, scale, icon.Height, command.Checked ? theme.AccentText : theme.Muted);
+                }
+                Invalidate();
             }
             private int S(float value) { return (int)Math.Round(value * scale); }
             private double At(double now) { double t = Math.Max(0, Math.Min(1, (now - started) / 150)); return from + (target - from) * (1 - Math.Pow(1 - t, 3)); }
@@ -415,8 +576,10 @@ namespace AudioSwitch
             {
                 double next = owner.Motion ? At(now) : target;
                 double nextPress = pressed ? 1 : owner.Motion ? pressFrom * Math.Pow(1 - Math.Min(1, (now - pressStarted) / 120), 3) : 0;
-                if (next != amount || nextPress != pressAmount) { amount = next; pressAmount = nextPress; Invalidate(); }
-                return owner.Motion && ((now - started < 150 && from != target) || (!pressed && now - pressStarted < 120 && pressFrom != 0));
+                double t = Math.Max(0, Math.Min(1, (now - selectionStarted) / 160));
+                double nextSelection = owner.Motion ? selectionFrom + (selectionTarget - selectionFrom) * (1 - Math.Pow(1 - t, 3)) : selectionTarget;
+                if (next != amount || nextPress != pressAmount || nextSelection != selectionAmount) { amount = next; pressAmount = nextPress; selectionAmount = nextSelection; Invalidate(); }
+                return owner.Motion && ((now - started < 150 && from != target) || (!pressed && now - pressStarted < 120 && pressFrom != 0) || (t < 1 && selectionFrom != selectionTarget));
             }
             protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); owner.SetKeyboardNavigation(false); hover = true; Retarget(); }
             protected override void OnMouseMove(MouseEventArgs e) { base.OnMouseMove(e); owner.SetKeyboardNavigation(false); if (!hover) { hover = true; Retarget(); } }
@@ -424,7 +587,7 @@ namespace AudioSwitch
             protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); if (!iconOnly) owner.Reveal(this); Invalidate(); }
             protected override void OnMouseWheel(MouseEventArgs e) { owner.ScrollRows(e.Delta); var handled = e as HandledMouseEventArgs; if (handled != null) handled.Handled = true; }
             protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); SetPressed(false); Invalidate(); }
-            protected override void OnMouseDown(MouseEventArgs e) { owner.SetKeyboardNavigation(false); base.OnMouseDown(e); SetPressed(e.Button == MouseButtons.Left); }
+            protected override void OnMouseDown(MouseEventArgs e) { if (owner.Closing) return; owner.SetKeyboardNavigation(false); base.OnMouseDown(e); SetPressed(e.Button == MouseButtons.Left); }
             protected override void OnMouseUp(MouseEventArgs e) { SetPressed(false); base.OnMouseUp(e); }
             protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) SetPressed(false); }
             protected override void OnKeyDown(KeyEventArgs e) { if (e.KeyCode == Keys.Space) SetPressed(true); base.OnKeyDown(e); }
@@ -433,16 +596,18 @@ namespace AudioSwitch
             protected override void OnPaint(PaintEventArgs e)
             {
                 var g = e.Graphics; g.Clear(theme.Card); g.SmoothingMode = SmoothingMode.AntiAlias;
-                Color resting = Command.Checked && !Command.Toggle ? theme.Selected : theme.Card;
+                int offset = iconOnly ? 0 : owner.pageOffset;
+                Color resting = Command.Toggle ? theme.Card : PopupTheme.Mix(theme.Card, theme.Selected, selectionAmount);
+                Color hovered = Command.Toggle ? theme.Hover : PopupTheme.Mix(theme.Hover, theme.Selected, selectionAmount);
                 bool focusRing = Focused && owner.KeyboardNavigation;
                 using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), S(6))) {
-                    using (var brush = new SolidBrush(PopupTheme.Mix(PopupTheme.Mix(resting, theme.Hover, amount), theme.Pressed, pressAmount))) g.FillPath(brush, path);
+                    using (var brush = new SolidBrush(PopupTheme.Mix(PopupTheme.Mix(resting, hovered, amount), theme.Pressed, pressAmount))) g.FillPath(brush, path);
                     if (tile || focusRing) using (var pen = new Pen(focusRing ? theme.Accent : theme.Border)) g.DrawPath(pen, path);
                 }
-                g.DrawImageUnscaled(icon, iconOnly ? (Width - icon.Width) / 2 : -S(3), (Height - icon.Height) / 2);
+                g.DrawImageUnscaled(icon, iconOnly ? (Width - icon.Width) / 2 : -S(3) + offset, (Height - icon.Height) / 2);
                 if (iconOnly) return;
-                int right = Command.Toggle ? S(54) : Command.Children != null || Command.Checked ? S(28) : S(10);
-                var bounds = new Rectangle(S(36), 0, Math.Max(1, Width - S(36) - right), Height);
+                int right = Command.Toggle ? S(54) : Command.Children != null || Command.KeepOpen || Command.Checked ? S(28) : S(10);
+                var bounds = new Rectangle(S(36) + offset, 0, Math.Max(1, Width - S(36) - right), Height);
                 var flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix;
                 Color text = Enabled ? theme.Text : theme.Muted;
                 if (String.IsNullOrEmpty(Command.Detail)) TextRenderer.DrawText(g, Text, Font, bounds, text, flags);
@@ -450,14 +615,16 @@ namespace AudioSwitch
                     TextRenderer.DrawText(g, Text, Font, new Rectangle(bounds.X, S(4), bounds.Width, S(22)), text, flags);
                     TextRenderer.DrawText(g, Command.Detail, caption, new Rectangle(bounds.X, S(25), bounds.Width, S(18)), theme.Muted, flags);
                 }
-                if (Command.Toggle) {
-                    var track = new RectangleF(Width - S(44), Height / 2F - S(9), S(32), S(18));
-                    using (var path = Palette.Round(track, S(9))) using (var brush = new SolidBrush(Command.Checked ? theme.Accent : theme.Border)) g.FillPath(brush, path);
-                    using (var brush = new SolidBrush(Command.Checked ? Color.White : theme.Muted)) g.FillEllipse(brush, track.X + S(Command.Checked ? 16 : 2), track.Y + S(2), S(14), S(14));
-                } else if (Command.Children != null || Command.Checked) using (var pen = new Pen(Command.Checked ? theme.AccentText : theme.Muted, 1.5F * scale)) {
+                if (!Command.Toggle && owner.pendingKey != null && owner.pendingKey == Command.Key) {
+                    TextRenderer.DrawText(g, "…", Font, new Rectangle(Width - S(30) + offset, 0, S(22), Height), theme.Muted, TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
+                } else if (Command.Toggle) {
+                    var track = new RectangleF(Width - S(44) + offset, Height / 2F - S(9), S(32), S(18));
+                    using (var path = Palette.Round(track, S(9))) using (var brush = new SolidBrush(PopupTheme.Mix(theme.Border, theme.Accent, selectionAmount))) g.FillPath(brush, path);
+                    using (var brush = new SolidBrush(PopupTheme.Mix(theme.Muted, Color.White, selectionAmount))) g.FillEllipse(brush, track.X + S(2) + (float)(S(14) * selectionAmount), track.Y + S(2), S(14), S(14));
+                } else if (Command.Children != null || selectionAmount > 0) using (var pen = new Pen(Command.Children != null ? theme.Muted : PopupTheme.Mix(resting, theme.AccentText, selectionAmount), 1.5F * scale)) {
                     pen.StartCap = pen.EndCap = LineCap.Round; pen.LineJoin = LineJoin.Round;
-                    float x = Width - S(18), y = Height / 2F;
-                    g.DrawLines(pen, Command.Checked ? new[] { new PointF(x - S(4), y), new PointF(x - S(1), y + S(3)), new PointF(x + S(5), y - S(4)) }
+                    float x = Width - S(18) + offset, y = Height / 2F;
+                    g.DrawLines(pen, Command.Children == null ? new[] { new PointF(x - S(4), y), new PointF(x - S(1), y + S(3)), new PointF(x + S(5), y - S(4)) }
                         : new[] { new PointF(x - S(2), y - S(3)), new PointF(x + S(1), y), new PointF(x - S(2), y + S(3)) });
                 }
             }
@@ -467,7 +634,7 @@ namespace AudioSwitch
                 private readonly PopupRow row;
                 internal RowAccessibility(PopupRow row) : base(row) { this.row = row; }
                 public override AccessibleRole Role { get { return row.Command.Toggle ? AccessibleRole.CheckButton : AccessibleRole.PushButton; } }
-                public override AccessibleStates State { get { return base.State | (row.Command.Checked ? AccessibleStates.Checked : AccessibleStates.None); } }
+                public override AccessibleStates State { get { return base.State | (row.Command.Checked ? AccessibleStates.Checked : AccessibleStates.None) | (row.owner.Closing || (row.owner.Busy && row.Command.KeepOpen) ? AccessibleStates.Unavailable : AccessibleStates.None); } }
                 public override string DefaultAction { get { return row.Command.Children != null ? "打开" : "选择"; } }
                 public override void DoDefaultAction() { if (row.Enabled) row.PerformClick(); }
             }
