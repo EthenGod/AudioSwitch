@@ -114,7 +114,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
       if (e instanceof OperationFailure) { if (e.requiresRefresh) setUncertain(true); onFailure(e) }
     } finally { lock.current = saveLock.current = false; setSaving(false) }
   }
-  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent nested className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
     <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
     {!desktop && <div className="sheet-preview">界面预览，操作不会改变系统设置</div>}
     <div className="sheet-scroll">

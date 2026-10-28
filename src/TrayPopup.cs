@@ -179,13 +179,13 @@ namespace AudioSwitch
         {
             if (closing || command.Children == null) return;
             navigationVersion++;
-            page = command; StartPageMotion(1); BuildPage(); FocusFirst();
+            page = command; StartPageMotion(1); BuildPage(); FocusFirst(); pageStarted = Now;
         }
         internal void GoBack()
         {
             if (page == null || closing) return;
             navigationVersion++;
-            var previous = page; page = null; StartPageMotion(-1); BuildPage();
+            var previous = page; page = null; StartPageMotion(-1); BuildPage(); pageStarted = Now;
             var row = rows.FirstOrDefault(r => Object.ReferenceEquals(r.Command, previous));
             if (row != null) row.Focus();
         }
@@ -397,7 +397,7 @@ namespace AudioSwitch
         {
             if (!motion || !shown) return;
             // Keep geometry and text stationary. Reverse from the currently visible contrast.
-            pageFrom = pageMoving ? pageAmount : .55;
+            pageFrom = pageMoving ? pageAmount : .12;
             pageDuration = direction > 0 ? 250 : 200;
             pageStarted = Now; pageMoving = true; pageAmount = pageFrom; timer.Start();
         }

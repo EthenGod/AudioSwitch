@@ -206,7 +206,15 @@ namespace AudioSwitch
                 check(!popup.Animating && popup.PresentationOpacity == 1, "popup entrance settles and stops timer");
                 popup.Rows[2].Focus(); popup.Rows[3].Focus(); Pump(200);
                 check(!popup.Animating, "rapid focus changes settle without idle animation");
-                popup.Navigate(entries.Single(i => i.Text == "声音输出")); Pump(60);
+                popup.Navigate(entries.Single(i => i.Text == "声音输出"));
+                var enteringRow = popup.Rows[0];
+                var firstPageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
+                Pump(90);
+                var middlePageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
+                Pump(200);
+                var finalPageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
+                check(firstPageColor.ToArgb() != middlePageColor.ToArgb() && middlePageColor.ToArgb() != finalPageColor.ToArgb(), "submenu has distinct initial, intermediate and final painted frames");
+                check(Math.Abs(firstPageColor.B - finalPageColor.B) > 15, "submenu contrast change remains visibly stronger than a barely perceptible fade");
                 popup.GoBack(); Pump(300);
                 check(!popup.Animating && popup.Rows.Count == entries.Count && popup.Rows[0].Parent.Parent.Left == 6, "page animation reverses and settles at the shared inset");
                 popup.Navigate(entries.Single(i => i.Text == "麦克风输入")); Pump(30); popup.GoBack(); Pump(300);

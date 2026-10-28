@@ -182,6 +182,13 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .priority-list { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
 .priority-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 9px 16px; }
 .priority-row + .priority-row { border-top: 1px solid var(--border); }
+.priority-row { position: relative; background: var(--background); transition: background-color var(--motion-fast) ease-out; }
+.priority-list[data-dragging] .priority-row { transition: transform 180ms ease-out, background-color var(--motion-fast) ease-out; }
+.priority-list .priority-row[data-dragging] { z-index: 2; background: var(--slate-3); box-shadow: inset 0 0 0 1px var(--accent); transition: none; }
+.priority-grip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 36px; flex-shrink: 0; margin-left: -8px; border: 0; border-radius: var(--radius); background: transparent; color: var(--tertiary); cursor: grab; touch-action: none; }
+.priority-grip:hover:not(:disabled), .priority-grip:focus-visible { color: var(--foreground); background: var(--slate-4); }
+.priority-row[data-dragging] .priority-grip { cursor: grabbing; color: var(--accent); }
+.priority-list[data-dragging] { user-select: none; }
 .priority-row .device-identity { flex: 1; }
 .order-number { font-size: var(--font-caption); color: var(--tertiary); font-variant-numeric: tabular-nums; }
 .priority-state { font-size: var(--font-caption); color: var(--tertiary); }
@@ -207,6 +214,8 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .toast-error { color: var(--danger); }
 .sheet-backdrop { position: fixed; inset: 0; background: var(--black-a7); z-index: 50; transition: opacity var(--motion-enter) ease-out; }
 .sheet-content { position: fixed; z-index: 60; inset: 0 0 0 auto; width: min(480px, 100vw); display: flex; flex-direction: column; background: var(--background); border-left: 1px solid var(--border); box-shadow: var(--shadow-panel); transition: transform var(--motion-enter) var(--ease-spring), opacity var(--motion-enter) ease-out; outline: none; }
+.sheet-backdrop-nested { z-index: 70; background: transparent; }
+.sheet-content-nested { z-index: 80; }
 .sheet-content[data-starting-style], .sheet-content[data-ending-style] { transform: translateX(24px); opacity: 0; }
 .sheet-backdrop[data-starting-style], .sheet-backdrop[data-ending-style] { opacity: 0; }
 /* Sheets mount already open. CSS supplies the missing first-frame state. */
@@ -361,7 +370,7 @@ progress::-moz-progress-bar { background: var(--indigo-9); }
 .ui-select:disabled, .ui-select[data-disabled] { opacity: .5; cursor: default; }
 .ui-select-value { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ui-select-icon { display: flex; flex-shrink: 0; color: var(--muted-foreground); }
-.ui-select-positioner { z-index: 80; width: var(--anchor-width); max-width: calc(100vw - 24px); outline: none; }
+.ui-select-positioner { z-index: 90; width: var(--anchor-width); max-width: calc(100vw - 24px); outline: none; }
 .ui-select-popup { padding: 4px; border: 1px solid var(--control-border); border-radius: var(--radius-panel); background: var(--card); box-shadow: var(--shadow-panel); transform-origin: var(--transform-origin); transition: transform var(--motion-enter) var(--ease-spring), opacity var(--motion-enter) ease-out; }
 .ui-select-list { max-height: min(320px, calc(var(--available-height) - 10px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; outline: none; }
 .ui-select-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; padding: 8px 10px; border-radius: var(--radius); color: var(--foreground); font-size: var(--font-caption); overflow-wrap: anywhere; cursor: pointer; outline: none; }

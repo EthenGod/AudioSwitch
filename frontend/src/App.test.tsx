@@ -14,6 +14,19 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('keeps the heading outside navigation motion and closes only the top sheet on outside click', async () => {
+    const { user } = await setup()
+    expect(screen.getByRole('heading', { name: '声音设备' }).closest('.page-content')).toBeNull()
+    await user.click(screen.getByRole('button', { name: '设置当前输出' }))
+    await user.click(screen.getByRole('switch', { name: '使用指定音量' }))
+    await user.click(screen.getByRole('button', { name: '编辑 Dolby 方案' }))
+    await screen.findByRole('dialog', { name: 'Dolby 方案' })
+    const backdrop = document.querySelector('.sheet-backdrop-nested')!
+    await user.click(backdrop)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Dolby 方案' })).not.toBeInTheDocument())
+    expect(screen.getByRole('dialog', { name: '设备设置' })).toBeVisible()
+    expect(screen.getByRole('switch', { name: '使用指定音量' })).not.toBeChecked()
+  })
   it('validates and automatically saves a port, with empty meaning automatic allocation', async () => {
     const { gateway, user } = await setup()
     const before = await gateway.read()
