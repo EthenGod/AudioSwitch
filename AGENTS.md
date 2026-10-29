@@ -11,7 +11,7 @@
 
 ## 产品目标与技术边界
 
-- 当前开发版本为 **v0.12.1**；v0.12.0 按测试版保留。v0.12.1 仅计划交付单 EXE 便捷展开版和完整 Desktop ZIP，不再生成或推荐过渡版。用户仍在添加新内容，未另行要求前，不向 `releases/` 生成 v0.12.1 附件；必要构建和展开验证只放 `staging/`。
+- 当前版本为 **v0.12.1 测试版**；v0.12.0 按测试版保留。用户已授权整理、编译本地测试 Release 附件，输出为 `releases/v0.12.1/` 中的单 EXE 便捷展开版和完整 Desktop ZIP，不再生成或推荐过渡版。构建中间产物和验证仍放 `staging/`。不覆盖已有附件，不自动提交、打标签、上传或发布；GitHub 发布时标为 Pre-release，不设为 Latest。
 
 - Windows x64 音频设备管理工具。`refactor/ui` 重构采用 React / TypeScript / Tailwind / shadcn 前端，后续使用 Tauri 2 / WebView2；现有 C# 音频后台保留。保持轻量，不引入 Electron 或新的常驻服务；关闭界面后释放对应界面进程。
 - 现有后台使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；后台没有 SDK 风格项目或 NuGet 恢复步骤。新增 `frontend/` 独立使用 Node 构建，不把前端构建依赖加入后台。
