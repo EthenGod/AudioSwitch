@@ -351,7 +351,11 @@ button { touch-action: manipulation; }
   .sheet-content[data-starting-style], .sheet-content[data-ending-style] { transform: none; }
 }
 
-.page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.page-actions { display: flex; align-items: center; flex-shrink: 0; min-height: 36px; }
+.page-action-slot { flex: none; min-width: 0; min-height: 36px; display: flex; align-items: center; overflow: clip; overflow-clip-margin: 4px; opacity: 0; transition: width var(--motion-exit) cubic-bezier(.4,0,.2,1), opacity var(--motion-exit) ease-in; }
+.page-action-slot[data-visible=true] { opacity: 1; transition-duration: var(--motion-enter); transition-timing-function: cubic-bezier(.4,0,.2,1), ease-out; }
+.page-action-slot[data-visible=false] { pointer-events: none; }
+.page-action-content { display: flex; align-items: center; width: max-content; flex: none; padding-left: 10px; white-space: nowrap; }
 .summary-card { min-width: 0; }
 input[type=range] { appearance: none; height: 24px; background: transparent; }
 input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: var(--radius-small); background: var(--slate-7); }

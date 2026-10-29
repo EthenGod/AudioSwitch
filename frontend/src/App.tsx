@@ -13,6 +13,7 @@ import { UpgradeSheet } from './components/UpgradeSheet'
 import { OperationFailure } from './data/desktop'
 import { APP_VERSION } from './version'
 import { PageTransition } from './components/PageTransition'
+import { ActionSlot } from './components/ActionSlot'
 
 const pages = {
   devices: { title: '声音设备', Icon: Headphones },
@@ -120,7 +121,11 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
     <div className="workspace">
       {(!desktop || readOnly) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? '连接中断，仅显示上次状态' : uncertain ? '操作结果尚未确认，请先刷新状态' : readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '已连接设备' : '界面预览，操作不会改变系统设置'}</span></div>}
       <main ref={main} id="main-content" tabIndex={-1} className="main-content">
-        <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">{page === 'devices' && <Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button>}{snapshot?.Preferences.GameMode && <span className="game-badge"><Gamepad2 size={13} />游戏模式</span>}{page !== 'settings' && <Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button>}</div></div>
+        <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">
+          <ActionSlot visible={page === 'devices'}><Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button></ActionSlot>
+          <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />游戏模式</span></ActionSlot>
+          <ActionSlot visible={page !== 'settings'}><Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></ActionSlot>
+        </div></div>
         <PageTransition page={page}>
         {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : error && !snapshot ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw />重试</Button></div> : snapshot && <>
           {error && <div className="backend-warning" role="alert"><span>{error}</span><Button variant="outline" disabled={refreshing} onClick={() => { void refresh() }}>重试</Button></div>}
