@@ -33,8 +33,10 @@ namespace AudioSwitch
             if (!Enum.IsDefined(typeof(DeviceRule), request.DeviceRule.Value)) throw new InvalidOperationException("无效的白名单规则。");
             DeviceProfile current;
             preferences.DeviceProfiles.TryGetValue(request.DeviceId, out current);
-            if ((current == null) != (request.ExpectedProfile == null)
-                || (current != null && (current.Volume != request.ExpectedProfile.Volume || current.SpatialFormat != request.ExpectedProfile.SpatialFormat))
+            // Dolby-only saves may create the container without changing either basic field.
+            var currentBasic = current ?? new DeviceProfile();
+            var expectedBasic = request.ExpectedProfile ?? new DeviceProfile();
+            if (currentBasic.Volume != expectedBasic.Volume || currentBasic.SpatialFormat != expectedBasic.SpatialFormat
                 || DeviceAutomation.Rule(preferences, request.DeviceId) != request.ExpectedDeviceRule.Value)
                 throw new InvalidOperationException("此设备预设已被其他窗口修改，请关闭设置并重新打开后再保存。");
             // Never accept a Dolby payload from this editor. Preserve the latest backend copy.

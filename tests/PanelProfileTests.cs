@@ -9,6 +9,7 @@ namespace AudioSwitch
     {
         internal static void Run(Action<bool, string> check)
         {
+            FirstDolbySave(check);
             var preferences = new Preferences();
             var state = new AudioState();
             state.Devices.Add(new Endpoint { Id = "online", Name = "同名设备", Flow = 0 });
@@ -52,6 +53,42 @@ namespace AudioSwitch
             check(preferences.DeviceProfiles.ContainsKey("mic") && saves == 3, "panel saves absent profile without capturing current volume");
             request.DeviceId = "missing";
             Reject(delegate { PanelProfile.SaveBasic(preferences, state, request, delegate { saves++; }); }, check, "panel rejects unknown endpoint");
+        }
+        private static void FirstDolbySave(Action<bool, string> check)
+        {
+            var preferences = new Preferences();
+            var state = new AudioState();
+            state.Devices.Add(new Endpoint { Id = "new-output", Flow = 0 });
+            // The outer sheet keeps its original absent baseline while the nested editor saves.
+            var basic = new Request { DeviceId = "new-output", ExpectedProfile = null,
+                Profile = new DeviceProfile { Volume = 25 }, DeviceRule = DeviceRule.AcceptSystem, ExpectedDeviceRule = DeviceRule.Normal };
+            var dolby = new DolbyProfile { Enabled = true, MainProfile = 4, SubProfile = 4 };
+            PanelProfile.SaveDolby(preferences, state, new Request { DeviceId = "new-output", DolbyProfile = dolby }, delegate { });
+            var before = Wire.Encode(preferences);
+            bool persisted = false;
+            Reject(delegate { PanelProfile.SaveBasic(preferences, state, basic, delegate { persisted = true; throw new InvalidOperationException("save failed"); }); }, check, "nested basic save reports persistence failure");
+            check(persisted && Wire.Encode(preferences) == before, "nested basic save reaches persistence and restores Dolby-only profile on failure");
+            PanelProfile.SaveBasic(preferences, state, basic, delegate { });
+            check(preferences.DeviceProfiles[basic.DeviceId].Volume == 25 && DeviceAutomation.Rule(preferences, basic.DeviceId) == DeviceRule.AcceptSystem,
+                "first Dolby save does not conflict with outer basic draft");
+            check(Wire.Encode(preferences.DeviceProfiles[basic.DeviceId].Dolby) == Wire.Encode(dolby), "outer basic save preserves first Dolby scheme");
+
+            // Null is keep-unchanged, not zero volume or explicitly disabled spatial sound.
+            foreach (var changed in new[] { new DeviceProfile { Volume = 0 }, new DeviceProfile { SpatialFormat = "" } })
+            {
+                preferences.DeviceRules.Clear(); preferences.DeviceProfiles[basic.DeviceId] = changed;
+                before = Wire.Encode(preferences); persisted = false;
+                Reject(delegate { PanelProfile.SaveBasic(preferences, state, basic, delegate { persisted = true; }); }, check, "absent baseline detects concurrent basic field change");
+                check(!persisted && Wire.Encode(preferences) == before, "concurrent basic conflict leaves settings untouched");
+                preferences.DeviceProfiles.Clear(); basic.ExpectedProfile = changed;
+                Reject(delegate { PanelProfile.SaveBasic(preferences, state, basic, delegate { persisted = true; }); }, check, "nonempty baseline detects concurrent profile removal");
+                basic.ExpectedProfile = null;
+            }
+            preferences.DeviceRules[basic.DeviceId] = DeviceRule.SwitchOnConnect;
+            Reject(delegate { PanelProfile.SaveBasic(preferences, state, basic, delegate { }); }, check, "absent basic fields still detect concurrent rule change");
+            preferences.DeviceRules.Clear(); basic.ExpectedProfile = new DeviceProfile();
+            PanelProfile.SaveBasic(preferences, state, basic, delegate { });
+            check(preferences.DeviceProfiles[basic.DeviceId].Volume == 25, "empty basic baseline equals an absent current profile");
         }
         private static void Reject(Action action, Action<bool, string> check, string label)
         {
