@@ -1,6 +1,6 @@
 # 声间 · 新前端与桌面面板
 
-当前开发目标为 [v0.12.1](VERSION-0.12.1.md)：仅提供单 EXE 便捷展开版和完整 ZIP，继续等待新功能内容，暂不生成 Release 附件。v0.12.0 按测试版保留；以下分阶段迁移记录不再代表新的发布路线。
+当前为 [v0.12.1 测试版](VERSION-0.12.1.md)，交付便捷展开 EXE 和完整 ZIP。发行与修复状态见 [项目交接记录](../HANDOFF.MD)；以下分阶段迁移内容保留为历史记录，不代表新的发布步骤。
 
 UI 已按新约定统一配色、字号和文案。见 [UI 调整与验证](UI-REFRESH-0.12.1.md)。开始后续任务前先看 [项目交接记录](../HANDOFF.MD)。
 
@@ -26,7 +26,7 @@ React + TypeScript + Tailwind + shadcn（Base UI）。开发预览与单文件 H
 输出必须位于项目 `staging/`，不生成 Release 附件。
 预览地址加 `?view=prompt` 可查看模拟设备提示窗口，加 `&light` 可查看浅色。
 
-## 桌面版（第四阶段分项迁移）
+## 桌面版（历史迁移说明）
 
 在仓库根目录构建，不覆盖日常使用的 `bin/`：
 
@@ -135,20 +135,15 @@ Rust 只注册状态查询、主面板操作、四个备份命令和维护任务
 - “刷新示例”重新读取当前内存状态，不丢失修改。浏览器刷新会重置全部预览；切换底部预览场景会重置示例数据并保留当前主题。
 - 场景包括常规（含离线设备）、空设备、同名设备、长名称、延迟加载、连接错误。错误页“重试”恢复常规场景。
 
-## 浏览器验收
+## 当前验收入口
 
-`scripts/verify-browser.js` 是 Playwright CLI 可重跑的交互与截图脚本，不是浏览器端应用代码。先运行生产预览，再用独立会话打开本地页面并读取 snapshot：
+在 frontend 目录运行 `npm test` 和 `npm run typecheck`。测试覆盖模拟交互、保存／取消、排序、断线、权限清单和更新状态。`npm run build:preview` 生成独立 HTML，用于人工检查深浅色、键盘和窄窗口布局。
 
-```powershell
-npx --package @playwright/cli playwright-cli -s=audio-ui open http://127.0.0.1:4173 --browser=msedge
-npx --package @playwright/cli playwright-cli -s=audio-ui snapshot
-npx --package @playwright/cli playwright-cli -s=audio-ui run-code --filename scripts/verify-browser.js
-npx --package @playwright/cli playwright-cli -s=audio-ui close
-```
+旧 `verify-browser.js` 和 `verify-dolby-apply-browser.js` 已移除。它们依赖过时文案和原生 select；相关行为由 `App.test.tsx`、`DolbyApp.test.tsx`、`DolbyApply.test.tsx` 等当前组件测试覆盖。历史阶段文档中的脚本名与测试数量仅是当时记录。
 
-截图在 `output/playwright/`；缩放使用 CSS 视口与像素密度模拟，不代替 Windows 多显示器跨 DPI 实测。构建、测试和截图均不启动现有 AudioSwitch 后台。当前结果见 [VALIDATION.md](VALIDATION.md)。
+其余 `scripts/verify-*.js` 保留为阶段联调夹具，部分针对旧后台或旧界面。不能把它们当作当前一键验收入口；运行前须核对选择器、目标和副作用。真实音频或安装测试按 `../MANUAL-TESTS.md` 的对应条件执行。
 
-`dist/`、`node_modules/`、截图与浏览器会话输出均被忽略。构建显式关闭输出目录清空，旧构建文件保留；此目录用于本地预览，暂不作为正式发布包。
+`dist/`、`node_modules/`、staging、截图及浏览器会话输出都不进入 PR。HTML 与模拟检查不代替 Windows 多显示器、设备插拔或真实升级验收。
 
 ## 后续边界
 

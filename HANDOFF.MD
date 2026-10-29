@@ -12,8 +12,10 @@
 ## 当前测试 Release
 
 - 2026-10-29：`releases/v0.12.1/` 已生成便捷展开 EXE 和完整 ZIP，仅两个附件。两者均来自当前源码重新编译，不复用旧测试包。发行说明见 `releases/RELEASE-NOTES-v0.12.1.md`；完整摘要、日志和发布步骤见 `releases/DELIVERY-v0.12.1.md`。
-- 前端 124 项、后台 821 项检查，以及类型检查、生产构建、桌面编译和两附件展开校验通过。展开后 14 个文件与 ZIP 一致。真实配置未变，没有启动真实音频后台。日常 bin 和旧 Release 保留。
-- 保留了 Vite 体积提醒、Rust 路径规范化提示和 C# 成员隐藏警告，详情见交付记录。本轮没有为了清除警告扩展代码修改。
+- PR 前检查发现 4 个更新／修复命令漏入 Tauri 权限。已同步 build.rs、主面板 capability 和自动生成的权限文件；设备提示窗口不获得更新权限。新增清单一致性回归先复现失败，再验证通过。每次新增 invoke 命令都必须同步这些文件，浏览器模拟接口不会经过 Tauri ACL。
+- 修复后候选包在 `staging/pr-ready-20261029/v0.12.1/`，PR 草稿与摘要在同级 `PR.md`。`releases/v0.12.1/` 旧附件保留原样，**不包含权限修复，不应作为最终上传件**。确认替换方式后再处理，不混用两轮摘要。
+- 当前验证：前端 125 项、Rust 40 项（3 项可选测试跳过）、后台 819 项、类型检查、生产构建、桌面编译和两附件展开校验通过。后台总数包含实际枚举设备，可能随设备数量变化。展开后 14 个文件与 ZIP 一致。真实配置未变，没有启动真实音频后台，未进行真实下载／安装。日常 bin 和旧 Release 保留。
+- TrayPopup.Closing 已重命名为 IsClosing，消除隐藏 Form.Closing 的编译警告。仍保留 Vite 分块体积提醒和 Rust 路径规范化提示。
 - 附件尚未上传。后续发布需用户授权，先提交与附件对应的源码和本轮包内说明，标签为 v0.12.1，设置 Pre-release，不设 Latest。下载链接已核对目标文件名，线上下载及升级仍需发布后核验。
 
 ## UI 注意事项
@@ -42,9 +44,7 @@
 - 保存设置时区分 pending 和真正不可用。pending 仍拦截重复操作，但不降低透明度；覆盖规则必须比后面的 disabled 规则优先。端口暂时只读，保留焦点和草稿。后台确认后才更新开关。
 - 三个主页面仅正文使用 PageTransition。标题和工具按钮放在动画容器外。只在 page 改变时播放 250 ms、8 px 的轻移淡入，刷新和保存不能重播。快速切换从当前画面继续；减少动态效果时取消动画。保留单份可交互页面，不叠加两份控件。
 - 顶部连接错误和后台警告使用 PanelAlert，放在 PageTransition 外。切页不移动、不重播；出现用 250 ms ease-out，关闭用 200 ms ease-in。退出期间保留消息，立即移除读屏角色并设为 inert；关闭后不占空间。相同后台警告刷新后仍保持关闭。沿用全局减少动态效果规则。
-- 2026-10-29 提示和强度字段：33 项相关前端测试、类型检查和离线预览构建通过。浏览器模拟验证切页时提示坐标不变、重试恢复、强度数值按开关显隐且三行开关对齐。预览为 `staging/panel-alert-preview/声间-UI预览.html`。未连接真实后台，未重新编译 EXE。
 - 右上角工具区独立使用 ActionSlot。持续保留同一控件，用 ResizeObserver 测量实际宽度，平滑展开或收起占位。内容固定完整宽度并靠右，横移 8 px 同时淡入淡出；不能用收缩容器裁掉文字。进入 250 ms ease-out，退出 200 ms ease-in；宽度用无回弹曲线，不带动标题。隐藏时立即设置 inert 和 aria-hidden，结束后隐藏绘制，避免透明按钮接收点击或 Tab。沿用全局减少动态效果规则，刷新和等待状态不重播位置动画。
-- 2026-10-29 标题栏过渡：相关 16 项前端测试、类型检查和 HTML 构建通过。浏览器模拟切换三个页面，确认共用标记经过中间位置，标题坐标一致，根页面没有额外滚动。预览为 `staging/header-motion-preview/声间-UI预览.html`，截图为 `staging/artifacts/header-motion.jpg`。本轮没有重新编译 EXE，也未连接真实后台。
 - page-content 必须保留 position:relative。排序的 sr-only 提示是绝对定位；若没有常驻定位祖先，动画结束后会改用文档作为定位容器，撑出第二条页面滚动条。不要靠删除读屏提示处理。验证时检查根页面高度及 scrollTop，不能只看正文滚动正常。
 - Base UI 默认不渲染嵌套 Dialog 的 Backdrop。Dolby 子抽屉显式 forceRender 透明遮罩，层级高于设备抽屉、低于自身；下拉层再高一级。外侧点击仅关闭顶层，仍走原取消／恢复流程，不能绕过正在保存或应用的守卫。
 - PriorityList 拖动期间只预览顺序，松手后走原 reorder 接口一次。用端点 ID 和输入／输出各自排序；取消、断线、设备列表变化不能提交旧草稿。保留上下按钮和键盘操作，失败恢复后台顺序。拖动中的行跟随指针，其他行平移让位；落位后不能同时保留旧 transform 和新 DOM 顺序，否则会二次跳动。
@@ -56,6 +56,7 @@
 - 使用已安装的独立 Node 24。不要更换全局 Node。
 - PowerShell 下用 `rg -g '*Sheet.tsx' frontend/src/components`。
 - 不要把通配符直接放入 Windows 文件路径参数。
+- 当前前端回归入口为 npm test／typecheck；两个依赖旧 UI 的脚本 verify-browser.js、verify-dolby-apply-browser.js 已移除。其他阶段脚本保留历史用途，不能未经核对就当作当前一键验收。历史阶段文档的脚本名不是当前文件清单。
 - .NET Framework 反射诊断使用 `powershell.exe`。
 - 不要因只读测试而启动真实后台。启动规则可能改变音频设置。
 
@@ -83,9 +84,6 @@
 - 托盘优先使用 DWM 系统圆角及主题边框，保持整窗分层透明度。成功启用后清除 SetWindowRgn，停止手绘外框，避免 GDI 抗锯齿、硬裁切和系统边框相互截断。窗口缩放交给合成器同步处理。API 成功只代表接受请求；需在对比背景上检查实际屏幕四角及透明首帧，DrawToBitmap 不包含系统外框。接口依据：https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/ui/apply-rounded-corners 。
 - 不支持系统圆角时保留原生裁切兼容路径。SetWindowRgn 不会随窗口尺寸自动变化，TrayPopup.OnSizeChanged 必须同步更新区域，且不能提前创建句柄。覆盖子页完全展开后返回、增长中间帧及快速返回；只检查控件 Visible 不足以发现下半部分被裁掉。
 - 兼容路径外轮廓使用缩放后的 12 px，边框中心线及半径向内偏半像素。裁切按像素中心采样并镜像四角，避免 150% 尺寸下不对称。PopupChrome.Round 的显式直径只供托盘使用，旧界面保留默认行为。兼容路径仍有硬裁切的像素限制，不要把它当作系统合成圆角。
-- 2026-10-29 系统圆角验证：本机深浅色对比背景的实际屏幕四角、返回后的内缘及透明首帧检查通过。共 198 项托盘检查、819 项后台检查、前端构建和两附件展开校验通过；兼容路径也保留独立渲染覆盖。截图为 `staging/artifacts/tray-system-corners-dark.png` 和 `tray-system-corners-light.png`。最新测试包为 `staging/test-0.12.1-system-corners-20261029/v0.12.1/`，日志为 `staging/corner-pixel-render.log` 和 `staging/system-corners-package.log`。未改真实音频、配置、bin 或 Release。旧系统和远程桌面的系统圆角效果未实机验证，接口不支持时回退兼容路径。
-- 2026-10-29 圆角与横移淡入检查：16 项相关前端测试、190 项托盘检查、819 项后台检查和两附件展开校验通过。浏览器采样确认横移与透明度同步变化，按钮宽度不变；已查看深浅色 100%、150%、200% 尺寸渲染和返回后的实际屏幕截图。新包为 `staging/test-0.12.1-corner-motion-20261029/v0.12.1/`，前端 HTML 为 `staging/corner-motion-preview/声间-UI预览.html`。日志为 `staging/corner-motion-render.log` 和 `staging/corner-motion-package.log`。未写真实音频或配置，未覆盖 bin 或 Release；尺寸渲染不代替跨屏 DPI 实机检查。
-- 2026-10-29 返回裁切修复：新增检查在修复前失败，修复后通过 184 项交互桌面托盘检查、819 项后台检查，以及前端类型检查、生产构建和两附件展开校验。已查看完全进入子页再返回的实际屏幕截图，底部完整。最新测试包为 `staging/test-0.12.1-tray-clip-20261029/v0.12.1/`；日志为 `staging/tray-clip-render.log` 和 `staging/tray-clip-package.log`。未启动真实音频后台，配置校验未变，未更新 bin 或 Release。
 - 前台层级检查需要交互桌面。隔离桌面的 GetForegroundWindow 可能返回零；测试应明确记为跳过，不能据此报告层级通过。`--tray-popup-render` 可定向检查，无须启动真实后台。
 - 进入淡入 250 ms ease-out，关闭淡出 200 ms ease-in，悬停颜色 150 ms ease-out。首帧以原生分层窗口 alpha=0 完成布局和绘制，再开始淡入；达到 alpha=255 时不切换窗口样式。显示前不能启动悬停计时器，避免抢先改动透明度。动画结束和关闭时停止计时器，遵从 Windows 动画开关。
 - 连续右键复用现有窗口。关闭动画途中再次打开，从当前透明度恢复，不关闭重建。构造期间再次右键也只更新待显示快照。
@@ -105,68 +103,3 @@
 - 主面板原生窗口默认隐藏，背景与深色页面一致。HTML 在脚本加载前提供同色背景。首次读取完成后，先提交主题与内容，再调用仅限 main 窗口的 panel_ready 显示。读取失败也必须显示错误页面。
 - 原有后台生命周期检查附带 5 秒显示兜底，避免脚本失败留下无法关闭的隐藏进程。提示窗口保持原有显示方式；浏览器模式不创建窗口。兜底显示不抢焦点，迟到的 ready 也不再次抢焦点。
 - 首次 loading 与后续 refreshing 分开。焦点刷新不能卸载页面、清空搜索、关闭抽屉或重置端口草稿。刷新失败保留上次内容，明确标为旧状态并禁止音频写入；成功读取后解除。初次读取失败没有旧内容时才显示整页错误。
-
-## 本轮证据
-
-2026-10-29 排序首尾边界：11 项定向测试、类型检查和离线预览构建通过。浏览器用真实指针将第二项移到第一位、第三项移到最后一位，模拟保存结果正确。预览为 `staging/priority-edge-preview/声间-UI预览.html`，截图为 `staging/artifacts/priority-edge-result.jpg`。本次仅修改前端排序判定，未重新生成桌面测试包，未写真实音频。
-
-2026-10-29 单滚动容器与托盘横滑：980×680 浏览器复现根页面高 694 px，修正后为 680 px。拖动正文滚动条到底后，正文 scrollTop 为 73，根页面 scrollTop 和侧栏顶部均为 0，底栏仍在 680 px。截图为 `staging/artifacts/single-scroll-automation.jpg`。后台 819 项、托盘 174 项及类型检查通过；托盘检查覆盖进入向左、返回向右、结束归零及短菜单返回重绘。没有音频写入。
-
-980×500 补查根页面高度也等于视口。最终生产构建及两附件展开校验通过；测试包在 `staging/test-0.12.1-scroll-slide-20261029/v0.12.1/`，预览在 `staging/scroll-slide-preview/声间-UI预览.html`。未覆盖 bin 或 Release。
-
-2026-10-29 导航与拖动修正：前端共 116 项覆盖通过，包含最后 17 项定向复查。后台 821 项、托盘 173 项及最终两附件展开校验通过。托盘新增三帧绘制差异及可见对比度检查。浏览器在 1280×720 下用真实指针拖动模拟耳机到第三位；点击 Dolby 左侧空白回到设备设置，未保存音量草稿仍保留。没有真实音频写入。
-
-测试包为 `staging/test-0.12.1-navigation-drag-20261028/v0.12.1/`，离线预览为 `staging/navigation-drag-preview/声间-UI预览.html`。包目录保留开始构建时的日期；未覆盖 bin、Release 或旧测试包。
-
-2026-10-28 设备图标与过渡：前端完整 111 项及新增保存等待测试 1 项通过；后台 821 项、交互桌面托盘 171 项通过。覆盖同名不同类型、旧后台兼容、重复提交、导航中断和减少动态效果。已查看托盘设备列表及返回首页截图，底部重绘正常。浏览器检查发现并修正 pending 样式优先级，确认保存期间 12 个相关控件透明度均为 1。
-
-最终测试包位于 `staging/test-0.12.1-device-motion-final-20261028/v0.12.1/`；预览为 `staging/device-motion-preview/声间-UI预览.html`。最终生产构建、两附件及展开校验通过，日志为 `staging/device-motion-final-package.log`。未更新 bin 或 Release，未执行真实音频写入。浏览器目视与模拟测试不代表所有设备、DPI 和驱动均已实测。
-
-2026-10-28 面板启动与刷新：前端 108 项测试通过，补充草稿保留后定向 5 项通过；Rust check、类型检查、后台 816 项和两附件校验通过。1280×720 浏览器实测，端口错误前后输入框位置为 (1113, 280.58)，尺寸 108×36，设置行高度均为 79.39 px。截图为 `staging/artifacts/panel-port-error-dark.jpg`。
-
-新版原生面板已连接交互桌面的现有后台，读到 14 台设备。搜索后手动刷新仍保留搜索词和结果。只执行读取、搜索和刷新；关闭后指定测试面板进程退出。未执行音频写入，未停止原后台。无后台和断线恢复由模拟测试覆盖；冷启动每一帧的颜色未做高速录制，不据此宣称所有机器均无闪屏。
-
-本轮测试包为 `staging/test-0.12.1-panel-stability-20261028/v0.12.1/`；离线模拟 HTML 为 `staging/panel-stability-preview/声间-UI预览.html`。日志为 `staging/panel-stability-tests.log`、`staging/panel-stability-rust.log`、`staging/panel-stability-package.log`。未更新 bin 或 Release。
-
-最近的 UI 调整和 HTML 预览见 [UI 验证记录](frontend/UI-REFRESH-0.12.1.md)。
-本轮没有连接真实音频后台。旧发布包和现有配置未由 UI 验证修改。
-
-2026-10-26 浏览器面板测试包已重新编译至 `staging/test-0.12.1-browser-20261026-r2/v0.12.1/`。含最新启动失败提示及下拉框宽度修正。前端 99 项测试、后台 789 项检查、类型检查和两附件展开校验通过。构建日志为 `staging/browser-package-build-r2.log`。没有启动真实后台；浏览器实际退出行为仍待实测。
-
-2026-10-27 持续端口与托盘菜单：前端 101 项、Rust 38 项（3 项可选测试跳过）、后台 795 项及渲染 1123 项通过。已查看深浅色及 200% 菜单图片。隔离的真实服务进程保持空闲端口超过 60 秒，收到 release 后进程与端口均退出。调试构建在 63 秒空闲期间消耗约 16 ms CPU 时间，仅作本机观察。日志为 `staging/retained-port-smoke.log`。未启动真实音频后台，真实浏览器标签、托盘设备切换及系统 DPI 仍未验收。
-
-本轮测试包位于 `staging/test-0.12.1-tray-port-20261027/v0.12.1/`，含便捷展开 EXE 和完整 ZIP。两附件及展开校验通过。打包记录为 `staging/tray-port-package.log`；未生成 Release 附件。
-
-2026-10-27 自定义端口与托盘图标：前端 104 项、Rust 40 项（3 项可选测试跳过）、后台 811 项、渲染 1151 项通过。已查看菜单深浅色和 200% 字号渲染，确认动画结束及菜单关闭后计时器停止。已在浏览器模拟预览中保存端口并检查深浅色设置页。真实的隔离服务使用指定回环端口，拒绝无凭据请求，release 后退出并释放端口；端口占用拒绝由 Rust 实际套接字测试覆盖。未启动真实音频后台，也未验证日常托盘中的音频操作。
-
-上轮测试包：`staging/test-0.12.1-custom-port-20261027/v0.12.1/`。仅 EXE 和 ZIP，两附件及展开校验通过。记录为 `staging/custom-port-package.log`、`staging/custom-port-smoke.log`。离线模拟预览为 `staging/custom-port-preview/声间-UI预览.html`。没有修改 bin 或 Release 附件。
-
-2026-10-27 托盘换实现与端口自动保存：前端 106 项通过，最终包后台 818 项通过，两附件和展开校验通过。完整渲染 1176 项通过；最后一次键盘修正后用 `AudioSwitch.Tests.exe --tray-popup-render` 定向复查，77 项通过。此入口只检查模拟菜单，不启动真实音频后台。已查看深浅色与 200% 菜单图片，验证长列表滚动、键盘返回、动画停表，以及正常／立即关闭时独立界面线程回收。日常后台繁忙时的实际手感仍由用户试用确认。
-
-最新测试包：`staging/test-0.12.1-tray-popup-20261027-r2/v0.12.1/`。记录为 `staging/tray-popup-package-r2.log`、`staging/tray-popup-focused.log`。新版离线预览为 `staging/tray-popup-preview/声间-UI预览.html`，只展示模拟前端，不包含原生托盘窗口。内置浏览器拒绝 file 协议，因此本轮 HTML 未做浏览器实看；自动保存交互已由组件测试覆盖。未修改真实配置、音频、bin 或 Release 附件。
-
-2026-10-27 前端对齐修正：在 1280×720 的本机开发预览中测量，三个页面标题坐标相同；输入无效端口前后，输入框的位置和尺寸完全相同。相关组件测试、类型检查和 HTML 构建通过。最新 HTML 为 `staging/layout-fixes-preview/声间-UI预览.html`，截图为 `staging/artifacts/port-error-aligned.png`。本轮未重新打包 EXE，之前的测试 EXE 不包含这两处布局修正。
-
-2026-10-28 托盘首开与紧凑布局：修正句柄提前创建、显示前台顺序和快速重开请求丢失。首页去掉重复标题区，统一间距，并添加可反向的设备页位移过渡。交互桌面的模拟置顶窗口、快速重开、失焦关闭和动画停表共 94 项托盘检查通过；后台 818 项检查、类型检查、生产构建、两附件展开校验通过。已查看深浅色和 200% 渲染。真实 Explorer 折叠面板的一次右键仍需用户试用确认；未启动真实后台或写入音频。
-
-最新测试包为 `staging/test-0.12.1-tray-focus-20261028/v0.12.1/`，包含本轮托盘修正及上轮前端对齐修正。日志为 `staging/tray-focus-package.log`、`staging/tray-focus-final-render.log`。配置未变，未更新 bin 或 Release 附件。
-
-2026-10-28 托盘交互修正：鼠标悬停与键盘焦点分开，修正自动焦点／点击后高亮不消退。返回键复用 PopupRow 绘制与按压动画，Enter 可直接返回。常规首页从 320×312 缩为 300×274，字号不变；深浅色及 200% 渲染已查看。交互桌面 131 项托盘检查、后台 816 项检查、类型检查和两附件展开校验通过。没有音频写入，真实用户配置未变。
-
-最新测试包：`staging/test-0.12.1-tray-interaction-20261028/v0.12.1/`。日志为 `staging/tray-interaction-render.log`、`staging/tray-interaction-package.log`；截图保留在 `staging/tray-interaction-preview/`。未更新 bin 或 Release 附件，真实托盘日常操作手感仍由用户试用确认。
-
-2026-10-28 托盘空间导航：顶部两个入口改为左右选择，上下按视觉行导航并记住顶部列；设备子菜单的进入／返回不变。图标统一为 18 px 光学尺寸和 1.5 px 圆头线条，返回键使用完整左箭头。交互桌面 141 项托盘检查、后台 816 项检查、类型检查和两附件校验通过。已查看深浅色与 200% 渲染，没有音频写入。
-
-最新测试包为 `staging/test-0.12.1-tray-navigation-20261028/v0.12.1/`；日志为 `staging/tray-navigation-render.log`、`staging/tray-navigation-package.log`。截图位于 `staging/tray-navigation-preview/`。未更新日常 bin 或 Release 附件。
-
-2026-10-28 托盘淡入与连续操作：首帧透明绘制，淡入结束保留分层窗口样式；连续右键及淡出中重开复用窗口。设备切换及模式开关保留菜单，后台线程执行后回传实际快照，重复提交受阻，失败保留菜单内说明。相同列表原位更新，滚动位置保持；真实后台事件推送快照，不增加轮询。点击外部／Esc 关闭菜单不会撤销已提交的动作，迟到回调不能重开窗口。
-
-最终交互桌面 156 项托盘模拟检查、后台 816 项检查、类型检查及两附件展开校验通过。检查包含原生 alpha 从 0 到 255 单调递增、窗口样式保持、跨线程命令及结果返回、连续开关、同名设备、失败和关闭回调。已查看深浅色及失败状态渲染。没有真实音频写入，日常托盘的动画观感仍需用户试用确认。
-
-最新包：`staging/test-0.12.1-tray-continuous-20261028/v0.12.1/`。日志为 `staging/tray-continuous-final-render.log`、`staging/tray-continuous-package.log`。配置不变，未更新 bin 或 Release 附件。
-
-2026-10-28 托盘返回与动画修正：短子菜单返回时完整重绘分层窗口，页面只移动绘制内容，避免底部留下黑色区域。选中状态确认后平滑更新，等待期间保留外观和焦点。顶部两个入口先淡出再打开界面，淡出期间保留按钮颜色及按压释放动画。
-
-最终交互桌面 168 项托盘检查、后台 816 项检查、类型检查和两附件展开校验通过。反复进入单项麦克风菜单再返回后，读取实际屏幕像素确认退出行底色正常；截图为 `staging/artifacts/tray-popup-return-native.png`。已查看深浅色与设备列表渲染。检查未写真实音频，配置未变；实际音频切换耗时及日常动画手感仍由用户试用确认。
-
-最新包：`staging/test-0.12.1-tray-smooth-20261028/v0.12.1/`。记录为 `staging/tray-smooth-final-render.log`、`staging/tray-smooth-package.log`。未更新 bin、Release 或 Git 提交。

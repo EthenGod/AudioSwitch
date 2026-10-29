@@ -15,7 +15,7 @@
 
 - Windows x64 音频设备管理工具。`refactor/ui` 重构采用 React / TypeScript / Tailwind / shadcn 前端，后续使用 Tauri 2 / WebView2；现有 C# 音频后台保留。保持轻量，不引入 Electron 或新的常驻服务；关闭界面后释放对应界面进程。
 - 现有后台使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；后台没有 SDK 风格项目或 NuGet 恢复步骤。新增 `frontend/` 独立使用 Node 构建，不把前端构建依赖加入后台。
-- UI 重构按独立阶段验收，每阶段完成后先汇报并等待用户确认，不自动进入下一阶段、不自动提交或合并。第一阶段只实现模拟数据原型，不连接后台或真实用户配置，不改现有发布入口。
+- UI 重构按独立阶段验收，每阶段完成后先汇报并等待用户确认，不自动进入下一阶段、不自动提交或合并。当前桌面版已连接真实后台；仅开发预览和离线 HTML 使用模拟数据。历史第一阶段的边界不再适用于完整桌面包。
 - 默认进程是托盘后台；`--ui` 是面板，`--prompt` 是右下角提示，`--dolby-worker` 是短时辅助进程。关闭界面必须释放对应进程，不能只是隐藏。
 - 用户显式开启“保持浏览器端口开放”时，允许无窗口的浏览器服务随后台保留。默认关闭；关闭开关后恢复按需退出，退出后台时必须释放端口及服务进程。
 - 空闲后台依靠 Core Audio 事件，不轮询设备或 Dolby。约 150 ms 的事件合并从首条事件起算，连续事件不能无限推迟处理。
@@ -37,6 +37,7 @@
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
+| `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
 | `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
 | `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |

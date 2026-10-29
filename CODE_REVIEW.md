@@ -1,4 +1,17 @@
-# 代码检查记录 · v0.9.1
+# 代码检查记录
+
+## 2026-10-29：v0.12.1 PR 前检查
+
+- 已修复 P1：桌面更新／修复的 start_upgrade、read_upgrade、upgrade_action、cancel_upgrade 已注册到 invoke handler，却未写入 AppManifest 和主窗口 capability。Tauri 在应用 ACL 启用后会拒绝未授权命令。浏览器 HTTP 路径直接调 Rust 函数，组件测试又使用模拟接口，两者都不能覆盖此遗漏。
+- 新增 commandPermissions.test.ts，核对全部原生命令、应用清单和窗口权限，并保证更新命令不授权给设备提示窗口。修复前因 4 个缺失命令失败，修复后通过；新增 4 份权限文件由 Tauri 构建自动生成。
+- 托盘关闭状态属性改名为 IsClosing，避免隐藏 Form.Closing。只调整属性名和对应引用，未改动画或音频行为。
+- 移除 verify-browser.js 和 verify-dolby-apply-browser.js。前者仍断言“Dolby 未接入”并使用原生 select；后者没有当前引用且使用已删除的按钮文案。当前组件测试覆盖保存、取消与应用反馈，浏览器布局仍需人工检查，不能说删除脚本后等价完成了全部视觉验收。
+- 精简 HANDOFF.MD 的重复历史构建记录，保留复用约束和当前交付状态。更正 frontend/README.md 的待开发状态和当前验收入口；阶段文档、必要测试夹具、源码、锁文件、许可、SVCL 和旧 WinForms 兼容路径保留。
+- Git 跟踪文件未包含命中忽略规则的构建产物。未发现跟踪的配置、日志、压缩包、依赖目录或常见私钥／GitHub token 模式；这不是完整历史密钥审计。Markdown 相对文件链接检查无缺失。
+- 前端 125 项、Rust 40 项（3 项可选测试跳过）、后台 819 项通过；类型检查、生产构建、桌面编译及两附件展开验证通过。日志为 staging/pr-ready-frontend-tests.log、pr-ready-rust-tests.log、pr-ready-package.log。
+- 修复包在 staging/pr-ready-20261029/v0.12.1/。原 releases/v0.12.1 附件没有覆盖，文档已明确其不含权限修复。未进行真实更新下载／安装、音频写入、硬件插拔或跨屏 DPI 复验；未自动提交、推送、创建 PR 或合并。
+
+检查边界：本轮集中检查新增前端、桌面命令权限、本机浏览器传输、托盘状态、打包路径和仓库卫生。未逐行重新证明全部旧音频／Dolby 核心，也不以通过测试宣称没有其他缺陷。
 
 ## 2026-10-01：v0.11.1 发布构建
 

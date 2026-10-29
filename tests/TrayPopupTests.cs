@@ -336,7 +336,7 @@ namespace AudioSwitch
                 var actions = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => opened++, () => opened++, r => { }, () => { });
                 using (var popup = new TrayPopup(actions, new Point(600, 570), true, 1, true)) {
                     popup.Show(); Pump(300); popup.ActivateCommand(actions[entry]); Pump(60);
-                    check(popup.Visible && popup.Closing && popup.PresentationOpacity > 0 && popup.PresentationOpacity < 1 && popup.Rows[entry].Enabled && opened == 0, "top action fades without dimming or launching another surface early " + entry);
+                    check(popup.Visible && popup.IsClosing && popup.PresentationOpacity > 0 && popup.PresentationOpacity < 1 && popup.Rows[entry].Enabled && opened == 0, "top action fades without dimming or launching another surface early " + entry);
                     popup.ActivateCommand(actions[entry]); Pump(200);
                     check(!popup.Visible && !popup.Animating && popup.Chosen != null && opened == 0, "top action completes its exit before handing off " + entry);
                     popup.Chosen(); check(opened == 1, "top action remains a single launch " + entry);

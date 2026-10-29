@@ -4,6 +4,8 @@
 
 GitHub 标签使用 `v0.12.1`，标题使用“声间 AudioSwitch v0.12.1 测试版”。勾选 **Set as a pre-release**，不要设为 Latest。测试版不进入稳定版自动更新，需要手动下载。当前只准备本地文件，尚未发布。
 
+PR 前检查补齐了桌面更新／修复权限。`v0.12.1/` 原附件未覆盖；当前修复候选在 `../staging/pr-ready-20261029/v0.12.1/`，请先看交付记录中的修正提示，勿直接上传旧附件。
+
 ## 发行说明规范
 
 以后从 [发行说明模板](RELEASE-NOTES-TEMPLATE.md) 复制，保存为 `RELEASE-NOTES-v版本号.md`。替换所有 `{{VERSION}}` 和内容占位符，删除编辑提示注释后，再粘贴到 GitHub Release。

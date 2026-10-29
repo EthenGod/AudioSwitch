@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cancel-upgrade"
+description = "Enables the cancel_upgrade command without any pre-configured scope."
+commands.allow = ["cancel_upgrade"]
+
+[[permission]]
+identifier = "deny-cancel-upgrade"
+description = "Denies the cancel_upgrade command without any pre-configured scope."
+commands.deny = ["cancel_upgrade"]

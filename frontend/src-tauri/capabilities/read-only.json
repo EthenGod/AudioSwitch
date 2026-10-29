@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "read-only",
-  "description": "Local panel commands only. No generic IPC, shell, filesystem or updater.",
+  "description": "Main panel commands, including verified update and repair workflows. No generic shell or filesystem access.",
   "windows": ["main"],
-  "permissions": ["allow-panel-ready", "allow-read-snapshot", "allow-read-device-settings", "allow-panel-action", "allow-export-backup", "allow-choose-import", "allow-confirm-import", "allow-discard-import", "allow-start-maintenance", "allow-read-maintenance", "allow-cancel-maintenance", "allow-save-dolby", "allow-start-dolby-read", "allow-read-dolby", "allow-cancel-dolby-read", "allow-start-dolby-apply", "allow-read-dolby-apply", "allow-cancel-dolby-apply"]
+  "permissions": ["allow-panel-ready", "allow-start-upgrade", "allow-read-upgrade", "allow-upgrade-action", "allow-cancel-upgrade", "allow-read-snapshot", "allow-read-device-settings", "allow-panel-action", "allow-export-backup", "allow-choose-import", "allow-confirm-import", "allow-discard-import", "allow-start-maintenance", "allow-read-maintenance", "allow-cancel-maintenance", "allow-save-dolby", "allow-start-dolby-read", "allow-read-dolby", "allow-cancel-dolby-read", "allow-start-dolby-apply", "allow-read-dolby-apply", "allow-cancel-dolby-apply"]
 }

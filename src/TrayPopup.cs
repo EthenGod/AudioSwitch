@@ -146,7 +146,7 @@ namespace AudioSwitch
         internal Action Chosen { get; private set; }
         internal bool Animating { get { return timer.Enabled; } }
         internal bool Busy { get { return pendingKey != null; } }
-        internal bool Closing { get { return closing; } }
+        internal bool IsClosing { get { return closing; } }
         internal double PresentationOpacity { get { return presentationOpacity; } }
         internal IList<PopupRow> Rows { get { return rows.AsReadOnly(); } }
         [DllImport("user32.dll")] private static extern bool SystemParametersInfo(uint action, uint param, out int value, uint flags);
@@ -645,7 +645,7 @@ namespace AudioSwitch
             protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); if (!iconOnly) owner.Reveal(this); Invalidate(); }
             protected override void OnMouseWheel(MouseEventArgs e) { owner.ScrollRows(e.Delta); var handled = e as HandledMouseEventArgs; if (handled != null) handled.Handled = true; }
             protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); SetPressed(false); Invalidate(); }
-            protected override void OnMouseDown(MouseEventArgs e) { if (owner.Closing) return; owner.SetKeyboardNavigation(false); base.OnMouseDown(e); SetPressed(e.Button == MouseButtons.Left); }
+            protected override void OnMouseDown(MouseEventArgs e) { if (owner.IsClosing) return; owner.SetKeyboardNavigation(false); base.OnMouseDown(e); SetPressed(e.Button == MouseButtons.Left); }
             protected override void OnMouseUp(MouseEventArgs e) { SetPressed(false); base.OnMouseUp(e); }
             protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (!Capture) SetPressed(false); }
             protected override void OnKeyDown(KeyEventArgs e) { if (e.KeyCode == Keys.Space) SetPressed(true); base.OnKeyDown(e); }
@@ -698,7 +698,7 @@ namespace AudioSwitch
                 private readonly PopupRow row;
                 internal RowAccessibility(PopupRow row) : base(row) { this.row = row; }
                 public override AccessibleRole Role { get { return row.Command.Toggle ? AccessibleRole.CheckButton : AccessibleRole.PushButton; } }
-                public override AccessibleStates State { get { return base.State | (row.Command.Checked ? AccessibleStates.Checked : AccessibleStates.None) | (row.owner.Closing || (row.owner.Busy && row.Command.KeepOpen) ? AccessibleStates.Unavailable : AccessibleStates.None); } }
+                public override AccessibleStates State { get { return base.State | (row.Command.Checked ? AccessibleStates.Checked : AccessibleStates.None) | (row.owner.IsClosing || (row.owner.Busy && row.Command.KeepOpen) ? AccessibleStates.Unavailable : AccessibleStates.None); } }
                 public override string DefaultAction { get { return row.Command.Children != null ? "打开" : "选择"; } }
                 public override void DoDefaultAction() { if (row.Enabled) row.PerformClick(); }
             }
