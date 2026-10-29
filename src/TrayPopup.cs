@@ -135,6 +135,8 @@ namespace AudioSwitch
         private bool pageMoving;
         private double pageAmount = 1, pageDuration = 250;
         private int pageDistance;
+        private Rectangle pageBoundsFrom, pageBoundsTo;
+        private int pageHeader, pageFooter, pageListHeight, pageContentHeight;
         private bool closing, shown;
         private int topColumn;
         private int navigationVersion;
@@ -253,21 +255,54 @@ namespace AudioSwitch
             int statusHeight = String.IsNullOrEmpty(status.Text) ? 0 : Math.Min(S(84), TextRenderer.MeasureText(status.Text, caption, new Size(width, 0), TextFormatFlags.WordBreak).Height) + S(8);
             int header = S(page == null ? 6 : 40), footer = S(6) + statusHeight, available = Math.Max(S(90), area.Height - S(24) - header - footer);
             if (page != null) available = Math.Min(available, S(288));
-            list.Bounds = new Rectangle(S(6), header, width, Math.Min(y, available));
+            pageHeader = header; pageFooter = footer; pageListHeight = Math.Min(y, available); pageContentHeight = y;
             for (int i = 0; i < rows.Count; i++) rows[i].Width = (page == null && i < 2 ? (width - S(6)) / 2 : width) - (y > available ? S(14) : 0);
-            list.Configure(y);
-            var size = new Size(width + S(12), header + list.Height + footer);
+            var size = new Size(width + S(12), header + pageListHeight + footer);
             var location = new Point(Math.Max(area.Left, Math.Min(anchor.X - size.Width, area.Right - size.Width)), Math.Max(area.Top, Math.Min(anchor.Y - size.Height, area.Bottom - size.Height)));
-            Bounds = new Rectangle(location, size);
+            pageBoundsFrom = Bounds; pageBoundsTo = new Rectangle(location, size);
+            if (!pageMoving) Bounds = pageBoundsTo;
+            else pageStarted = Now;
+            LayoutViewport();
             back.Bounds = new Rectangle(S(10), S(6), S(28), S(28)); back.Visible = page != null;
-            status.SetBounds(S(6), header + list.Height + S(4), width, Math.Max(0, statusHeight - S(4))); status.Visible = statusHeight != 0;
+            status.Visible = statusHeight != 0;
             Invalidate();
             if (IsHandleCreated) PopupChrome.Round(Handle);
+        }
+        private void LayoutViewport()
+        {
+            // Keep the content clipped inside the currently visible border throughout a resize.
+            // Use the destination's scroll state so a short page does not flash a temporary rail.
+            list.Bounds = new Rectangle(S(6), pageHeader, S(288), Math.Max(0, Math.Min(pageListHeight, Height - pageHeader - pageFooter)));
+            list.Configure(pageContentHeight, pageContentHeight > pageListHeight);
+            status.SetBounds(S(6), Height - pageFooter + S(4), S(288), Math.Max(0, pageFooter - S(10)));
+        }
+        private void AdvancePageBounds(double t)
+        {
+            // Smooth size changes without bounce, retaining the tray-side anchor. Retargets
+            // start from Bounds (the visible frame), not the previous destination rectangle.
+            double progress = t * t * (3 - 2 * t);
+            var next = new Rectangle(
+                pageBoundsFrom.X + (int)Math.Round((pageBoundsTo.X - pageBoundsFrom.X) * progress),
+                pageBoundsFrom.Y + (int)Math.Round((pageBoundsTo.Y - pageBoundsFrom.Y) * progress),
+                pageBoundsFrom.Width + (int)Math.Round((pageBoundsTo.Width - pageBoundsFrom.Width) * progress),
+                pageBoundsFrom.Height + (int)Math.Round((pageBoundsTo.Height - pageBoundsFrom.Height) * progress));
+            if (Bounds == next) return;
+            SuspendLayout(); list.SuspendLayout();
+            Bounds = next; LayoutViewport();
+            list.ResumeLayout(false); ResumeLayout(false);
+            RepaintSurface();
         }
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
             PopupChrome.Round(Handle); SetOpacity(presentationOpacity);
+        }
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            // SetWindowRgn stores fixed pixel bounds; resizing the HWND does not grow that mask.
+            // Refresh it on every size change, including intermediate animation frames.
+            if (IsHandleCreated) PopupChrome.Round(Handle);
         }
         private void SetOpacity(double value)
         {
@@ -429,6 +464,7 @@ namespace AudioSwitch
                 double t = Math.Min(1, (now - pageStarted) / pageDuration);
                 pageAmount = 1 - (1 - pageFrom) * Math.Pow(1 - t, 3);
                 list.SetTransitionOffset((int)Math.Round(pageDistance * Math.Pow(1 - t, 3)));
+                AdvancePageBounds(t);
                 Invalidate(true);
                 pageMoving = t < 1; running |= pageMoving;
                 if (!pageMoving) RepaintSurface();
@@ -457,9 +493,9 @@ namespace AudioSwitch
                 DoubleBuffered = true; ResizeRedraw = true; BackColor = Content.BackColor = theme.Card; railWidth = (int)Math.Round(14 * scale);
                 rail = new ScrollThumb(this, theme, scale); Controls.Add(Content); Controls.Add(rail);
             }
-            internal void Configure(int height)
+            internal void Configure(int height, bool scrollable)
             {
-                total = height; rail.Visible = total > Height;
+                total = height; rail.Visible = scrollable;
                 Content.SetBounds(transitionOffset, -Offset, Width - (rail.Visible ? railWidth : 0), Math.Max(Height, total));
                 rail.SetBounds(Width - railWidth, 0, railWidth, Height); rail.BringToFront(); ScrollTo(Offset);
             }

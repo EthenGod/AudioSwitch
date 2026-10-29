@@ -19,6 +19,20 @@ namespace AudioSwitch
         [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
         [DllImport("user32.dll")] private static extern bool GetLayeredWindowAttributes(IntPtr window, out uint key, out byte alpha, out uint flags);
         [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr window, int index);
+        [DllImport("user32.dll")] private static extern int GetWindowRgn(IntPtr window, IntPtr region);
+        [DllImport("gdi32.dll")] private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+        [DllImport("gdi32.dll")] private static extern bool PtInRegion(IntPtr region, int x, int y);
+        [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+        private static bool WindowRegionFits(TrayPopup popup)
+        {
+            var region = CreateRectRgn(0, 0, 0, 0);
+            try {
+                return GetWindowRgn(popup.Handle, region) > 0
+                    && PtInRegion(region, popup.Width / 2, popup.Height - 2)
+                    && !PtInRegion(region, popup.Width / 2, popup.Height + 2)
+                    && !PtInRegion(region, 0, 0);
+            } finally { DeleteObject(region); }
+        }
         private static AudioState State(int count = 3)
         {
             var state = new AudioState();
@@ -206,23 +220,46 @@ namespace AudioSwitch
                 check(!popup.Animating && popup.PresentationOpacity == 1, "popup entrance settles and stops timer");
                 popup.Rows[2].Focus(); popup.Rows[3].Focus(); Pump(200);
                 check(!popup.Animating, "rapid focus changes settle without idle animation");
+                var homeBounds = popup.Bounds;
                 popup.Navigate(entries.Single(i => i.Text == "声音输出"));
+                check(popup.Bounds == homeBounds, "submenu starts at the visible home bounds without an edge jump");
                 var enteringRow = popup.Rows[0];
                 int firstPageX = enteringRow.Parent.Left;
                 var firstPageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
                 Pump(90);
+                var middleBounds = popup.Bounds;
                 int middlePageX = enteringRow.Parent.Left;
                 var middlePageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
                 Pump(200);
                 var finalPageColor = Pixel(enteringRow, enteringRow.Width / 2, enteringRow.Height / 2);
+                var childBounds = popup.Bounds;
+                check(homeBounds.Height > middleBounds.Height && middleBounds.Height > childBounds.Height && homeBounds.Bottom == middleBounds.Bottom && middleBounds.Bottom == childBounds.Bottom, "submenu height passes through an intermediate size with the tray-side edge anchored");
                 check(firstPageColor.ToArgb() != middlePageColor.ToArgb() && middlePageColor.ToArgb() != finalPageColor.ToArgb(), "submenu has distinct initial, intermediate and final painted frames");
                 check(firstPageX > middlePageX && middlePageX > 0 && enteringRow.Parent.Left == 0, "submenu content slides left from the right edge and settles without moving the viewport");
-                popup.GoBack(); int returnPageX = popup.Rows[0].Parent.Left; Pump(80);
+                popup.GoBack(); int returnPageX = popup.Rows[0].Parent.Left;
+                check(popup.Bounds == childBounds, "return begins at the current child bounds without an edge jump");
+                Pump(80);
+                check(popup.Height > childBounds.Height && popup.Height < homeBounds.Height && popup.Bottom == homeBounds.Bottom, "return grows smoothly while keeping the bottom edge fixed");
                 check(returnPageX < 0 && popup.Rows[0].Parent.Left > returnPageX && popup.Rows[0].Parent.Left < 0, "home content slides right when returning from the submenu");
                 Pump(220);
+                check(popup.Bounds == homeBounds, "return reaches the exact home bounds without accumulated rounding");
                 check(!popup.Animating && popup.Rows.Count == entries.Count && popup.Rows[0].Parent.Parent.Left == 6, "page animation reverses and settles at the shared inset");
-                popup.Navigate(entries.Single(i => i.Text == "麦克风输入")); Pump(30); popup.GoBack(); Pump(300);
+                popup.Navigate(entries.Single(i => i.Text == "麦克风输入")); Pump(60);
+                var interruptedBounds = popup.Bounds;
+                popup.GoBack();
+                check(popup.Bounds == interruptedBounds, "quick reversal continues from the visible intermediate bounds");
+                Pump(300);
+                check(popup.Bounds == homeBounds, "interrupted resize still settles at the exact home bounds");
                 check(popup.Rows.Last().Command.Key == "exit" && popup.Rows.Last().Visible && !popup.Animating, "return from a shorter submenu restores the complete home page");
+                popup.Navigate(entries.Single(i => i.Key == "flow:1")); Pump(300);
+                check(WindowRegionFits(popup), "fully settled short submenu has a matching native rounded region");
+                popup.GoBack(); Pump(80);
+                check(WindowRegionFits(popup), "native region includes the newly exposed bottom during return growth");
+                Pump(220);
+                var exitRow = popup.Rows.Single(r => r.Command.Key == "exit");
+                check(popup.Bounds == homeBounds && WindowRegionFits(popup)
+                    && exitRow.Parent.PointToScreen(new Point(0, exitRow.Bottom)).Y <= popup.Bottom,
+                    "return after a fully settled short submenu exposes the complete home and exit row");
                 var row = popup.Rows[0]; row.Focus();
                 Raise(row, "OnMouseEnter", EventArgs.Empty); Pump(60);
                 Raise(row, "OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, 12, 12, 0));
@@ -251,7 +288,7 @@ namespace AudioSwitch
                     popup.Show(); Pump(300);
                     check(popup.Visible && GetForegroundWindow() == popup.Handle, "first popup takes foreground above an existing topmost flyout");
                     for (int visit = 0; visit < 3; visit++) {
-                        popup.Navigate(entries.Single(i => i.Key == "flow:1")); Pump(40); popup.GoBack(); Pump(300);
+                        popup.Navigate(entries.Single(i => i.Key == "flow:1")); Pump(300); popup.GoBack(); Pump(300);
                     }
                     var exit = popup.Rows.Single(r => r.Command.Key == "exit");
                     if (GetForegroundWindow() == popup.Handle) using (var capture = new Bitmap(popup.Width, popup.Height)) {
