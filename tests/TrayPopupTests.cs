@@ -27,6 +27,7 @@ namespace AudioSwitch
         {
             var region = CreateRectRgn(0, 0, 0, 0);
             try {
+                if (popup.SystemCorners) return GetWindowRgn(popup.Handle, region) == 0;
                 return GetWindowRgn(popup.Handle, region) > 0
                     && PtInRegion(region, popup.Width / 2, popup.Height - 2)
                     && !PtInRegion(region, popup.Width / 2, popup.Height + 2)
@@ -52,6 +53,45 @@ namespace AudioSwitch
                     }
                 return true;
             } finally { DeleteObject(region); }
+        }
+        private static void CompositedCorners(Action<bool, string> check, string directory)
+        {
+            if (GetForegroundWindow() == IntPtr.Zero) { Console.WriteLine("SKIP composited corner pixels: interactive desktop required"); return; }
+            foreach (bool dark in new[] { true, false })
+                using (var backdrop = new Form { FormBorderStyle = FormBorderStyle.None, TopMost = true, ShowInTaskbar = false,
+                    StartPosition = FormStartPosition.Manual, Bounds = new Rectangle(240, 200, 440, 400), BackColor = dark ? Color.White : Color.Black }) {
+                    backdrop.Show(); Pump(40);
+                    var items = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => { }, () => { }, r => { }, () => { });
+                    using (var popup = new TrayPopup(items, new Point(600, 570), dark, 1, true)) {
+                        popup.Show();
+                        // Let DWM present the transparent frame without pumping the animation timer.
+                        Thread.Sleep(60);
+                        if (popup.SystemCorners) using (var firstFrame = new Bitmap(popup.Width, popup.Height)) {
+                            using (var graphics = Graphics.FromImage(firstFrame)) graphics.CopyFromScreen(popup.Location, Point.Empty, firstFrame.Size);
+                            int rim = firstFrame.GetPixel(popup.Width / 2, 0).R;
+                            check(popup.PresentationOpacity == 0 && (dark ? rim > 180 : rim < 80), "compositor border does not flash before the first fade frame " + dark);
+                        }
+                        Pump(300);
+                        if (!popup.SystemCorners) { Console.WriteLine("SKIP DWM corner pixels: system does not support compositor rounding"); continue; }
+                        popup.Navigate(items.Single(i => i.Key == "flow:1")); Pump(300); popup.GoBack(); Pump(300);
+                        check(GetForegroundWindow() == popup.Handle && WindowRegionFits(popup), "composited popup returns without a hard region or focus change " + dark);
+                        using (var capture = new Bitmap(popup.Width, popup.Height)) {
+                            using (var graphics = Graphics.FromImage(capture)) graphics.CopyFromScreen(popup.Location, Point.Empty, capture.Size);
+                            bool rounded = true, cleanInside = true;
+                            foreach (var point in new[] { new Point(0, 0), new Point(popup.Width - 1, 0), new Point(0, popup.Height - 1), new Point(popup.Width - 1, popup.Height - 1) }) {
+                                var outside = capture.GetPixel(point.X, point.Y);
+                                var inside = capture.GetPixel(point.X == 0 ? 8 : popup.Width - 9, point.Y == 0 ? 8 : popup.Height - 9);
+                                rounded &= dark ? outside.R > 100 : outside.R < 150;
+                                cleanInside &= dark ? inside.R < 80 : inside.R > 180;
+                            }
+                            check(rounded, "actual screen shows all four compositor corners cut away on contrasting background " + dark);
+                            check(cleanInside, "actual inner corners contain no opposite-theme fringe after returning " + dark);
+                            capture.Save(Path.Combine(directory, "tray-system-corners-" + (dark ? "dark" : "light") + ".png"));
+                        }
+                        popup.Close();
+                    }
+                    backdrop.Close();
+                }
         }
         private static AudioState State(int count = 3)
         {
@@ -158,7 +198,7 @@ namespace AudioSwitch
                 int commands = 0;
                 var items = TrayMenuModel.Create(State(20), new Preferences { GameMode = false }, true, 0, p => commands++, () => commands++, r => commands++, () => commands++);
                 var area = Screen.PrimaryScreen.WorkingArea;
-                using (var popup = new TrayPopup(items, new Point(area.Right - 4, area.Bottom - 4), dark, scale, false)) {
+                using (var popup = new TrayPopup(items, new Point(area.Right - 4, area.Bottom - 4), dark, scale, false, systemCorners: false)) {
                     check(!popup.IsHandleCreated, "popup styles and lifecycle are configured before first handle " + scale);
                     popup.Show(); Application.DoEvents();
                     string suffix = (dark ? "dark" : "light") + (scale == 1 ? "" : "-" + (int)(scale * 100));
@@ -222,6 +262,7 @@ namespace AudioSwitch
                     popup.Chosen(); check(commands == 1, "chosen command delivered once " + suffix);
                 }
             }
+            CompositedCorners(check, directory);
             var entries = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => { }, () => { }, r => { }, () => { });
             var unavailableBrowser = TrayMenuModel.Create(State(), new Preferences(), false, 0, p => { }, () => { }, r => { }, () => { });
             using (var popup = new TrayPopup(unavailableBrowser, new Point(400, 500), true, 1, false)) {
@@ -273,9 +314,9 @@ namespace AudioSwitch
                 check(popup.Bounds == homeBounds, "interrupted resize still settles at the exact home bounds");
                 check(popup.Rows.Last().Command.Key == "exit" && popup.Rows.Last().Visible && !popup.Animating, "return from a shorter submenu restores the complete home page");
                 popup.Navigate(entries.Single(i => i.Key == "flow:1")); Pump(300);
-                check(WindowRegionFits(popup), "fully settled short submenu has a matching native rounded region");
+                check(WindowRegionFits(popup), "fully settled short submenu has no stale native clipping region");
                 popup.GoBack(); Pump(80);
-                check(WindowRegionFits(popup), "native region includes the newly exposed bottom during return growth");
+                check(WindowRegionFits(popup), "native clipping permits the newly exposed bottom during return growth");
                 Pump(220);
                 var exitRow = popup.Rows.Single(r => r.Command.Key == "exit");
                 check(popup.Bounds == homeBounds && WindowRegionFits(popup)

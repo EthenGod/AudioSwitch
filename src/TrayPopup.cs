@@ -128,6 +128,8 @@ namespace AudioSwitch
         private readonly PopupTheme theme;
         private readonly float scale;
         private readonly bool motion;
+        private readonly bool preferSystemCorners;
+        internal bool SystemCorners { get; private set; }
         private TrayCommand page;
         private double opened, openingFrom, closingAt, closingOpacity, pageStarted, pageFrom;
         private double presentationOpacity = 1;
@@ -152,9 +154,9 @@ namespace AudioSwitch
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool SetLayeredWindowAttributes(IntPtr window, uint key, byte alpha, uint flags);
         [DllImport("user32.dll")] private static extern bool RedrawWindow(IntPtr window, IntPtr rect, IntPtr region, uint flags);
-        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null, Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch = null)
+        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null, Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch = null, bool systemCorners = true)
         {
-            home = commands; this.anchor = anchor; this.dispatch = dispatch; theme = new PopupTheme(dark);
+            home = commands; this.anchor = anchor; this.dispatch = dispatch; theme = new PopupTheme(dark); preferSystemCorners = systemCorners;
             // Do not create a Form handle before its styles, controls and lifecycle hooks exist.
             using (var g = Graphics.FromHwnd(IntPtr.Zero)) scale = textScale * g.DpiX / 96F;
             regular = new Font("Microsoft YaHei UI", 10.5F * textScale);
@@ -267,7 +269,7 @@ namespace AudioSwitch
             back.Bounds = new Rectangle(S(10), S(6), S(28), S(28)); back.Visible = page != null;
             status.Visible = statusHeight != 0;
             Invalidate();
-            if (IsHandleCreated) PopupChrome.Round(Handle, CornerRadius * 2);
+            UpdateCornerRegion();
         }
         private void LayoutViewport()
         {
@@ -296,14 +298,19 @@ namespace AudioSwitch
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            PopupChrome.Round(Handle, CornerRadius * 2); SetOpacity(presentationOpacity);
+            SystemCorners = preferSystemCorners && PopupChrome.TrySystemCorners(Handle, theme.Border);
+            UpdateCornerRegion(); SetOpacity(presentationOpacity);
         }
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
             // SetWindowRgn stores fixed pixel bounds; resizing the HWND does not grow that mask.
             // Refresh it on every size change, including intermediate animation frames.
-            if (IsHandleCreated) PopupChrome.Round(Handle, CornerRadius * 2);
+            UpdateCornerRegion();
+        }
+        private void UpdateCornerRegion()
+        {
+            if (IsHandleCreated && !SystemCorners) PopupChrome.Round(Handle, CornerRadius * 2);
         }
         private void SetOpacity(double value)
         {
@@ -322,7 +329,7 @@ namespace AudioSwitch
         }
         protected override void OnShown(EventArgs e)
         {
-            PopupChrome.Round(Handle, CornerRadius * 2);
+            UpdateCornerRegion();
             // TopMost alone does not reorder two existing topmost windows.
             SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002);
             SetForegroundWindow(Handle); Activate();
@@ -426,9 +433,10 @@ namespace AudioSwitch
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            // The stroke centre sits half a pixel inside the native outer corner.
-            using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), CornerRadius - .5F))
-            using (var pen = new Pen(theme.Border)) e.Graphics.DrawPath(pen, path);
+            // Never overlay a GDI stroke on the compositor's antialiased border.
+            if (!SystemCorners)
+                using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), CornerRadius - .5F))
+                using (var pen = new Pen(theme.Border)) e.Graphics.DrawPath(pen, path);
             if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), theme.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
         private void StartPageMotion(int direction)

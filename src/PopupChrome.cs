@@ -18,6 +18,8 @@ namespace AudioSwitch
         [DllImport("user32.dll")] private static extern int SetWindowRgn(IntPtr window, IntPtr region, bool redraw);
         [DllImport("gdi32.dll")] private static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int width, int height);
         [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+        [DllImport("dwmapi.dll")] private static extern int DwmIsCompositionEnabled(out bool enabled);
+        [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
         [DllImport("user32.dll")] private static extern IntPtr GetWindowDC(IntPtr window);
         [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr window, IntPtr dc);
         [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] private static extern int GetWindowLong(IntPtr window, int index);
@@ -47,6 +49,21 @@ namespace AudioSwitch
                 // Windows owns the region after successful SetWindowRgn.
             }
             } finally { rounding = false; }
+        }
+        internal static bool TrySystemCorners(IntPtr window, Color border)
+        {
+            try {
+                bool enabled;
+                if (DwmIsCompositionEnabled(out enabled) != 0 || !enabled) return false;
+                int round = 2, color = ColorTranslator.ToWin32(border);
+                if (DwmSetWindowAttribute(window, 33, ref round, 4) != 0
+                    || DwmSetWindowAttribute(window, 34, ref color, 4) != 0) return false;
+                // A window region disables DWM rounding. Uniform layered opacity can stay;
+                // only the compositor paints the antialiased outer edge and theme border.
+                SetWindowRgn(window, IntPtr.Zero, false);
+                return true;
+            } catch (DllNotFoundException) { return false; }
+              catch (EntryPointNotFoundException) { return false; }
         }
         private static IntPtr SymmetricRegion(Graphics graphics, int width, int height, int radius)
         {
