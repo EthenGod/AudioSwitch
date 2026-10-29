@@ -206,6 +206,9 @@ fn read_dolby(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<
 async fn cancel_dolby_read(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.cancel(&token).await?) }
 #[tauri::command]
 async fn start_dolby_apply(id: String, profile: dolby::Profile, expected: Option<dolby::Profile>, token: String, bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    start_dolby_apply_for_session(id, profile, expected, token, &bridge, &session).await
+}
+async fn start_dolby_apply_for_session(id: String, profile: dolby::Profile, expected: Option<dolby::Profile>, token: String, bridge: &Bridge, session: &dolby_apply::Session) -> Result<Value, BridgeError> {
     let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
     if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
     let request = dolby_apply::request(&pipe::read_snapshot().await?, &id, &profile, &expected, &token)?;

@@ -17,7 +17,8 @@ describe('authenticated browser panel', () => {
     let stream!: ReadableStreamDefaultController<Uint8Array>
     const body = new ReadableStream<Uint8Array>({ start(controller) { stream = controller } })
     const reply = { ...backendFixture(), PanelApiVersion: 7, OperationError: null, PreferencesSaved: true }
-    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(body))
+    const session = 'b'.repeat(32)
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(body, { headers: { 'X-AudioSwitch-Session': session } }))
       .mockResolvedValueOnce(Response.json({ ok: true, value: reply }))
       .mockRejectedValueOnce(new TypeError('network disconnected'))
     const connection = createBrowserConnection('secret', request)
@@ -27,10 +28,27 @@ describe('authenticated browser panel', () => {
     await expect(connection.gateway.setPreference('GameMode', true)).rejects.toMatchObject({ requiresRefresh: true })
     expect(request).toHaveBeenCalledTimes(3)
     for (const [, init] of request.mock.calls) expect(init?.headers).toHaveProperty('X-AudioSwitch-Token', 'secret')
+    for (const [, init] of request.mock.calls.slice(1)) expect(init?.headers).toHaveProperty('X-AudioSwitch-Session', session)
     expect(JSON.parse(request.mock.calls[2][1]!.body as string).command).toBe('panel_action')
     stream.close()
     await vi.waitFor(() => expect(onEnd).toHaveBeenCalledOnce())
     await expect(connection.gateway.read()).rejects.toThrow('连接已结束')
     expect(request).toHaveBeenCalledTimes(3)
+  })
+  it('rejects a missing session and never reuses a session across tabs', async () => {
+    for (const session of ['', 'c'.repeat(32), 'd'.repeat(32)]) {
+      const body = new ReadableStream<Uint8Array>()
+      const request = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(body, { headers: { 'X-AudioSwitch-Session': session } }))
+        .mockResolvedValueOnce(Response.json({ ok: true, value: backendFixture() }))
+      const connection = createBrowserConnection('same-service-secret', request)
+      if (!session) {
+        await expect(connection.gateway.read()).rejects.toThrow('连接已结束')
+        expect(request).toHaveBeenCalledTimes(1)
+      } else {
+        await connection.gateway.read()
+        expect(request.mock.calls[1][1]?.headers).toHaveProperty('X-AudioSwitch-Session', session)
+      }
+      connection.close()
+    }
   })
 })

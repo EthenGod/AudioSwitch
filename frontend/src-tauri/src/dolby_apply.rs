@@ -5,6 +5,7 @@ use crate::dolby::{Profile, save_request};
 #[derive(Default)]
 pub struct Session { token: Mutex<Option<String>> }
 impl Session {
+    pub fn token(&self) -> Option<String> { self.token.lock().unwrap().clone() }
     pub fn bind(&self, token: &str) { *self.token.lock().unwrap() = Some(token.into()); }
     pub fn require(&self, token: &str) -> Result<(), String> {
         if self.token.lock().unwrap().as_deref() != Some(token) { return Err("应用记录不属于此窗口，请检查当前音效。".into()); }

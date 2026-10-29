@@ -15,11 +15,14 @@ export function browserToken(location: Location, storage: Storage): string {
 export function createBrowserConnection(token: string, request: typeof fetch = fetch) {
   const controller = new AbortController()
   let ended = false
+  let session = ''
   const listeners = new Set<() => void>()
   const headers = { 'X-AudioSwitch-Token': token }
   const end = () => { if (!ended) { ended = true; listeners.forEach(listener => listener()) } }
   const ready = request('/session', { headers, signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error' }).then(response => {
     if (!response.ok || !response.body) throw new Error(disconnected)
+    session = response.headers.get('X-AudioSwitch-Session') || ''
+    if (!/^[a-fA-F0-9]{32}$/.test(session)) throw new Error(disconnected)
     const reader = response.body.getReader()
     // A streaming connection survives background-tab timer throttling.
     void (async () => { try { while (!(await reader.read()).done) { /* server keepalive */ } } catch { /* connection ended */ } finally { reader.releaseLock(); end() } })()
@@ -30,7 +33,7 @@ export function createBrowserConnection(token: string, request: typeof fetch = f
     if (ended) throw new OperationFailure(disconnected)
     let response: Response
     try {
-      response = await request('/rpc', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ command, args }), cache: 'no-store', credentials: 'omit', redirect: 'error' })
+      response = await request('/rpc', { method: 'POST', headers: { ...headers, 'X-AudioSwitch-Session': session, 'Content-Type': 'application/json' }, body: JSON.stringify({ command, args }), cache: 'no-store', credentials: 'omit', redirect: 'error' })
       if (!response.ok) throw new Error(disconnected)
       const reply = await response.json() as { ok: boolean; value?: unknown; error?: unknown }
       if (reply.ok === true) return reply.value
