@@ -352,10 +352,11 @@ button { touch-action: manipulation; }
 }
 
 .page-actions { display: flex; align-items: center; flex-shrink: 0; min-height: 36px; }
-.page-action-slot { flex: none; min-width: 0; min-height: 36px; display: flex; align-items: center; overflow: clip; overflow-clip-margin: 4px; opacity: 0; transition: width var(--motion-exit) cubic-bezier(.4,0,.2,1), opacity var(--motion-exit) ease-in; }
-.page-action-slot[data-visible=true] { opacity: 1; transition-duration: var(--motion-enter); transition-timing-function: cubic-bezier(.4,0,.2,1), ease-out; }
+.page-action-slot { position: relative; flex: none; min-width: 0; min-height: 36px; transition: width var(--motion-exit) cubic-bezier(.4,0,.2,1); }
+.page-action-slot[data-visible=true] { transition-duration: var(--motion-enter); }
 .page-action-slot[data-visible=false] { pointer-events: none; }
-.page-action-content { display: flex; align-items: center; width: max-content; flex: none; padding-left: 10px; white-space: nowrap; }
+.page-action-content { position: absolute; inset: 0 0 0 auto; display: flex; align-items: center; width: max-content; padding-left: 10px; white-space: nowrap; opacity: 0; transform: translateX(8px); visibility: hidden; transition: transform var(--motion-exit) ease-in, opacity var(--motion-exit) ease-in, visibility 0s linear var(--motion-exit); }
+.page-action-slot[data-visible=true] > .page-action-content { opacity: 1; transform: translateX(0); visibility: visible; transition: transform var(--motion-enter) ease-out, opacity var(--motion-enter) ease-out, visibility 0s; }
 .summary-card { min-width: 0; }
 input[type=range] { appearance: none; height: 24px; background: transparent; }
 input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: var(--radius-small); background: var(--slate-7); }

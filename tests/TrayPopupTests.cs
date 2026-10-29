@@ -33,6 +33,26 @@ namespace AudioSwitch
                     && !PtInRegion(region, 0, 0);
             } finally { DeleteObject(region); }
         }
+        private static bool CornersMatch(TrayPopup popup, float scale)
+        {
+            var region = CreateRectRgn(0, 0, 0, 0);
+            try {
+                if (GetWindowRgn(popup.Handle, region) <= 0) return false;
+                int outside = (int)Math.Round(3 * scale), inside = (int)Math.Round(6 * scale);
+                if (PtInRegion(region, outside, outside) || !PtInRegion(region, inside, inside)) return false;
+                for (int y = 0; y < (int)Math.Round(12 * scale); y++)
+                    for (int x = 0; x < (int)Math.Round(12 * scale); x++) {
+                        bool included = PtInRegion(region, x, y);
+                        if (included != PtInRegion(region, popup.Width - 1 - x, y)
+                            || included != PtInRegion(region, x, popup.Height - 1 - y)
+                            || included != PtInRegion(region, popup.Width - 1 - x, popup.Height - 1 - y)) {
+                            Console.WriteLine("Corner mismatch: size={0} x={1} y={2} TL={3} TR={4} BL={5} BR={6}", popup.Size, x, y, included, PtInRegion(region, popup.Width - 1 - x, y), PtInRegion(region, x, popup.Height - 1 - y), PtInRegion(region, popup.Width - 1 - x, popup.Height - 1 - y));
+                            return false;
+                        }
+                    }
+                return true;
+            } finally { DeleteObject(region); }
+        }
         private static AudioState State(int count = 3)
         {
             var state = new AudioState();
@@ -143,6 +163,7 @@ namespace AudioSwitch
                     popup.Show(); Application.DoEvents();
                     string suffix = (dark ? "dark" : "light") + (scale == 1 ? "" : "-" + (int)(scale * 100));
                     check(area.Contains(popup.Bounds), "popup stays inside working area " + suffix);
+                    check(CornersMatch(popup, scale), "native corners match the 12px border radius and mirror across all four edges " + suffix);
                     check(!popup.ShowInTaskbar && !popup.Animating && commands == 0, "popup is transient and reduced motion has no timer " + suffix);
                     check(popup.Rows.All(r => r.Parent.ClientRectangle.Contains(r.Bounds)), "home rows remain inside popup " + suffix);
                     check(popup.Rows[0].PointToScreen(Point.Empty).Y - popup.Top <= 8 * scale + 1, "home starts with actions instead of an empty title band " + suffix);

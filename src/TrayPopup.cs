@@ -178,6 +178,7 @@ namespace AudioSwitch
             BuildPage();
         }
         private int S(float value) { return (int)Math.Round(value * scale); }
+        private int CornerRadius { get { return S(12); } }
         internal void Navigate(TrayCommand command)
         {
             if (closing || command.Children == null) return;
@@ -266,7 +267,7 @@ namespace AudioSwitch
             back.Bounds = new Rectangle(S(10), S(6), S(28), S(28)); back.Visible = page != null;
             status.Visible = statusHeight != 0;
             Invalidate();
-            if (IsHandleCreated) PopupChrome.Round(Handle);
+            if (IsHandleCreated) PopupChrome.Round(Handle, CornerRadius * 2);
         }
         private void LayoutViewport()
         {
@@ -295,14 +296,14 @@ namespace AudioSwitch
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            PopupChrome.Round(Handle); SetOpacity(presentationOpacity);
+            PopupChrome.Round(Handle, CornerRadius * 2); SetOpacity(presentationOpacity);
         }
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
             // SetWindowRgn stores fixed pixel bounds; resizing the HWND does not grow that mask.
             // Refresh it on every size change, including intermediate animation frames.
-            if (IsHandleCreated) PopupChrome.Round(Handle);
+            if (IsHandleCreated) PopupChrome.Round(Handle, CornerRadius * 2);
         }
         private void SetOpacity(double value)
         {
@@ -321,7 +322,7 @@ namespace AudioSwitch
         }
         protected override void OnShown(EventArgs e)
         {
-            PopupChrome.Round(Handle);
+            PopupChrome.Round(Handle, CornerRadius * 2);
             // TopMost alone does not reorder two existing topmost windows.
             SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002);
             SetForegroundWindow(Handle); Activate();
@@ -425,7 +426,8 @@ namespace AudioSwitch
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), S(12)))
+            // The stroke centre sits half a pixel inside the native outer corner.
+            using (var path = Palette.Round(new RectangleF(.5F, .5F, Width - 1, Height - 1), CornerRadius - .5F))
             using (var pen = new Pen(theme.Border)) e.Graphics.DrawPath(pen, path);
             if (page != null) TextRenderer.DrawText(e.Graphics, page.Text, strong, new Rectangle(S(44), S(4), Width - S(60), S(32)), theme.Text, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }

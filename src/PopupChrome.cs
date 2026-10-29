@@ -31,7 +31,7 @@ namespace AudioSwitch
             SetWindowLong(window, -16, plainStyle); SetWindowLong(window, -20, plainExtended);
             SetWindowPos(window, IntPtr.Zero, 0, 0, 0, 0, 0x0037);
         }
-        internal static void Round(IntPtr window)
+        internal static void Round(IntPtr window, int diameterPixels = 0)
         {
             if (rounding) return;
             Rect rect; if (!GetWindowRect(window, out rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top) return;
@@ -39,12 +39,29 @@ namespace AudioSwitch
             try {
             using (var graphics = Graphics.FromHwnd(window))
             {
+                int width = rect.Right - rect.Left, height = rect.Bottom - rect.Top;
                 int diameter = (int)(16 * graphics.DpiX / 96F);
-                IntPtr region = CreateRoundRectRgn(0, 0, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1, diameter, diameter);
+                IntPtr region = diameterPixels > 0 ? SymmetricRegion(graphics, width, height, diameterPixels / 2)
+                    : CreateRoundRectRgn(0, 0, width + 1, height + 1, diameter, diameter);
                 if (region != IntPtr.Zero && SetWindowRgn(window, region, false) == 0) DeleteObject(region);
                 // Windows owns the region after successful SetWindowRgn.
             }
             } finally { rounding = false; }
+        }
+        private static IntPtr SymmetricRegion(Graphics graphics, int width, int height, int radius)
+        {
+            radius = Math.Min(radius, Math.Min(width, height) / 2);
+            // Sample pixel centres and mirror the same runs. GDI's ellipse rasterizer can
+            // round opposite corners differently (notably at 150% scale).
+            using (var region = new Region(new Rectangle(0, radius, width, height - radius * 2))) {
+                for (int y = 0; y < radius; y++) {
+                    double dy = radius - y - .5;
+                    int inset = Math.Max(0, (int)Math.Ceiling(radius - Math.Sqrt(radius * radius - dy * dy) - .5));
+                    region.Union(new Rectangle(inset, y, width - inset * 2, 1));
+                    region.Union(new Rectangle(inset, height - 1 - y, width - inset * 2, 1));
+                }
+                return region.GetHrgn(graphics);
+            }
         }
         internal static void Border(IntPtr window, IntPtr destination = default(IntPtr))
         {
