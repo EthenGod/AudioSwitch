@@ -1,0 +1,162 @@
+# 声间 · 新前端与桌面面板
+
+当前为 [v0.12.1 测试版](VERSION-0.12.1.md)，交付便捷展开 EXE 和完整 ZIP。发行与修复状态见 [项目交接记录](../HANDOFF.MD)；以下分阶段迁移内容保留为历史记录，不代表新的发布步骤。
+
+UI 已按新约定统一配色、字号和文案。见 [UI 调整与验证](UI-REFRESH-0.12.1.md)。开始后续任务前先看 [项目交接记录](../HANDOFF.MD)。
+
+React + TypeScript + Tailwind + shadcn（Base UI）。开发预览与单文件 HTML 使用模拟数据。Tauri 2 桌面窗口和托盘打开的本机浏览器面板通过 C# 后台执行真实操作。
+
+## 本机浏览器面板
+
+应用设置中的“双击托盘图标”控制打开方式，默认主面板。浏览器模式由完整包内的 `audio-switch-panel.exe --browser --owner=后台PID` 提供，不创建 WebView。不要手动把 Vite 预览当作真实面板。
+
+`src/data/browser.ts` 使用同一套 desktop gateway。Rust `src-tauri/src/browser.rs` 只监听回环端口，校验 Host、Origin 和本次凭据，并限定可用命令及静态文件。凭据通过 URL 片段交付，随后清除地址栏片段，只在该来源的 sessionStorage 中保留以支持刷新。不使用跨域许可、固定密码或可变文件路径。
+
+`BrowserPort` 缺省为 0，表示自动分配。自定义范围为 1–65535，由后台通过 `--browser-port=` 传给服务。`PanelApiVersion >= 9` 才允许修改。设置和导入只改变下次服务启动的端口，避免中断当前浏览器请求。端口冲突会报错，不回退到随机端口。
+
+浏览器流连接仅用于确认标签仍打开，不读取音频。默认关闭最后一个标签后保留 8 秒刷新宽限期；连接断开检测最多约 2 秒。未成功打开页面时 60 秒退出。开启 `KeepBrowserPortOpen` 后不因空闲退出；后台以 `--keep-browser --browser-idle` 启动服务，不打开浏览器。运行中通过标准输入的 `keep` / `release` 同步偏好；`open` 打开页面，`close` 退出。后台进程结束时始终退出。多个标签共享原有串行操作限制。
+
+## 单文件 HTML 预览
+
+在 `frontend/` 执行 `npm run build:preview`。
+默认输出到 `staging/ui-preview/声间-UI预览.html`，可用浏览器打开。
+脚本、样式、图标和许可均在文件内，不需要开发服务器。
+页面复用实际组件，只用模拟数据。刷新页面后重置，不连接后台，不保存真实配置。
+需要指定输出位置时，执行 `npm run build:preview -- ../staging/自选目录/预览.html`。
+输出必须位于项目 `staging/`，不生成 Release 附件。
+预览地址加 `?view=prompt` 可查看模拟设备提示窗口，加 `&light` 可查看浅色。
+
+## 桌面版（历史迁移说明）
+
+在仓库根目录构建，不覆盖日常使用的 `bin/`：
+
+```powershell
+.\build.ps1 -Test -OutputDirectory staging
+.\frontend\desktop.ps1 -Command build
+```
+
+试用真实操作时，先从托盘退出原版后台，再手动打开 `staging/AudioSwitch.exe`，然后打开 `staging/ui-target/release/audio-switch-panel.exe`。测试后台启动会沿用原有配置、启动优先级和音效规则；不要同时运行两份后台。试用结束后可退出测试后台，按原方式打开 `bin/AudioSwitch.exe`。本阶段不替换日常程序、不加入旧更新包。面板不会替你启动后台。
+
+连接旧后台时自动保持只读；需要新后台返回面板接口版本才能开放操作。当前已接入设备切换、基础预设与白名单保存、排序、优先级／询问／通话联动、主题、游戏模式、自动更新开关和开机自启。开机自启登记的是当前运行后台的路径；在 `staging` 试用期间不要把测试路径误作日常自启路径。
+
+“仅保存”不切换设备、不写音量或音效、不取消 Dolby 任务；由后台保留最新 Dolby 对象。预设被其他窗口修改时会拒绝覆盖。音量／空间音效读取失败或设备离线时保留原字段，仍可编辑白名单规则。优先级开启和排序沿用原有立即选择设备的行为，界面会说明。
+
+窗口打开、手动刷新或重新获得焦点时读取缓存；不周期轮询，编辑草稿期间也不因焦点变化刷新。操作使用后台返回的实际结果，不提前显示成功。超时或断线后不自动重试，先刷新确认实际状态。Dolby 是异步任务，路由成功不代表 Dolby 已应用完成；可刷新查看后台提示。
+
+本机使用独立 Node 24.19.0、Rust 1.99.0 MSVC、微软 C++ Build Tools / Windows SDK 和 WebView2。Rust 位于 `staging/ui-toolchain/`，脚本仅临时设置当前进程环境，不改全局 PATH。其他机器前置条件见 [Tauri Windows 文档](https://v2.tauri.app/start/prerequisites/)。
+
+```powershell
+.\frontend\desktop.ps1 -Command dev
+.\frontend\desktop.ps1 -Command test   # 隔离命名管道和参数测试，不连接真实后台
+.\frontend\desktop.ps1 -Command check
+```
+
+Rust 只注册状态查询、主面板操作、四个备份命令和维护任务的开始／读取／取消；操作采用固定白名单，没有任意文件、进程或 IPC 请求权限。备份文件必须由原生选择框确定；导出来自后台完整配置，导入先预览再确认，确认期间有其他配置修改会拒绝覆盖。关闭窗口释放面板及其 WebView2 进程；开发模式的 Vite/Cargo 工具需在终端单独退出。
+
+接口版本 3 的后台支持只读维护检查。Rust 根据实际后台路径启动 `--panel-maintenance` 短时辅助进程，复用现有 C# 正式版查询和必要文件校验；完成或取消后退出。网页不能传入程序、路径、URL 或安装命令。检查运行时每 400 ms 读取的是 Rust 内存中的任务结果，不轮询音频后台。关闭抽屉等待取消确认，关闭面板也通知辅助进程停止。后台接口版本 3～5 保留这一只读流程；接口版本 6 使用独立维护会话，支持下载、取消、再次确认安装及同版本修复。候选包禁止下载／安装／修复，网页仍不能传入路径或 URL。
+
+主面板实机结果和剩余人工项目见 [STAGE-3.md](STAGE-3.md)，导入／导出及后续迁移见 [STAGE-4.md](STAGE-4.md)。[STAGE-2.md](STAGE-2.md) 保留只读及内存实测记录。
+
+需要避免后台启动音效时，可使用测试程序提供的只读联调入口，见 [MANUAL-TESTS.md 的 4.4c](../MANUAL-TESTS.md)。已通过实际桌面的 Dolby 读取、更新／文件检查和隔离等待任务退出验证；入口拒绝保存、切换和应用，不代表正式托盘完整联调或真实写入已经验收。第五阶段现推进独立候选包，尚未替换启动／更新入口，见 [发布兼容清单](STAGE-5.md)。
+
+## 独立候选包（5.1）
+
+在项目根目录用 PowerShell 7 执行 `./frontend/candidate-package.ps1`（可选 `-NodePath`）。脚本新建唯一 `staging/ui-candidate-<标记>/`，重新构建后台及桌面前端，归集 npm／Rust／标准库及 WebView2 Loader 许可，再生成、检查并解压候选 ZIP；不启动后台、不改 bin、不自动提交或发布。需要已有的 Node／Rust／C++ 编译环境及已安装的锁定依赖；不自动安装或替换全局工具。
+
+包名为 `AudioSwitch-UI-CANDIDATE-v<版本>-win-x64.zip`，共 14 个文件：原 8 文件、新面板、三份前端／Rust 许可、候选使用说明和格式 1 的校验清单。它不兼容旧更新器，不能作为原正式附件发布。5.2 起，候选目录的托盘会校验后启动新面板／提示；重复打开管理面板复用已有窗口，最小化时恢复。解压后的 `audio-switch-panel.exe` 仍可手工打开进行无后台诊断；连接真实后台后的操作仍是真实操作。
+
+```powershell
+./frontend/scripts/verify-candidate.ps1 -ArchivePath '候选ZIP完整路径'
+./frontend/scripts/test-candidate.ps1 -ArchivePath '候选ZIP完整路径'
+```
+
+验证器可加 `-ExtractTo '本项目staging内尚不存在的目录'`，先验证固定路径、数量、大小及摘要，再创建新目录解压并核对两份 EXE 的 x64 平台和版本。已有目录或文件不覆盖，失败产物不自动清理。只检查 ZIP 时不会执行程序；摘要是包内一致性检查，不是来源认证。同一批输入文件重复打包的 ZIP 一致，不承诺编译器生成的 EXE 跨机器逐字一致。
+
+候选说明给出 WebView2 缺失时的手动处理方式；Tauri 启动失败时显示原生中文提示，但没有卸载系统 Runtime 来验证全新机器，也不自动下载 Runtime。详见 [第五阶段记录](STAGE-5.md)。
+
+## 托盘启动与退出（5.2）
+
+启动前检查候选清单、全部列出文件的大小与摘要，以及面板 x64／版本。候选面板、清单或新增配套说明／许可残留但不完整时明确报错，不静默回退。没有候选标记的旧 8 文件目录保留原 WinForms 入口，因此普通 C# 构建不依赖前端。`AudioSwitch.exe --ui`／`--prompt` 的原显式入口仍保留供兼容使用；托盘自动入口已按目录选择。
+
+5.3a 起，候选目录的 `--check-files --quiet` 和面板内文件检查覆盖整包，旧格式更新／局部修复会被阻止；损坏时重新解压完整候选包到独立目录。可运行 `frontend/scripts/test-candidate-runtime.ps1 -ArchivePath '候选ZIP完整路径'` 做真实 EXE 的只读整包检查与损坏回归。完整安装／修复已在后续小项接入 Desktop 格式，候选包继续仅供独立验证。
+
+5.3b 接入后台的 Desktop 双格式下载／完整替换与失败恢复。每个新正式版本需保留旧名 8 文件过渡资产，并另发 `AudioSwitch-Desktop-v<版本>-win-x64.zip`，避免只查 latest 的旧客户端找不到过渡包。同版本迁移只用于尚未装新界面的目录；当前候选包继续禁止安装，5.3c 已接入 React 下载／安装／修复交互。5.3d 新增根目录 `release.ps1 -Desktop -OutputDirectory staging/自选目录`：重新构建、运行后台回归、归集许可，再用正式更新解压器验证两份 ZIP 和单 EXE。只有验证通过才写入新的版本目录，不覆盖、不发布。详见 [第五阶段](STAGE-5.md)。
+
+新界面启动和 Desktop 安装交接前按[微软文档](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)只读检查整机／当前用户的 Evergreen Runtime。缺失或无法读取时阻止交接并提示手动安装；旧格式不需要 Runtime，自动更新缓存保留供重试。`AudioSwitch.exe --check-webview2` 输出 UTF-8 JSON，退出码 0 为检测到、2 为缺失、3 为无法确认；不初始化音频或配置。注册信息通过不能代替实际窗口测试。本轮没有卸载 Runtime 或测试全新机器。
+
+由托盘启动的主面板和提示携带所属后台句柄，后台退出后都关闭；手动打开的主面板首次成功读取后台后也绑定该后台。后台存活时关闭面板不退出后台，不预留隐藏面板。提示的“打开面板”交回后台，成功确认后关闭提示，避免再启动一个无人管理的主面板。
+
+本阶段验证使用不创建音频服务的隔离启动程序，调用与 TrayHost 相同的 `FrontendWindows`。实际托盘点击、真实设备提示、旧版升级及缺少 Runtime 的全新机器验收仍待完成；没有用启动真实后台来绕过无音频写入约束。
+
+## 启动
+
+5.4a 已对实际 Desktop ZIP 完成隔离文件安装和窗口生命周期验证，清单及内存原始记录见 [发布验收表](RELEASE-READINESS.md)。`launch-session.ps1` 可通过 PackageDirectory／FixturePath／RecordName 指定本轮包、测试入口和独立记录；新增 Idle 用于关闭界面但保留测试入口，NoBrowserDebug 用于不带调试端口采样。测试入口与真实托盘性能不同，正式发布和有音频副作用的实测仍待验。
+
+在仓库根目录执行：
+
+```powershell
+.\frontend\dev.ps1 -Command install
+.\frontend\dev.ps1 -Command dev
+```
+
+打开 http://127.0.0.1:5173 。`dev.ps1` 优先选择已安装的现代 Node，也能使用 Codex 自带的 Node；不会安装或替换系统 Node。可加 `-NodePath '完整路径\node.exe'`。要求 Node 22.12+；本机已使用独立 Node 24 验证。旧 Node 18 不适合本工程。
+
+如终端默认就是受支持的 Node，也可进入本目录后运行 `npm install`、`npm run dev`。不要使用会先清空依赖目录的 `npm ci`，也不要运行批量清理命令。
+
+```powershell
+.\frontend\dev.ps1 -Command typecheck
+.\frontend\dev.ps1 -Command test
+.\frontend\dev.ps1 -Command build
+.\frontend\dev.ps1 -Command preview
+```
+
+生产预览地址是 http://127.0.0.1:4173 。预览服务只监听本机，端口占用时直接报错，不结束其他进程。开发／预览服务在对应终端按 Ctrl+C 退出；关闭浏览器标签不会结束开发服务。这与 Tauri 桌面窗口的生命周期是两回事。
+
+## 页面与旧功能对应
+
+| 原有功能 | 原型位置 | 当前可验证内容 |
+| --- | --- | --- |
+| 主面板设备列表、输出／输入筛选 | 声音设备 | 紧凑列表、搜索、默认角色、桌面真实切换／浏览器模拟切换 |
+| 设备设置 | 每行设置按钮、摘要右侧按钮 | 抽屉草稿、音量、空间音效、白名单；仅保存／取消 |
+| 设备优先级对话框 | 自动切换 | 输入／输出独立排序，上下移动；保留离线设备 |
+| 接入询问、通话联动、优先级 | 自动切换 | 桌面真实开关；通话联动关闭后切换不写角色 2 |
+| 深色模式、游戏模式、开机自启 | 应用设置 | 桌面保存真实偏好／浏览器仅改变预览状态 |
+| 自动更新开关 | 应用设置 | 桌面保存后台更新偏好；浏览器模拟 |
+| 导入／导出 | 应用设置 → 备份与维护 | 后台版本 2 支持原生文件选择、完整导出、预览确认导入；浏览器仅模拟 |
+| 检查更新、文件检查 | 应用设置 → 备份与维护 | 后台版本 6 支持下载、取消、安装确认与修复；版本 3～5 保留只读检查；浏览器仅模拟 |
+| Dolby 编辑器、设备接入提示窗 | 抽屉占位／后续阶段 | 未迁移，不执行 Dolby 或系统调用 |
+
+## 模拟数据边界
+
+- `src/data/types.ts` 定义异步 `AudioGateway`，页面组件不直接读写设备。`PreviewGateway` 只为原型额外提供场景切换。
+- 浏览器模式选用 `src/data/mock.ts`，所有状态存在内存，不连接真实后台；Tauri 模式选用单独的桌面适配器。
+- ID、输入／输出、三个默认角色和预设 `null` 含义参照现有 C# 模型。`Volume: null` 表示不写音量，`0` 是零音量；`SpatialFormat: null` 表示不写空间音效，空字符串表示关闭。Windows Sonic 的 GUID 为明确标注的示例值，不能用于真实后台。
+- `Online`、`Connection`、`Kind` 为展示数据，按输入／输出分组的 `DeviceOrder` 为视图结构。桌面适配器将后台的端点列表转换为分组 ID 列表；离线顺序、同名设备、三个默认角色和 null 均单独处理。基础保存使用独立窄接口，仅发送音量、空间音效、规则及编辑前基线；后台合并最新 Dolby 字段。
+- “刷新示例”重新读取当前内存状态，不丢失修改。浏览器刷新会重置全部预览；切换底部预览场景会重置示例数据并保留当前主题。
+- 场景包括常规（含离线设备）、空设备、同名设备、长名称、延迟加载、连接错误。错误页“重试”恢复常规场景。
+
+## 当前验收入口
+
+在 frontend 目录运行 `npm test` 和 `npm run typecheck`。测试覆盖模拟交互、保存／取消、排序、断线、权限清单和更新状态。`npm run build:preview` 生成独立 HTML，用于人工检查深浅色、键盘和窄窗口布局。
+
+旧 `verify-browser.js` 和 `verify-dolby-apply-browser.js` 已移除。它们依赖过时文案和原生 select；相关行为由 `App.test.tsx`、`DolbyApp.test.tsx`、`DolbyApply.test.tsx` 等当前组件测试覆盖。历史阶段文档中的脚本名与测试数量仅是当时记录。
+
+其余 `scripts/verify-*.js` 保留为阶段联调夹具，部分针对旧后台或旧界面。不能把它们当作当前一键验收入口；运行前须核对选择器、目标和副作用。真实音频或安装测试按 `../MANUAL-TESTS.md` 的对应条件执行。
+
+`dist/`、`node_modules/`、staging、截图及浏览器会话输出都不进入 PR。HTML 与模拟检查不代替 Windows 多显示器、设备插拔或真实升级验收。
+
+## 后续边界
+
+5.3c 维护会话的进度与待确认状态只保存在本次 Rust 任务中；关闭抽屉等待取消完成，关闭面板在确认安装前通过管道断开停止辅助进程。安装请求一次性提交，响应不确定时只允许重新读取结果，不能再次安装；已经接受的安装不会因面板关闭被强杀。浏览器演示不会下载或启动进程。`scripts/verify-upgrade.js` 是 Playwright CLI 的模拟交互／CSS 缩放检查；Rust 的 `upgrade::tests::isolated_upgrade_worker_protocol -- --ignored` 使用先构建的 `staging/AudioSwitch.Tests.exe` 假依赖辅助进程，不启动托盘、不访问网络或音频。
+
+4.4a 已提供输出设备设置中的「编辑 Dolby 方案」：电影／自定义方案、三态开关、强度、10 点 dB 与 20 段原始值，读取当前方案以及仅保存。需要接口版本 4 后台；离线设备可编辑保存，但读取必须是当前输出。浏览器模拟结果留在内存中。4.4b 的保存并应用需接口版本 5，且设备必须是当前在线输出；它仅应用 Dolby，不切换设备或应用基础预设。界面跟踪本次任务，区分已保存、正在应用、成功、失败和取消等待。关闭面板后后台通过持有的进程句柄取消本次任务，继续沿用原 worker 的恢复保护。真实写入和恢复仍待实机验证。
+
+`scripts/verify-dolby-browser.js` 验证浏览器编辑、精确曲线与缩放。Windows PowerShell 执行 `scripts/verify-dolby-capture.ps1` 可只读调用 staging 原辅助进程，不启动托盘、不保存配置。Rust 隔离生命周期测试需先用 .NET Framework 编译器将 `scripts/dolby-reader-fixture.cs` 编译到 `staging/dolby-reader-fixture/AudioSwitch.exe`（引用 System.Web.Extensions.dll），再显式运行 `dolby::tests::isolated_capture_cancel_and_window_close -- --ignored`；该假程序不加载音频或 Dolby 库。
+
+设备提示可单独预览：`http://127.0.0.1:4173/?view=prompt`（加 `&light` 切浅色，`&disconnected` 看断开）。真实桌面入口为 `staging/ui-target/release/audio-switch-panel.exe --prompt`，可传 `--owner=后台PID`；仅连接已运行后台。普通关闭保留待办，“保持当前选择”仅处理当前提示，待办清空或所属进程退出则退出窗口。无后台或结果不确定时提供手动刷新，不重复发送写入。
+
+`scripts/verify-prompt-browser.js` 验证模拟提示和缩放；`scripts/verify-prompt-owner.ps1` 用临时等待进程验证所属进程退出后的窗口释放，不启动音频后台。提示的实际插拔、音频操作与跨显示器验收见根目录 MANUAL-TESTS.md；日常自动弹窗、面板实例复用仍在第五阶段统一接入。
+
+第四阶段按导入／导出、维护检查、设备提示、Dolby 编辑器分别验收；发布兼容另行处理。`dist-desktop/` 使用稳定资源文件名，避免把历史浏览器产物一起嵌入；构建不批量清空输出。没有自动提交、发布或合并步骤。
+
+桌面隔离验收脚本 `scripts/verify-operations.js` 必须在专用测试面板中运行：它临时拦截所有 IPC，验证生产界面的写操作反馈，结束后恢复通信并重载。截图文件名含 `fixture`，不代表真实音频实测。原 `verify-desktop.js` 仅用于旧后台只读兼容验收。

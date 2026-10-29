@@ -127,18 +127,10 @@ namespace AudioSwitch
                     check(requests.All(r => r.Action == "snapshot" || r.Action == "gameMode"), "game mode UI does not request audio mutations in theme " + dark);
                     form.Close();
                 }
-                Palette.Apply(dark); int commands = 0; bool requested = false;
-                using (var menu = new ThemedMenu())
-                {
-                    menu.Items.Add(new TrayMenuHeading());
-                    menu.Items.Add("打开管理面板");
-                    var toggle = GameModeMenu.Create(true, value => { commands++; requested = value; }); menu.Items.Add(toggle);
-                    menu.Items.Add("退出"); menu.Show(new Point(50, 50)); Application.DoEvents();
-                    check(toggle.Checked && commands == 0, "opening tray menu reflects game mode without triggering changes in theme " + dark);
-                    using (var bitmap = new Bitmap(menu.Width, menu.Height)) { menu.DrawToBitmap(bitmap, menu.ClientRectangle); bitmap.Save(Path.Combine(output, dark ? "game-mode-tray-dark.png" : "game-mode-tray-light.png")); }
-                    toggle.PerformClick(); check(commands == 1 && !requested, "tray game mode toggles the current state exactly once in theme " + dark);
-                    menu.Close();
-                }
+                int commands = 0; bool requested = false;
+                var trayToggle = GameModeMenu.Create(true, value => { commands++; requested = value; });
+                check(trayToggle.Checked && trayToggle.Toggle && commands == 0, "tray model reflects game mode without changes");
+                trayToggle.Execute(); check(commands == 1 && !requested, "tray game mode sends the requested state once");
             }
             var endpoint = new Endpoint { Id = "game-headset", Name = "游戏耳机", Flow = 0 };
             var pendingReply = new Reply { Preferences = new Preferences { GameMode = true }, State = new AudioState { Devices = new List<Endpoint> { endpoint } },

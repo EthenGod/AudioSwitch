@@ -231,18 +231,24 @@ namespace AudioSwitch
             foreach (bool dark in new[] { false, true })
             {
                 Palette.Apply(dark);
+                foreach (bool candidate in new[] { false, true })
                 foreach (bool good in new[] { false, true })
                 {
                     var result = good ? FileIntegrity.Check(AppDomain.CurrentDomain.BaseDirectory) : FileIntegrity.Check(Path.Combine(output, "示例 未安装目录"));
+                    if (candidate) {
+                        result.Candidate = true;
+                        result.Entries.Clear();
+                        result.Entries.Add(good ? "通过：候选清单及全部 13 个内容文件（长度、摘要、面板版本和平台）" : "候选整包检查失败：文件校验失败：THIRD-PARTY-FRONTEND.txt");
+                    }
                     using (var form = new IntegrityDialog(false, true))
                     {
-                        form.RenderResult(new RepairResult { Check = result, Notes = good ? "已自动恢复：vendor/svcl/svcl.exe。原文件已备份。" : "修复未完成：文件被其他程序占用，请关闭相关程序后重试。" });
+                        form.RenderResult(new RepairResult { Check = result, Notes = candidate ? (good ? "" : PanelLaunch.LegacyUpdateBlocked) : good ? "已自动恢复：vendor/svcl/svcl.exe。原文件已备份。" : "修复未完成：文件被其他程序占用，请关闭相关程序后重试。" });
                         form.Show(); Application.DoEvents();
                         using (var bitmap = new Bitmap(form.Width, form.Height)) {
                             form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
-                            bitmap.Save(Path.Combine(output, "integrity-" + (good ? "pass-" : "fail-") + (dark ? "dark" : "light") + ".png"));
+                            bitmap.Save(Path.Combine(output, "integrity-" + (candidate ? "candidate-" : "") + (good ? "pass-" : "fail-") + (dark ? "dark" : "light") + ".png"));
                         }
-                        check(form.Controls.OfType<Button>().All(b => form.ClientRectangle.Contains(b.Bounds)), "integrity result buttons fit " + good + "/" + dark);
+                        check(form.Controls.OfType<Button>().All(b => form.ClientRectangle.Contains(b.Bounds)), "integrity result buttons fit " + candidate + "/" + good + "/" + dark);
                         form.Close();
                     }
                 }

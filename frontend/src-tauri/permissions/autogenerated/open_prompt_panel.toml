@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-open-prompt-panel"
+description = "Enables the open_prompt_panel command without any pre-configured scope."
+commands.allow = ["open_prompt_panel"]
+
+[[permission]]
+identifier = "deny-open-prompt-panel"
+description = "Denies the open_prompt_panel command without any pre-configured scope."
+commands.deny = ["open_prompt_panel"]

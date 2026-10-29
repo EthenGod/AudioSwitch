@@ -33,11 +33,11 @@ namespace AudioSwitch
         private bool disposed;
         private int attempts;
         private DateTime retryAfter;
-        internal BackgroundUpdate(AutomaticUpdateStore store, string issue) : this(AppUpdate.Check,
+        internal BackgroundUpdate(AutomaticUpdateStore store, string issue) : this(store.Check,
             store.Prepare, store.Stage, () => DateTime.UtcNow, BlockedVersion(store), issue) { }
         private static Version BlockedVersion(AutomaticUpdateStore store)
         {
-            try { var item = store.Read(); return item != null && item.Attempted ? AppUpdate.ParseVersion(item.Version) : null; }
+            try { return store.BlockedVersion(); }
             catch { return null; }
         }
         internal BackgroundUpdate(Func<CancellationToken, UpdateRelease> check, Func<UpdateRelease, CancellationToken, string> prepare,
@@ -88,7 +88,7 @@ namespace AudioSwitch
                         {
                             if (disposed || checkSuspended) return;
                             checkedOnce = true;
-                            if (found == null || found.Version <= AppUpdate.ParseVersion(AppVersion.Number)) return;
+                            if (!AppUpdate.IsAvailable(found)) return;
                             release = found;
                             if (blocked != null && found.Version <= blocked)
                                 state = new BackgroundUpdateState { Stage = "error", Version = found.Tag, Message = "上次自动安装未完成，请点击检查更新手动重试。" };

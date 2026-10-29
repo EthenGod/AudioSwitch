@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-save-dolby"
+description = "Enables the save_dolby command without any pre-configured scope."
+commands.allow = ["save_dolby"]
+
+[[permission]]
+identifier = "deny-save-dolby"
+description = "Denies the save_dolby command without any pre-configured scope."
+commands.deny = ["save_dolby"]

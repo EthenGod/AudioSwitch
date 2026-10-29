@@ -11,11 +11,15 @@
 
 ## 产品目标与技术边界
 
-- Windows x64 音频设备管理工具，原生 WinForms 界面。保持轻量，不引入 Electron、WebView、常驻浏览器或新的后台服务。
-- 使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；没有 SDK 风格项目或 NuGet 恢复步骤。
+- 当前版本为 **v0.12.1 测试版**；v0.12.0 按测试版保留。用户已授权整理、编译本地测试 Release 附件，输出为 `releases/v0.12.1/` 中的单 EXE 便捷展开版和完整 Desktop ZIP，不再生成或推荐过渡版。构建中间产物和验证仍放 `staging/`。不覆盖已有附件，不自动提交、打标签、上传或发布；GitHub 发布时标为 Pre-release，不设为 Latest。
+
+- Windows x64 音频设备管理工具。`refactor/ui` 重构采用 React / TypeScript / Tailwind / shadcn 前端，后续使用 Tauri 2 / WebView2；现有 C# 音频后台保留。保持轻量，不引入 Electron 或新的常驻服务；关闭界面后释放对应界面进程。
+- 现有后台使用 Windows 自带的 .NET Framework C# 编译器，保持 **C# 5** 语法和现有 .NET Framework 兼容性。入口为 `src/Program.cs`；后台没有 SDK 风格项目或 NuGet 恢复步骤。新增 `frontend/` 独立使用 Node 构建，不把前端构建依赖加入后台。
+- UI 重构按独立阶段验收，每阶段完成后先汇报并等待用户确认，不自动进入下一阶段、不自动提交或合并。当前桌面版已连接真实后台；仅开发预览和离线 HTML 使用模拟数据。历史第一阶段的边界不再适用于完整桌面包。
 - 默认进程是托盘后台；`--ui` 是面板，`--prompt` 是右下角提示，`--dolby-worker` 是短时辅助进程。关闭界面必须释放对应进程，不能只是隐藏。
+- 用户显式开启“保持浏览器端口开放”时，允许无窗口的浏览器服务随后台保留。默认关闭；关闭开关后恢复按需退出，退出后台时必须释放端口及服务进程。
 - 空闲后台依靠 Core Audio 事件，不轮询设备或 Dolby。约 150 ms 的事件合并从首条事件起算，连续事件不能无限推迟处理。
-- 中文界面沿用 `Palette` / `FlatAction`，提示要说明可执行的操作。不要把调试协议、RPC 编号或内部实现细节放到普通使用流程里。
+- 现有 WinForms 中文界面沿用 `Palette` / `FlatAction`；新前端使用独立主题与组件。提示要说明可执行的操作。不要把调试协议、RPC 编号或内部实现细节放到普通使用流程里。
 
 ## 代码地图
 
@@ -31,6 +35,12 @@
 | `src/PreferenceStore.cs`、`Ipc.cs` | 统一配置／备份、当前用户与会话隔离的命名管道 |
 | `src/Dashboard.cs`、`DevicePrompt.cs`、`*Dialog.cs`、`DolbyEditor.cs` | 面板、提示、设备设置、排序及 Dolby 编辑器 |
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
+| `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
+| `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
+| `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
+| `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
+| `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
+| `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |
 
 ## 必须保留的行为
 
@@ -82,3 +92,12 @@
 ## 交付说明
 
 说明修复了什么、用户会看到什么变化、实际运行了哪些测试，以及尚未验证的范围。功能或配置行为变化时同步更新 `README.md`、`CONFIGURATION.md` 和必要的手动测试步骤；代码审查记录可放入 `CODE_REVIEW.md`。
+
+### Release 发行说明
+
+- 以后沿用 `releases/RELEASE-NOTES-TEMPLATE.md`，具体规则见 `releases/README.md`。
+- 尽量简洁、用大白话，只写用户能感知到的更新和修复，少写专业术语；测试数字、底层实现和开发过程放在交付／验证记录，不堆进公开发行说明。
+- 固定包含“更新内容”“修复内容”；仅在有实际问题或影响使用的限制时加入“已知问题”。不编造修复，也不把未验证说成已通过。
+- 顶部用图形化下载按钮优先引导普通用户下载 `AudioSwitch.exe`，保留普通文字备用链接，目标固定到本版标签，不使用 latest 链接。
+- 必须按附件真实能力说明使用方法。若单 EXE 只是过渡版、不包含新面板，紧邻按钮说明，并提供完整界面包入口；不能误导用户认为单 EXE 已包含新界面。
+- 说明和模板放在版本附件目录外，不改变已验证的发布包，不自动提交、推送或发布。

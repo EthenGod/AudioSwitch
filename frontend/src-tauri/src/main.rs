@@ -1,0 +1,309 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod pipe;
+mod actions;
+mod backup;
+mod maintenance;
+mod upgrade;
+mod prompt;
+mod dolby;
+mod dolby_apply;
+mod browser;
+use tauri::Manager;
+use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[derive(Default)]
+struct Bridge { gate: tokio::sync::Mutex<()>, uncertain: AtomicBool, import: tokio::sync::Mutex<Option<backup::PendingImport>> }
+#[derive(Default)]
+struct PanelPresentation { shown: AtomicBool }
+
+#[tauri::command]
+fn panel_ready(window: tauri::WebviewWindow, presentation: tauri::State<'_, PanelPresentation>, dark: bool) -> Result<(), String> {
+    if window.label() != "main" { return Err("此窗口不能显示主面板。".into()); }
+    let color = if dark { tauri::window::Color(17, 17, 19, 255) } else { tauri::window::Color(252, 252, 253, 255) };
+    window.set_background_color(Some(color)).map_err(|e| e.to_string())?;
+    window.set_theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light })).map_err(|e| e.to_string())?;
+    if !presentation.shown.swap(true, Ordering::SeqCst) {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BridgeError { message: String, requires_refresh: bool }
+impl From<String> for BridgeError {
+    fn from(message: String) -> Self { Self { message, requires_refresh: false } }
+}
+
+#[tauri::command]
+async fn read_snapshot(bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作，请稍后刷新。".to_string()))?;
+    let result = pipe::read_snapshot().await?;
+    if let Some(pid) = result["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0) { session.bind(pid)?; }
+    // A successful reply proves the single-threaded backend finished earlier requests.
+    if result["State"].is_object() { bridge.uncertain.store(false, Ordering::SeqCst); }
+    Ok(result)
+}
+#[tauri::command]
+async fn read_device_settings(id: String, bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
+    if id.is_empty() || id.len() > 2048 { return Err("无效的设备标识。".to_string().into()); }
+    Ok(pipe::send(&json!({"Action":"deviceSettings", "DeviceId":id}), false).await?)
+}
+#[tauri::command]
+async fn panel_action(action: actions::Action, bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作，请勿重复提交。".to_string()))?;
+    if bridge.uncertain.load(Ordering::SeqCst) {
+        return Err(BridgeError { message:"上次操作结果尚未确认，请先刷新状态。".into(), requires_refresh:true });
+    }
+    let snapshot = pipe::read_snapshot().await?;
+    let request = action.request(&snapshot)?;
+    send_mutation(&request, &bridge).await
+}
+async fn send_mutation(request: &Value, bridge: &Bridge) -> Result<Value, BridgeError> {
+    match pipe::send(request, true).await {
+        Ok(reply) => {
+            if !reply["State"].is_object() || !reply["Preferences"].is_object() || reply.get("OperationError").is_none() {
+                bridge.uncertain.store(true, Ordering::SeqCst);
+                return Err(BridgeError { message:"后台未确认完整结果，请刷新后检查。".into(), requires_refresh:true });
+            }
+            Ok(reply)
+        },
+        Err(error) => {
+            bridge.uncertain.store(true, Ordering::SeqCst);
+            Err(BridgeError { message:format!("{error} 操作可能已经执行，请先刷新确认，勿重复提交。"), requires_refresh:true })
+        }
+    }
+}
+
+#[tauri::command]
+async fn export_backup(app: tauri::AppHandle, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
+    backup::require_supported(&pipe::read_snapshot().await?)?;
+    let reply = pipe::send(&json!({"Action":"exportSettings"}), false).await?;
+    backup::check_reply(&reply)?;
+    let configuration = reply["ConfigurationJson"].as_str().ok_or_else(|| BridgeError::from("后台没有返回备份内容。".to_string()))?.to_owned();
+    let owner = dialog_owner(&app);
+    tauri::async_runtime::spawn_blocking(move || -> Result<Option<Value>, String> {
+        let Some(path) = backup::choose(owner, true)? else { return Ok(None) };
+        let active = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA").ok_or("无法确定活动配置位置。")?).join("AudioSwitch/settings.json");
+        backup::write(&path, &configuration, &active)?;
+        Ok(Some(json!({"Path":path.to_string_lossy()})))
+    }).await.map_err(|e| BridgeError::from(e.to_string()))?.map_err(Into::into)
+}
+#[tauri::command]
+async fn choose_import(app: tauri::AppHandle, bridge: tauri::State<'_, Bridge>) -> Result<Option<Value>, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
+    *bridge.import.lock().await = None;
+    backup::require_supported(&pipe::read_snapshot().await?)?;
+    let owner = dialog_owner(&app);
+    let selected = tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
+        let Some(path) = backup::choose(owner, false)? else { return Ok(None) };
+        let text = backup::read(&path)?; Ok(Some((path, text)))
+    }).await.map_err(|e| BridgeError::from(e.to_string()))??;
+    let Some((path, text)) = selected else { return Ok(None) };
+    let reply = pipe::send(&json!({"Action":"previewImport", "ConfigurationJson":text}), false).await?;
+    let (pending, summary) = backup::PendingImport::prepare(&reply, &path)?;
+    *bridge.import.lock().await = Some(pending);
+    Ok(Some(summary))
+}
+#[tauri::command]
+async fn discard_import(token: String, bridge: tauri::State<'_, Bridge>) -> Result<(), BridgeError> {
+    let mut pending = bridge.import.lock().await;
+    if pending.as_ref().is_some_and(|entry| entry.token == token) { *pending = None; }
+    Ok(())
+}
+#[tauri::command]
+async fn confirm_import(token: String, bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作，请勿重复提交。".to_string()))?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新状态确认上次结果，再重新选择备份。".into(), requires_refresh:true }); }
+    let mut entry = bridge.import.lock().await;
+    if !entry.as_ref().is_some_and(|item| item.token == token) { return Err("备份预览已失效，请重新选择文件。".to_string().into()); }
+    let request = entry.take().unwrap().request();
+    // Consume before sending: a double click or failed response cannot re-import.
+    let reply = send_mutation(&request, &bridge).await?;
+    if reply["OperationError"].is_null() && (reply["PreferencesSaved"] != true || reply["BackupPath"].as_str().is_none_or(str::is_empty)) {
+        bridge.uncertain.store(true, Ordering::SeqCst);
+        return Err(BridgeError { message:"后台未确认完整导入结果，请刷新检查，勿重复导入。".into(), requires_refresh:true });
+    }
+    Ok(reply)
+}
+#[tauri::command]
+async fn start_upgrade(kind: upgrade::Kind, bridge: tauri::State<'_, Bridge>, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    let snapshot = pipe::read_snapshot().await?;
+    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 6 { return Err("当前后台只支持检查，请使用新版后台。".to_string().into()); }
+    Ok(jobs.start(maintenance::backend_path(&snapshot)?, kind).await?)
+}
+#[tauri::command]
+fn read_upgrade(token: String, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.read(&token)?) }
+#[tauri::command]
+fn upgrade_action(token: String, action: upgrade::Action, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.action(&token, action)?) }
+#[tauri::command]
+async fn cancel_upgrade(token: String, jobs: tauri::State<'_, upgrade::Upgrade>) -> Result<Value, BridgeError> { Ok(jobs.cancel(&token).await?) }
+#[tauri::command]
+async fn start_maintenance(kind: maintenance::Kind, bridge: tauri::State<'_, Bridge>, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| BridgeError::from("正在处理上一个操作。".to_string()))?;
+    let path = maintenance::backend_path(&pipe::read_snapshot().await?)?;
+    Ok(jobs.start(path, kind).await?)
+}
+#[tauri::command]
+fn read_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.read(&token)?) }
+#[tauri::command]
+async fn cancel_maintenance(token: String, jobs: tauri::State<'_, maintenance::Maintenance>) -> Result<Value, BridgeError> { Ok(jobs.cancel(&token).await?) }
+#[tauri::command]
+async fn read_prompt_snapshot(bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    let reply = pipe::read_snapshot().await?;
+    let pid = reply["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。".to_string())?;
+    session.bind(pid)?;
+    if !reply["Pending"].is_array() { return Err("提示状态不完整，请重试。".to_string().into()); }
+    if reply["State"].is_object() { bridge.uncertain.store(false, Ordering::SeqCst); }
+    Ok(reply)
+}
+#[tauri::command]
+async fn prompt_action(action: prompt::Action, bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, prompt::Session>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作，请勿重复提交。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let reply = pipe::read_snapshot().await?;
+    let pid = reply["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。".to_string())?;
+    session.bind(pid)?;
+    send_mutation(&action.request(&reply)?, &bridge).await
+}
+#[tauri::command]
+fn close_prompt(window: tauri::WebviewWindow) -> Result<(), String> { window.close().map_err(|e| e.to_string()) }
+#[tauri::command]
+async fn open_prompt_panel(window: tauri::WebviewWindow, session: tauri::State<'_, prompt::Session>) -> Result<(), String> {
+    let snapshot = pipe::read_snapshot().await?;
+    let pid = snapshot["BackendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).ok_or("无法确认后台进程。")?;
+    session.bind(pid)?;
+    let reply = pipe::send(&json!({"Action":"show"}), false).await?;
+    prompt::panel_opened(&reply)?;
+    window.close().map_err(|e| e.to_string())
+}
+#[tauri::command]
+async fn save_dolby(id: String, profile: Option<dolby::Profile>, expected: Option<dolby::Profile>, bridge: tauri::State<'_, Bridge>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let snapshot = pipe::read_snapshot().await?;
+    let reply = send_mutation(&dolby::save_request(&snapshot, &id, &profile, &expected)?, &bridge).await?;
+    if reply["OperationError"].is_null() && reply["PreferencesSaved"] != true {
+        bridge.uncertain.store(true, Ordering::SeqCst);
+        return Err(BridgeError { message:"后台尚未确认保存，请刷新检查。".into(), requires_refresh:true });
+    }
+    Ok(reply)
+}
+#[tauri::command]
+async fn start_dolby_read(id: String, bridge: tauri::State<'_, Bridge>, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    Ok(reader.start(&pipe::read_snapshot().await?, &id).await?)
+}
+#[tauri::command]
+fn read_dolby(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.read(&token)?) }
+#[tauri::command]
+async fn cancel_dolby_read(token: String, reader: tauri::State<'_, dolby::Reader>) -> Result<Value, BridgeError> { Ok(reader.cancel(&token).await?) }
+#[tauri::command]
+async fn start_dolby_apply(id: String, profile: dolby::Profile, expected: Option<dolby::Profile>, token: String, bridge: tauri::State<'_, Bridge>, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    start_dolby_apply_for_session(id, profile, expected, token, &bridge, &session).await
+}
+async fn start_dolby_apply_for_session(id: String, profile: dolby::Profile, expected: Option<dolby::Profile>, token: String, bridge: &Bridge, session: &dolby_apply::Session) -> Result<Value, BridgeError> {
+    let _guard = bridge.gate.try_lock().map_err(|_| "正在处理上一个操作。".to_string())?;
+    if bridge.uncertain.load(Ordering::SeqCst) { return Err(BridgeError { message:"请先刷新确认上次操作结果。".into(), requires_refresh:true }); }
+    let request = dolby_apply::request(&pipe::read_snapshot().await?, &id, &profile, &expected, &token)?;
+    session.bind(&token);
+    let reply = send_mutation(&request, &bridge).await?;
+    if reply["OperationError"].is_null() && (reply["PreferencesSaved"] != true || dolby_apply::operation(&reply, &token).is_err()) {
+        bridge.uncertain.store(true, Ordering::SeqCst);
+        return Err(BridgeError { message:"后台未确认保存与应用状态，请检查本次结果，勿重复应用。".into(), requires_refresh:true });
+    }
+    Ok(reply)
+}
+#[tauri::command]
+async fn read_dolby_apply(token: String, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    session.require(&token)?;
+    Ok(dolby_apply::operation(&pipe::send(&json!({"Action":"readDolbyApply","Token":token}), false).await?, &token)?)
+}
+#[tauri::command]
+async fn cancel_dolby_apply(token: String, session: tauri::State<'_, dolby_apply::Session>) -> Result<Value, BridgeError> {
+    session.require(&token)?;
+    // Acknowledge cancellation only. The UI keeps waiting for the worker's final result.
+    Ok(dolby_apply::operation(&pipe::send(&json!({"Action":"cancelDolbyApply","Token":token}), false).await?, &token)?)
+}
+fn dialog_owner(app: &tauri::AppHandle) -> isize {
+    app.get_webview_window("main").and_then(|window| window.hwnd().ok()).map_or(0, |hwnd| hwnd.0 as isize)
+}
+fn main() {
+    let is_prompt = std::env::args().any(|arg| arg == "--prompt");
+    let is_browser = std::env::args().any(|arg| arg == "--browser");
+    if is_browser && is_prompt { return; }
+    let session = prompt::Session::default();
+    {
+        if let Some(owner) = std::env::args().find_map(|arg| arg.strip_prefix("--owner=").map(str::to_owned)) {
+            let Ok(pid) = owner.parse::<u32>() else { return };
+            if pid == 0 || session.bind(pid).is_err() { return; }
+        }
+    }
+    let mut context = tauri::generate_context!();
+    if is_browser { context.config_mut().app.windows.clear(); }
+    if is_prompt {
+        let config = &mut context.config_mut().app.windows[0];
+        config.label = "prompt".into(); config.title = "声间 设备提示".into();
+        config.width = 400.0; config.height = 380.0; config.min_width = Some(320.0); config.min_height = Some(300.0);
+        config.visible = true; config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
+    }
+    let result = tauri::Builder::default()
+        .manage(Bridge::default())
+        .manage(PanelPresentation::default())
+        .manage(session)
+        .manage(maintenance::Maintenance::default())
+        .manage(upgrade::Upgrade::default())
+        .manage(dolby::Reader::default())
+        .manage(dolby_apply::Session::default())
+        .setup(move |app| {
+            if is_browser {
+                if let Err(error) = browser::start(app.handle().clone()) {
+                    // A setup error otherwise becomes a panic before run() can return it.
+                    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+                    let message: Vec<u16> = format!("无法打开浏览器面板。\n{error}\0").encode_utf16().collect();
+                    let title: Vec<u16> = "声间\0".encode_utf16().collect();
+                    unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+                    app.handle().exit(1);
+                }
+                return Ok(());
+            }
+            if is_prompt {
+                if let Some(window) = app.get_webview_window("prompt") {
+                    if let Some(monitor) = window.primary_monitor()? {
+                        let area = monitor.work_area(); let size = window.outer_size()?;
+                        let margin = (12.0 * monitor.scale_factor()) as i32;
+                        window.set_position(tauri::PhysicalPosition::new(area.position.x + (area.size.width as i32 - size.width as i32 - margin).max(0), area.position.y + (area.size.height as i32 - size.height as i32 - margin).max(0)))?;
+                    }
+                }
+            }
+            let app = app.handle().clone();
+            let label = if is_prompt { "prompt" } else { "main" };
+            let started = std::time::Instant::now();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_millis(250));
+                let Some(window) = app.get_webview_window(label) else { break };
+                if app.state::<prompt::Session>().exited() { let _ = window.close(); break; }
+                // Script failures and slow reads must not leave an invisible, uncloseable panel.
+                if !is_prompt && started.elapsed().as_secs() >= 5 && !app.state::<PanelPresentation>().shown.swap(true, Ordering::SeqCst) {
+                    let _ = window.show();
+                }
+            });
+            Ok(())
+        })
+        .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<upgrade::Upgrade>().close(); window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
+        .invoke_handler(tauri::generate_handler![panel_ready, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
+        .run(context);
+    if result.is_err() {
+        // This native message also works when WebView2 cannot create any web UI.
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+        let message: Vec<u16> = "声间面板无法启动。请确认完整程序包已解压，并已安装 Microsoft Edge WebView2 Runtime。可按包内 DESKTOP-README.txt（候选包为 CANDIDATE-README.txt）的说明修复后重试。Runtime 安装入口：https://developer.microsoft.com/microsoft-edge/webview2/ 。后台仍可从托盘退出。\0".encode_utf16().collect();
+        let title: Vec<u16> = "无法打开声间面板\0".encode_utf16().collect();
+        unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+    }
+}

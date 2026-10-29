@@ -28,7 +28,7 @@ namespace AudioSwitch
                 var reader = new StreamReader(pipe);
                 writer.WriteLine(Encode(request));
                 var response = reader.ReadLineAsync();
-                bool appliesSettings = request.Action == "switch" || request.Action == "new" || request.Action == "old" || request.Action == "alternative" || request.Action == "saveDeviceSettings" || request.Action == "priority" || request.Action == "deviceOrder" || request.Action == "refresh";
+                bool appliesSettings = request.Action == "switch" || request.Action == "new" || request.Action == "old" || request.Action == "alternative" || request.Action == "saveDeviceSettings" || request.Action == "saveBasicDeviceSettings" || request.Action == "priority" || request.Action == "deviceOrder" || request.Action == "refresh";
                 if (!response.Wait(appliesSettings ? 20000 : 4000)) throw new TimeoutException("后台响应超时，请稍后重试。");
                 if (response.Result == null) throw new IOException("后台已退出。");
                 return Decode<Reply>(response.Result);

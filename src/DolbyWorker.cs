@@ -101,6 +101,7 @@ namespace AudioSwitch
         private long revision;
         private bool running, stopped;
         private CancellationTokenSource activeCancellation;
+        private Action<DolbyResult, bool> pendingOwner, activeOwner;
         internal bool Applying { get { return !stopped && (running || pending != null); } }
         internal DolbyQueue(Action<Action> dispatch, Func<string, DolbyProfile, CancellationToken, DolbyResult> run, Action<string, DolbyResult> complete)
         { this.dispatch = dispatch; this.run = run; this.complete = complete; }
@@ -109,20 +110,39 @@ namespace AudioSwitch
             if (stopped || (!force && observed == id)) return;
             observed = id; revision++;
             if (activeCancellation != null) activeCancellation.Cancel();
+            pendingOwner = null;
             pending = profile == null || id == null ? null : new DolbyRequest { DeviceId = id, Profile = Wire.Decode<DolbyProfile>(Wire.Encode(profile)) };
             Start();
         }
-        internal void Cancel() { revision++; pending = null; if (activeCancellation != null) activeCancellation.Cancel(); }
+        internal void ApplyOwned(string id, DolbyProfile profile, Action<DolbyResult, bool> settled)
+        {
+            if (stopped || Applying) throw new InvalidOperationException("Dolby 正在处理其他任务，请稍后再应用。");
+            if (profile == null || settled == null) throw new ArgumentNullException("profile");
+            observed = id; revision++;
+            pending = new DolbyRequest { DeviceId = id, Profile = Wire.Decode<DolbyProfile>(Wire.Encode(profile)) };
+            pendingOwner = settled; Start();
+        }
+        internal void CancelOwned(Action<DolbyResult, bool> owner)
+        {
+            // Never discard newer automatic work waiting behind this editor's job.
+            if (owner != null && activeOwner == owner && activeCancellation != null) activeCancellation.Cancel();
+        }
+        internal void Cancel() { revision++; pending = null; pendingOwner = null; if (activeCancellation != null) activeCancellation.Cancel(); }
         internal void Stop() { if (stopped) return; stopped = true; Cancel(); }
         private void Start()
         {
             if (running || pending == null || stopped) return;
             var job = pending; long version = revision; pending = null; running = true;
+            var owner = pendingOwner; activeOwner = owner; pendingOwner = null;
             var cancellation = new CancellationTokenSource(); activeCancellation = cancellation;
             Task.Run(() => run(job.DeviceId, job.Profile, cancellation.Token)).ContinueWith(task => {
                 try { dispatch(() => {
-                    running = false; activeCancellation = null; cancellation.Dispose();
-                    if (!stopped && revision == version) complete(job.DeviceId, task.IsFaulted ? new DolbyResult { Error = "Dolby 应用失败。" } : task.Result);
+                    bool cancelled = cancellation.IsCancellationRequested;
+                    running = false; activeCancellation = null; activeOwner = null; cancellation.Dispose();
+                    var result = task.IsFaulted || task.IsCanceled ? new DolbyResult { Error = "Dolby 应用失败，无法确认音效状态。" } : task.Result;
+                    if (result == null) result = new DolbyResult { Error = "Dolby 未返回应用结果，请检查当前音效。" };
+                    if (!stopped && revision == version) complete(job.DeviceId, result);
+                    if (owner != null) owner(result, cancelled || revision != version || stopped);
                     Start();
                 }); } catch (InvalidOperationException) { cancellation.Dispose(); }
             });

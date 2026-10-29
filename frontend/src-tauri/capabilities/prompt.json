@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "device-prompt",
+  "description": "Device prompt only: inspect pending arrivals, respond, close or open the panel.",
+  "windows": ["prompt"],
+  "permissions": ["allow-read-prompt-snapshot", "allow-prompt-action", "allow-close-prompt", "allow-open-prompt-panel"]
+}

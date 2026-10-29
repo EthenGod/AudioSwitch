@@ -1,0 +1,45 @@
+param(
+    [ValidateSet('Open','Close')][string]$Command,
+    [switch]$WaitingWorker,
+    [string]$FixturePath,
+    [ValidatePattern('^[a-zA-Z0-9-]{1,64}$')][string]$RecordName = 'readonly-session'
+)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path (Split-Path $PSScriptRoot)
+$staging = [IO.Path]::GetFullPath((Join-Path $root 'staging'))
+$exe = if ($FixturePath) { [IO.Path]::GetFullPath($FixturePath) } else { Join-Path $staging 'AudioSwitch.Tests.exe' }
+if (![IO.Path]::GetFileName($exe).Equals('AudioSwitch.Tests.exe', [StringComparison]::OrdinalIgnoreCase) -or
+    !$exe.StartsWith($staging + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw '只允许使用 staging 内的 AudioSwitch.Tests.exe。'
+}
+$recordPath = Join-Path $staging "$RecordName.json"
+if ($Command -eq 'Open') {
+    if (Get-Process AudioSwitch -ErrorAction SilentlyContinue) { throw '已有后台，请先由用户关闭。' }
+    if (Test-Path -LiteralPath $recordPath) {
+        $old = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
+        $existing = Get-Process -Id $old.Pid -ErrorAction SilentlyContinue
+        if ($existing -and $existing.Path -eq $exe -and $existing.StartTime.Ticks -eq $old.StartTicks) { throw '只读联调入口已运行。' }
+    }
+    $token = [Guid]::NewGuid().ToString('N')
+    $stdout = Join-Path $root "staging/readonly-$token.stdout.log"
+    $stderr = Join-Path $root "staging/readonly-$token.stderr.log"
+    if ($WaitingWorker -and !(Test-Path -LiteralPath (Join-Path (Split-Path $exe) 'readonly-wait-fixture/AudioSwitch.exe'))) { throw '请先编译 readonly-wait-worker.cs 夹具。' }
+    $mode = if ($WaitingWorker) {'--panel-readonly-wait-host'} else {'--panel-readonly-host'}
+    $process = Start-Process -FilePath $exe -ArgumentList $mode,$token -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    [pscustomobject]@{Pid=$process.Id;StartTicks=$process.StartTime.Ticks;Token=$token;Executable=$exe;Stdout=$stdout;Stderr=$stderr} | ConvertTo-Json | Set-Content -LiteralPath $recordPath -Encoding utf8
+    "Read-only bridge PID: $($process.Id)"
+} else {
+    $record = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
+    if ($record.Executable -ne $exe) { throw '记录与夹具路径不一致，请使用 Open 时的 FixturePath。' }
+    $process = Get-Process -Id $record.Pid -ErrorAction SilentlyContinue
+    if ($process -and ($process.Path -ne $exe -or $process.StartTime.Ticks -ne $record.StartTicks)) { throw 'PID 已被其他进程使用，不操作该进程。' }
+    if ($process -and $process.Path -eq $exe -and $process.StartTime.Ticks -eq $record.StartTicks) {
+        $stop = [Threading.EventWaitHandle]::OpenExisting("Local\AudioSwitch-ReadOnlyTest-$($record.Token)")
+        try { [void]$stop.Set(); if (!$process.WaitForExit(10000)) { throw '只读入口仍未退出，请检查。' } } finally { $stop.Dispose() }
+    }
+    $auditPath = Join-Path (Split-Path $exe) "readonly-session-$($record.Token).json"
+    $audit = Get-Content -LiteralPath $auditPath -Raw | ConvertFrom-Json
+    $unchanged = $audit.ConfigurationUnchanged -and ($audit.Before | ConvertTo-Json -Depth 12 -Compress) -ceq ($audit.After | ConvertTo-Json -Depth 12 -Compress)
+    [pscustomobject]@{Exited=!(Get-Process -Id $record.Pid -ErrorAction SilentlyContinue);ConfigurationUnchanged=$audit.ConfigurationUnchanged;AudioReadingsUnchanged=$unchanged;Audit=$auditPath}
+    if (!$unchanged) { throw '前后只读记录不一致，请检查审计文件，不自动恢复或改写设置。' }
+}

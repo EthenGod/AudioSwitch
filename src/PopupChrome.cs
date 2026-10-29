@@ -18,6 +18,8 @@ namespace AudioSwitch
         [DllImport("user32.dll")] private static extern int SetWindowRgn(IntPtr window, IntPtr region, bool redraw);
         [DllImport("gdi32.dll")] private static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int width, int height);
         [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+        [DllImport("dwmapi.dll")] private static extern int DwmIsCompositionEnabled(out bool enabled);
+        [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
         [DllImport("user32.dll")] private static extern IntPtr GetWindowDC(IntPtr window);
         [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr window, IntPtr dc);
         [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] private static extern int GetWindowLong(IntPtr window, int index);
@@ -31,7 +33,7 @@ namespace AudioSwitch
             SetWindowLong(window, -16, plainStyle); SetWindowLong(window, -20, plainExtended);
             SetWindowPos(window, IntPtr.Zero, 0, 0, 0, 0, 0x0037);
         }
-        internal static void Round(IntPtr window)
+        internal static void Round(IntPtr window, int diameterPixels = 0)
         {
             if (rounding) return;
             Rect rect; if (!GetWindowRect(window, out rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top) return;
@@ -39,12 +41,44 @@ namespace AudioSwitch
             try {
             using (var graphics = Graphics.FromHwnd(window))
             {
+                int width = rect.Right - rect.Left, height = rect.Bottom - rect.Top;
                 int diameter = (int)(16 * graphics.DpiX / 96F);
-                IntPtr region = CreateRoundRectRgn(0, 0, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1, diameter, diameter);
+                IntPtr region = diameterPixels > 0 ? SymmetricRegion(graphics, width, height, diameterPixels / 2)
+                    : CreateRoundRectRgn(0, 0, width + 1, height + 1, diameter, diameter);
                 if (region != IntPtr.Zero && SetWindowRgn(window, region, false) == 0) DeleteObject(region);
                 // Windows owns the region after successful SetWindowRgn.
             }
             } finally { rounding = false; }
+        }
+        internal static bool TrySystemCorners(IntPtr window, Color border)
+        {
+            try {
+                bool enabled;
+                if (DwmIsCompositionEnabled(out enabled) != 0 || !enabled) return false;
+                int round = 2, color = ColorTranslator.ToWin32(border);
+                if (DwmSetWindowAttribute(window, 33, ref round, 4) != 0
+                    || DwmSetWindowAttribute(window, 34, ref color, 4) != 0) return false;
+                // A window region disables DWM rounding. Uniform layered opacity can stay;
+                // only the compositor paints the antialiased outer edge and theme border.
+                SetWindowRgn(window, IntPtr.Zero, false);
+                return true;
+            } catch (DllNotFoundException) { return false; }
+              catch (EntryPointNotFoundException) { return false; }
+        }
+        private static IntPtr SymmetricRegion(Graphics graphics, int width, int height, int radius)
+        {
+            radius = Math.Min(radius, Math.Min(width, height) / 2);
+            // Sample pixel centres and mirror the same runs. GDI's ellipse rasterizer can
+            // round opposite corners differently (notably at 150% scale).
+            using (var region = new Region(new Rectangle(0, radius, width, height - radius * 2))) {
+                for (int y = 0; y < radius; y++) {
+                    double dy = radius - y - .5;
+                    int inset = Math.Max(0, (int)Math.Ceiling(radius - Math.Sqrt(radius * radius - dy * dy) - .5));
+                    region.Union(new Rectangle(inset, y, width - inset * 2, 1));
+                    region.Union(new Rectangle(inset, height - 1 - y, width - inset * 2, 1));
+                }
+                return region.GetHrgn(graphics);
+            }
         }
         internal static void Border(IntPtr window, IntPtr destination = default(IntPtr))
         {

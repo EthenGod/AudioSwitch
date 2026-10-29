@@ -12,6 +12,10 @@ namespace AudioSwitch
     internal sealed class IntegrityResult
     {
         internal bool Passed = true;
+        internal bool Candidate;
+        internal bool Desktop;
+        internal bool WholePackage { get { return Candidate || Desktop; } }
+        internal string PackageLabel { get { return Candidate ? "候选整包" : "桌面整包"; } }
         internal readonly List<string> Entries = new List<string>();
         internal readonly List<string> FailedFiles = new List<string>();
         internal string Directory;
@@ -19,10 +23,11 @@ namespace AudioSwitch
         {
             get
             {
-                return (Passed ? "运行必需文件检查通过。" : "运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。") +
+                return (WholePackage ? (Passed ? PackageLabel + "文件检查通过。" : PackageLabel + "文件检查未通过，暂不能继续启动。请重新解压完整" + (Candidate ? "候选" : "桌面") + "包到独立目录。") :
+                    (Passed ? "运行必需文件检查通过。" : "运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。")) +
                     "\r\n\r\n检查目录：" + Directory + "\r\n\r\n" + String.Join("\r\n", Entries) +
                     (Passed ? "" : "\r\n\r\n正式发布页：" + AppUpdate.ReleasesUrl) +
-                    "\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。用户设置和开机自启登记不受影响。" +
+                    (WholePackage ? "\r\n\r\n界面包的面板、说明和许可文件均须完整；本次检查不会修复或替换文件。" : "\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。") + "用户设置和开机自启登记不受影响。" +
                     "\r\n检查用于发现文件缺损，不用于验证发布者身份。";
             }
         }
@@ -62,7 +67,15 @@ namespace AudioSwitch
 
         internal static IntegrityResult Check(string directory)
         {
-            var result = new IntegrityResult { Directory = directory };
+            var result = new IntegrityResult { Directory = directory, Candidate = PanelLaunch.IsCandidate(directory), Desktop = UpdatePackage.IsDesktop(directory) };
+            if (result.WholePackage)
+            {
+                try {
+                    PanelLaunch.Validate(directory, AppVersion.Number);
+                    result.Entries.Add("通过：" + result.PackageLabel + "清单及全部 13 个内容文件（长度、摘要、面板版本和平台）");
+                }
+                catch (Exception ex) { result.Fail(result.PackageLabel + "检查失败：" + ex.Message); }
+            }
             try
             {
                 string exe = Path.Combine(directory, "AudioSwitch.exe");

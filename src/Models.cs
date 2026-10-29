@@ -19,7 +19,9 @@ namespace AudioSwitch
         public List<Endpoint> Devices { get; set; }
         // Keys are flow:role; role 0 = console, 1 = multimedia, 2 = communications.
         public Dictionary<string, string> Defaults { get; set; }
-        public AudioState() { Devices = new List<Endpoint>(); Defaults = new Dictionary<string, string>(); }
+        // Presentation metadata only; never persisted in Preferences.DeviceOrder.
+        public Dictionary<string, int> FormFactors { get; set; }
+        public AudioState() { Devices = new List<Endpoint>(); Defaults = new Dictionary<string, string>(); FormFactors = new Dictionary<string, int>(); }
         public string Default(int flow, int role)
         {
             string value;
@@ -111,6 +113,9 @@ namespace AudioSwitch
     {
         public bool GameMode { get; set; }
         public bool AutoUpdateEnabled { get; set; }
+        public bool OpenPanelInBrowser { get; set; }
+        public bool KeepBrowserPortOpen { get; set; }
+        public int BrowserPort { get; set; }
         internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
         public bool AskOnConnect { get; set; }
@@ -128,27 +133,41 @@ namespace AudioSwitch
     {
         public string UpdatePath { get; set; }
         public string StartupExecutablePath { get; set; }
+        public int OwnerPid { get; set; }
         public string ExpectedStartupCommand { get; set; }
         public string Action { get; set; }
         public string DeviceId { get; set; }
         public string Token { get; set; }
         public bool Value { get; set; }
+        public int? BrowserPort { get; set; }
         public DeviceProfile Profile { get; set; }
+        // Optimistic check for the basic editor; Dolby remains owned by the backend.
+        public DeviceProfile ExpectedProfile { get; set; }
+        public DolbyProfile DolbyProfile { get; set; }
+        public DolbyProfile ExpectedDolbyProfile { get; set; }
+        public DeviceRule? ExpectedDeviceRule { get; set; }
         public int Flow { get; set; }
         public List<string> DeviceOrder { get; set; }
         public DeviceRule? DeviceRule { get; set; }
         public string Message { get; set; }
         public string ConfigurationJson { get; set; }
+        public string ExpectedConfigurationRevision { get; set; }
     }
 
     public sealed class Reply
     {
+        public PanelDolbyOperation DolbyOperation { get; set; }
+        public int PanelApiVersion { get; set; }
+        public string OperationError { get; set; }
+        public bool PreferencesSaved { get; set; }
         public BackgroundUpdateState Update { get; set; }
         public StartupState Startup { get; set; }
         public string BackendExecutablePath { get; set; }
         public string Error { get; set; }
         public string Warning { get; set; }
         public string ConfigurationJson { get; set; }
+        public string ConfigurationRevision { get; set; }
+        public ImportPreviewInfo ImportPreview { get; set; }
         public string BackupPath { get; set; }
         public AudioState State { get; set; }
         public List<Arrival> Pending { get; set; }
@@ -158,6 +177,15 @@ namespace AudioSwitch
         public int PromptPid { get; set; }
         public bool DolbyApplying { get; set; }
         public DeviceSettingsInfo DeviceSettings { get; set; }
+    }
+
+    public sealed class ImportPreviewInfo
+    {
+        public int Devices { get; set; }
+        public int Profiles { get; set; }
+        public int Rules { get; set; }
+        public int DolbyProfiles { get; set; }
+        public int OfflineDevices { get; set; }
     }
 
     public sealed class DeviceProfile

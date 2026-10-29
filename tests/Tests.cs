@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -19,10 +19,25 @@ namespace AudioSwitch
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 4 && args[0] == "--installer-preflight-fixture") return WebViewHandoffTests.Worker(args[1], args[2], args[3]);
+            if (args.Length == 2 && args[0] == "--release-archives") return ReleasePackageTests.Verify(args[1]);
+            if (args.Length == 1 && (args[0] == "--upgrade-test-worker" || args[0] == "--upgrade-cancel-worker" || args[0] == "--upgrade-error-worker")) {
+                PanelUpgradeTests.Worker(args[0] == "--upgrade-cancel-worker" ? "cancel" : args[0] == "--upgrade-error-worker" ? "error" : "success"); return 0;
+            }
+            if (args.Length == 3 && args[0] == "--frontend-launch-host") return FrontendLaunchHost.Run(args[1],args[2]);
+            if (args.Length == 2 && args[0] == "--panel-readonly-host") return PanelReadOnlyHost.Run(args[1]);
+            if (args.Length == 2 && args[0] == "--panel-readonly-wait-host") return PanelReadOnlyHost.Run(args[1], true);
+            if (args.Length == 1 && args[0] == "--dolby-owner-fixture") { Console.OpenStandardInput().ReadByte(); return 0; }
+            if (args.Length == 1 && args[0] == "--maintenance-test-worker")
+            {
+                PanelMaintenance.Main(token => { token.WaitHandle.WaitOne(); token.ThrowIfCancellationRequested(); return null; });
+                return 0;
+            }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
+                if (args.Contains("--tray-popup-render")) { TrayPopupTests.Run(Check); TrayPopupTests.Render(Check); Console.WriteLine("PASS: " + passed + " tray checks"); return 0; }
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
                 if (args.Contains("--update-activity")) { BackgroundUpdateTests.NativeActivity(Check); return 0; }
                 if (args.Contains("--startup-process")) { StartupTests.BackgroundProcess(Check); return 0; }
@@ -37,6 +52,14 @@ namespace AudioSwitch
                 RunDisconnectionTests();
                 RunSelectionTests();
                 RunProfileTests();
+                PanelProfileTests.Run(Check);
+                PanelDolbyTests.Run(Check);
+                PanelDolbyApplyTests.Run(Check);
+                PanelImportTests.Run(Check);
+                PanelMaintenanceTests.Run(Check);
+                PanelUpgradeTests.Run(Check);
+                WebViewRuntimeTests.Run(Check);
+                WebViewHandoffTests.Run(Check);
                 RunPriorityTests();
                 RunWhitelistTests();
                 RunWhitelistRegressionTests();
@@ -47,6 +70,9 @@ namespace AudioSwitch
                 GameModeTests.Run(Check);
                 AutoUpdatePreferenceTests.Run(Check);
                 IntegrityTests.Run(Check);
+                FrontendLaunchTests.Run(Check); TrayPopupTests.Run(Check);
+                CandidateUpdateTests.Run(Check);
+                DesktopUpdateTests.Run(Check);
                 RunDolbyTests();
                 using (var audio = new AudioService())
                 {
@@ -72,11 +98,15 @@ namespace AudioSwitch
                 if (args.Contains("--lifecycle")) Lifecycle();
                 if (args.Contains("--dolby-smoke")) DolbySmoke();
                 if (args.Contains("--worker-cancel")) TestWorkerCancellationSignal();
+                if (args.Contains("--render")) TrayPopupTests.Render(Check);
                 if (args.Contains("--render")) StartupTests.Render(Check);
                 if (args.Contains("--render")) GameModeTests.Render(Check);
                 if (args.Contains("--render")) AutoUpdatePreferenceTests.Render(Check);
                 if (args.Contains("--render")) IntegrityTests.Render(Check);
                 if (args.Contains("--update-process")) UpdateTests.ProcessSmoke(Check);
+                if (args.Contains("--desktop-update-process")) { UpdateTests.ProcessSmoke(Check, false, false, true, true); UpdateTests.ProcessSmoke(Check, false, false, true, false); UpdateTests.ProcessSmoke(Check, true, false, true, false); }
+                var desktopFixture = args.FirstOrDefault(a => a.StartsWith("--desktop-package=", StringComparison.Ordinal));
+                if (desktopFixture != null) DesktopUpdateTests.RealPackage(desktopFixture.Substring("--desktop-package=".Length), Check);
                 if (args.Contains("--repair-process")) UpdateTests.ProcessSmoke(Check, true);
                 if (args.Contains("--automatic-process")) { UpdateTests.ProcessSmoke(Check, false, true); UpdateTests.AutomaticInvalidPlan(Check); }
                 Console.WriteLine("PASS: " + passed + " checks");
@@ -626,45 +656,7 @@ namespace AudioSwitch
                     SaveUi(notice, "notice-confirm-" + suffix + ".png");
                     notice.CancelButton.PerformClick(); Check(notice.DialogResult == DialogResult.Cancel, "cancelling the styled confirmation returns Cancel"); notice.Close();
                 }
-                foreach (float textScale in new[] { 1F, 1.5F, 2F })
-                using (var scaledMenuFont = new Font("Microsoft YaHei UI", 9F * textScale))
-                using (var host = new Form { ClientSize = new Size(700, 430), BackColor = Palette.Background })
-                using (var menu = new ThemedMenu()) {
-                    menu.Font = scaledMenuFont;
-                    string menuSuffix = suffix + (textScale == 1F ? "" : "-" + (int)(textScale * 100));
-                    int commands = 0;
-                    menu.Items.Add(new TrayMenuHeading()); menu.Items.Add("打开管理面板", null, delegate { commands++; });
-                    menu.Items.Add(new ToolStripSeparator());
-                    var group = new TrayDeviceGroup("声音输出", "耳机 (Realtek Audio)") { DropDown = new ThemedMenu() };
-                    group.DropDown.Font = scaledMenuFont;
-                    group.DropDownItems.Add(new ToolStripMenuItem("耳机 (Realtek Audio)") { Checked = true });
-                    group.DropDownItems.Add(new ToolStripMenuItem("USB 音频设备 · 很长的设备名称，用于检查菜单省略和完整悬停说明"));
-                    group.DropDownItems.Add(new ToolStripMenuItem("暂无可用设备") { Enabled = false }); menu.Items.Add(group);
-                    menu.Items.Add(new TrayDeviceGroup("麦克风输入", "USB 麦克风")); menu.Items.Add(new ToolStripSeparator());
-                    menu.Items.Add(new ToolStripMenuItem("按设备优先级自动选择") { Checked = true }); menu.Items.Add("退出");
-                    host.Show(); menu.Show(host, new Point(20, 20)); Application.DoEvents();
-                    using (var graphics = menu.CreateGraphics()) {
-                        int line = (int)Math.Ceiling(scaledMenuFont.GetHeight(graphics));
-                        Check(group.Height >= line * 2 + 6 * textScale, "tray device rows fit two readable lines at text scale " + textScale + " in " + suffix);
-                    }
-                    Check(menu.Items.Cast<ToolStripItem>().Where(item => item.Available).All(item => menu.ClientRectangle.Contains(item.Bounds)),
-                        "tray items stay inside the menu at text scale " + textScale + " in " + suffix);
-                    Check(menu.Items.OfType<ToolStripMenuItem>().All(item => menu.Width - item.Bounds.Right <= menu.Padding.Right + 3),
-                        "tray hit areas extend to the menu edge without an empty submenu gap in " + suffix);
-                    using (var bitmap = new Bitmap(menu.Width, menu.Height)) { menu.DrawToBitmap(bitmap, menu.ClientRectangle); bitmap.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "tray-menu-" + menuSuffix + ".png")); }
-                    group.ShowDropDown(); Application.DoEvents();
-                    Check(group.DropDownItems.Cast<ToolStripItem>().All(item => group.DropDown.ClientRectangle.Contains(item.Bounds)),
-                        "long device submenu rows fit the popup rather than painting past its edge at text scale " + textScale + " in " + suffix);
-                    using (var bitmap = new Bitmap(group.DropDown.Width, group.DropDown.Height)) { group.DropDown.DrawToBitmap(bitmap, group.DropDown.ClientRectangle); bitmap.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "tray-devices-" + menuSuffix + ".png")); }
-                    Check(commands == 0 && ((ToolStripMenuItem)group.DropDownItems[0]).Checked && !group.DropDownItems[2].Enabled, "opening themed tray menus preserves check states and runs no commands in " + suffix);
-                    group.HideDropDown(); menu.Items[1].PerformClick(); Check(commands == 1, "tray command still activates exactly once");
-                    menu.Close();
-                    var originalMenuSize = menu.Size;
-                    var workArea = Screen.FromControl(host).WorkingArea;
-                    menu.Show(new Point(workArea.Right - 4, workArea.Bottom - 4)); Application.DoEvents();
-                    Check(menu.Size == originalMenuSize && workArea.Contains(menu.Bounds), "reopening tray menu at the screen edge keeps stable size and stays visible at text scale " + textScale + " in " + suffix);
-                    menu.Close(); host.Close();
-                }
+
             }
             Palette.Apply(false);
         }
@@ -1537,6 +1529,19 @@ namespace AudioSwitch
                 prompt.Close();
             }
         }
+        private static bool SameJsonValue(object left, object right)
+        {
+            var a = left as Dictionary<string, object>; var b = right as Dictionary<string, object>;
+            if (a != null || b != null) return a != null && b != null && a.Count == b.Count && a.All(pair => b.ContainsKey(pair.Key) && SameJsonValue(pair.Value, b[pair.Key]));
+            var x = left as object[]; var y = right as object[];
+            if (x != null || y != null) return x != null && y != null && x.Length == y.Length && x.Select((item, index) => SameJsonValue(item, y[index])).All(equal => equal);
+            return Object.Equals(left, right);
+        }
+        private static bool SameJson(string left, string right)
+        {
+            var serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+            return SameJsonValue(serializer.DeserializeObject(left), serializer.DeserializeObject(right));
+        }
         private static void RunConfigurationTests()
         {
             var speaker = Device("speaker", 0); speaker.Name = "扬声器 \"主力\" \\ 测试";
@@ -1549,7 +1554,8 @@ namespace AudioSwitch
             string exported = PreferenceStore.Export(current);
             var document = Wire.Decode<ConfigurationFile>(exported);
             Check(document.Format == "AudioSwitch.Settings" && document.Version == 1 && exported.Contains(Environment.NewLine), "runtime and backup use one versioned readable JSON format");
-            Check(Wire.Encode(PreferenceStore.Parse(exported)) == Wire.Encode(current), "configuration round trip preserves all flags, rank, offline devices, presets, whitelist, Unicode and escaped names");
+            // Reflection caching can reorder JSON object properties; array order and all values must still match.
+            Check(SameJson(Wire.Encode(PreferenceStore.Parse(exported)), Wire.Encode(current)), "configuration round trip preserves all flags, rank, offline devices, presets, whitelist, Unicode and escaped names");
             Check(document.Settings.DarkMode && Wire.Decode<Preferences>(Wire.Encode(current)).DarkMode, "dark mode survives backup and IPC serialization");
             var legacy = PreferenceStore.Parse("{\"AskOnConnect\":false,\"IncludeCommunications\":true}");
             Check(!legacy.AskOnConnect && legacy.IncludeCommunications && legacy.UseDevicePriority && legacy.DeviceRules.Count == 0, "legacy import retains saved values and fills new defaults");
@@ -1568,20 +1574,20 @@ namespace AudioSwitch
             string folder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts", "configuration-tests"));
             string path = Path.Combine(folder, "settings.json");
             PreferenceStore.Save(path, current);
-            Check(File.ReadAllText(path) == exported && Wire.Encode(PreferenceStore.Load(path)) == Wire.Encode(current), "active settings use exactly the exported backup format");
+            Check(SameJson(File.ReadAllText(path), exported) && SameJson(Wire.Encode(PreferenceStore.Load(path)), Wire.Encode(current)), "active settings use the exported backup format and preserve every value");
             var imported = new Preferences { DeviceOrder = new List<Endpoint> { offline, speaker, mic } };
             imported.DeviceRules[mic.Id] = DeviceRule.SwitchOnConnect;
             string backup;
             var result = PreferenceStore.Import(path, PreferenceStore.Export(imported), current, out backup);
-            Check(File.Exists(backup) && Wire.Encode(PreferenceStore.Load(backup)) == Wire.Encode(current), "import writes a restorable complete backup before replacement");
-            Check(Wire.Encode(result) == Wire.Encode(imported) && Wire.Encode(PreferenceStore.Load(path)) == Wire.Encode(imported), "import replaces the full configuration including removal of old profiles and rules");
+            Check(File.Exists(backup) && SameJson(Wire.Encode(PreferenceStore.Load(backup)), Wire.Encode(current)), "import writes a restorable complete backup before replacement");
+            Check(SameJson(Wire.Encode(result), Wire.Encode(imported)) && SameJson(Wire.Encode(PreferenceStore.Load(path)), Wire.Encode(imported)), "import replaces the full configuration including removal of old profiles and rules");
             string before = File.ReadAllText(path); int backupCount = Directory.GetFiles(Path.Combine(folder, "backups")).Length;
             bool failed = false;
             try { PreferenceStore.Import(path, "{\"DeviceRules\":{\"bad\":10}}", imported, out backup); } catch (InvalidOperationException) { failed = true; }
             Check(failed && File.ReadAllText(path) == before && Directory.GetFiles(Path.Combine(folder, "backups")).Length == backupCount, "failed validation cannot change active config or create a misleading backup");
             string migration = Path.Combine(folder, "legacy.json"); File.WriteAllText(migration, Wire.Encode(current));
             var migrated = PreferenceStore.Load(migration);
-            Check(Wire.Encode(migrated) == Wire.Encode(current) && File.ReadAllText(migration).Contains("AudioSwitch.Settings"), "old active settings automatically migrate without preference loss");
+            Check(SameJson(Wire.Encode(migrated), Wire.Encode(current)) && File.ReadAllText(migration).Contains("AudioSwitch.Settings"), "old active settings automatically migrate without preference loss");
             string corrupt = Path.Combine(folder, "corrupt.json"); File.WriteAllText(corrupt, "{bad");
             failed = false; try { PreferenceStore.Load(corrupt); } catch (InvalidOperationException) { failed = true; }
             Check(failed && File.ReadAllText(corrupt) == "{bad", "damaged active config is preserved instead of silently reset");
@@ -1589,9 +1595,12 @@ namespace AudioSwitch
             Check(failed, "oversized backup is rejected");
             string blocked = Path.Combine(folder, "blocked"); Directory.CreateDirectory(blocked);
             string blockedPath = Path.Combine(blocked, "settings.json"); PreferenceStore.Save(blockedPath, current);
+            // Compare the actual file before this attempt; JSON property order can
+            // change after the runtime populates its reflection caches.
+            string blockedBefore = File.ReadAllText(blockedPath);
             File.WriteAllText(Path.Combine(blocked, "backups"), "a file prevents backup creation");
             failed = false; try { PreferenceStore.Import(blockedPath, exported, current, out backup); } catch (IOException) { failed = true; }
-            Check(failed && File.ReadAllText(blockedPath) == exported, "backup write failure aborts import without touching active config");
+            Check(failed && File.ReadAllText(blockedPath) == blockedBefore, "backup write failure aborts import without touching active config");
         }
         private static void TestAutomaticUpdateNotice()
         {

@@ -32,7 +32,7 @@ namespace AudioSwitch
             var card = new Surface { Padding = new Padding(14, 12, 10, 12) }; card.SetBounds(26, 130, 548, 245); Controls.Add(card);
             details = new DetailsBox { Name = "integrityDetails", Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
                 BackColor = Palette.Card, ForeColor = Palette.Text, BorderStyle = BorderStyle.None, Dock = DockStyle.Fill,
-                Text = "缺失或损坏的必要文件会自动尝试恢复。说明和许可文件不要求补齐。用户配置和开机自启设置会保留。" };
+                Text = "正在核对文件。旧格式目录会尝试修复必要文件；新界面候选包只做整包检查。用户配置和开机自启设置会保留。" };
             card.Controls.Add(details);
             var website = new FlatAction("打开发布页", false); website.SetBounds(26, 405, 112, 38); Controls.Add(website);
             website.Click += delegate { try { Process.Start(new ProcessStartInfo(AppUpdate.ReleasesUrl) { UseShellExecute = true }); } catch (Exception ex) { status.Text = ex.Message; } };
@@ -56,7 +56,8 @@ namespace AudioSwitch
         internal void RenderResult(RepairResult result)
         {
             Passed = result.Check.Passed;
-            status.Text = Passed ? "运行必需文件已齐全，可以正常使用。" : "修复尚未完成，请查看原因后重试。";
+            status.Text = result.Check.WholePackage ? (Passed ? result.Check.PackageLabel + "检查通过。" : result.Check.PackageLabel + "检查未通过，请重新解压完整包。") :
+                (Passed ? "运行必需文件已齐全，可以正常使用。" : "修复尚未完成，请查看原因后重试。");
             details.Text = result.Message;
             details.Select(0, 0);
         }

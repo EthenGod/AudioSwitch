@@ -13,6 +13,7 @@ namespace AudioSwitch
     {
         [FieldOffset(0)] public ushort Type;
         [FieldOffset(8)] public IntPtr Pointer;
+        [FieldOffset(8)] public uint UInt32;
     }
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     internal interface IMMDeviceEnumerator
@@ -129,6 +130,8 @@ namespace AudioSwitch
                             Marshal.ThrowExceptionForHR(collection.Item(i, out device));
                             string id; Marshal.ThrowExceptionForHR(device.GetId(out id));
                             result.Devices.Add(new Endpoint { Id = id, Name = ReadName(device), Flow = flow });
+                            int? formFactor = ReadFormFactor(device);
+                            if (formFactor.HasValue) result.FormFactors[id] = formFactor.Value;
                         }
                         catch (COMException) { /* Endpoint may disappear during enumeration. */ }
                         finally { Release(device); }
@@ -162,6 +165,18 @@ namespace AudioSwitch
                 Marshal.ThrowExceptionForHR(store.GetValue(ref key, out value));
                 return value.Type == 31 ? Marshal.PtrToStringUni(value.Pointer) : "音频设备";
             }
+            finally { PropVariantClear(ref value); Release(store); }
+        }
+        private static int? ReadFormFactor(IMMDevice device)
+        {
+            IPropertyStore store = null;
+            PropVariant value = new PropVariant();
+            try {
+                if (device.OpenPropertyStore(0, out store) < 0) return null;
+                var key = new PropertyKey { Format = new Guid("1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E"), Id = 0 };
+                if (store.GetValue(ref key, out value) < 0 || value.Type != 19 || value.UInt32 > 10) return null;
+                return (int)value.UInt32;
+            } catch (COMException) { return null; }
             finally { PropVariantClear(ref value); Release(store); }
         }
         public void SetRole(string id, int role)
