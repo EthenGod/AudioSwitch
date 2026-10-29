@@ -5,6 +5,8 @@
 @import '@radix-ui/colors/indigo-dark.css';
 @import '@radix-ui/colors/red.css';
 @import '@radix-ui/colors/red-dark.css';
+@import '@radix-ui/colors/amber.css';
+@import '@radix-ui/colors/amber-dark.css';
 @import '@radix-ui/colors/green.css';
 @import '@radix-ui/colors/green-dark.css';
 @import '@radix-ui/colors/black-alpha.css';
@@ -17,7 +19,10 @@
 .dolby-fields > .ui-select { width: 100%; }
 .dolby-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
 .dolby-field { display: grid; gap: 6px; min-width: 0; }
-.dolby-strength { display: grid; grid-template-columns: minmax(0, 1fr) 90px 12px 36px; align-items: center; gap: 8px; margin: 12px 0; }
+.dolby-strength { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; align-items: center; gap: 12px; min-height: 36px; margin: 8px 0; }
+.dolby-strength > .ui-switch { grid-column: 3; }
+.dolby-strength-value { display: grid; grid-template-columns: 90px 12px; align-items: center; gap: 8px; animation: strength-reveal var(--motion-enter) ease-out; }
+@keyframes strength-reveal { from { opacity: 0; transform: translateX(4px); } to { opacity: 1; transform: translateX(0); } }
 .dolby-strength label { font-size: var(--font-caption); }
 .dolby-strength input::placeholder { color: var(--muted-foreground); font-size: var(--font-caption); }
 .dolby-fields input[type=number] { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; background: var(--card); color: var(--foreground); }
@@ -28,7 +33,9 @@
 .dolby-eq-curve > label { grid-template-columns: minmax(0, 1fr) 76px; align-items: center; gap: 8px; }
 .dolby-eq-curve input[type=range] { grid-column: 1 / -1; }
 .dolby-fields input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
-.dolby-views { margin-top: 14px; }
+.dolby-preset-label { display: flex; align-items: center; gap: 8px; margin: 12px 0 6px; }
+.dolby-eq-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dolby-eq-range { font-size: var(--font-caption); color: var(--muted-foreground); white-space: nowrap; }
 .dolby-sheet .sheet-description { overflow-wrap: anywhere; }
 .dolby-sheet .sheet-footer p[role] { max-height: 4.5em; overflow: auto; overflow-wrap: anywhere; line-height: 1.5; color: var(--foreground); }
 .dolby-sheet .sheet-scroll > p { margin: 10px 0; line-height: 1.6; }
@@ -93,6 +100,16 @@ input[type=range] { accent-color: var(--primary); min-width: 0; }
 input[type=range]:disabled { opacity: .4; }
 .muted { color: var(--muted-foreground); }
 .backend-warning { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 14px; color: var(--foreground); overflow-wrap: anywhere; }
+.panel-alert-region { display: grid; grid-template-rows: 0fr; opacity: 0; transform: translateY(-4px); margin-bottom: 0; transition: grid-template-rows var(--motion-exit) ease-in, margin-bottom var(--motion-exit) ease-in, opacity var(--motion-exit) ease-in, transform var(--motion-exit) ease-in; }
+.panel-alert-region[data-open=true] { grid-template-rows: 1fr; opacity: 1; transform: translateY(0); margin-bottom: 14px; transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
+.panel-alert-clip { min-height: 0; overflow: hidden; }
+.panel-alert { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--red-6); border-radius: var(--radius-panel); background: var(--red-2); }
+.panel-alert-icon { color: var(--red-11); }
+.panel-alert[data-tone=warning] { background: var(--amber-2); border-color: var(--amber-6); }
+.panel-alert[data-tone=warning] .panel-alert-icon { color: var(--amber-11); }
+.panel-alert p { margin: 0; color: var(--foreground); font-size: var(--font-body); line-height: 1.6; overflow-wrap: anywhere; }
+.panel-alert-actions { display: flex; align-items: center; }
+@starting-style { .panel-alert-region[data-open=true] { grid-template-rows: 0fr; opacity: 0; transform: translateY(-4px); margin-bottom: 0; } }
 .offline-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--danger); }
 .device-description, .summary-device p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell { display: flex; height: 100dvh; min-height: 0; overflow: hidden; }

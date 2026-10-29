@@ -14,6 +14,7 @@ import { OperationFailure } from './data/desktop'
 import { APP_VERSION } from './version'
 import { PageTransition } from './components/PageTransition'
 import { ActionSlot } from './components/ActionSlot'
+import { PanelAlert } from './components/PanelAlert'
 
 const pages = {
   devices: { title: '声音设备', Icon: Headphones },
@@ -126,10 +127,10 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
           <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />游戏模式</span></ActionSlot>
           <ActionSlot visible={page !== 'settings'}><Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></ActionSlot>
         </div></div>
+        <PanelAlert message={error}><Button variant="outline" pending={refreshing || loading} onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw size={14} className={refreshing || loading ? 'spin' : ''} />重试</Button></PanelAlert>
+        <PanelAlert warning message={desktop && snapshot?.BackendWarning && snapshot.BackendWarning !== dismissedWarning ? snapshot.BackendWarning : ''}><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot?.BackendWarning ?? '')}><X /></Button></PanelAlert>
         <PageTransition page={page}>
-        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : error && !snapshot ? <div className="error-state" role="alert"><TriangleAlert size={28} /><h2>暂时无法显示设备</h2><p>{error}</p><Button variant="outline" onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw />重试</Button></div> : snapshot && <>
-          {error && <div className="backend-warning" role="alert"><span>{error}</span><Button variant="outline" disabled={refreshing} onClick={() => { void refresh() }}>重试</Button></div>}
-          {desktop && snapshot.BackendWarning && snapshot.BackendWarning !== dismissedWarning && <div className="backend-warning" role="status"><span>后台提示：{snapshot.BackendWarning}</span><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot.BackendWarning ?? '')}><X /></Button></div>}
+        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>
           {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」。` : `已在预览中切换到「${device.Name}」。`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
           {page === 'automation' && <Automation desktop={desktop} snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => run(() => gateway.reorder(flow, ids), null)} />}
           {page === 'settings' && <Settings onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}

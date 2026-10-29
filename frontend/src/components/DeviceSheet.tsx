@@ -64,7 +64,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
         <section className="sheet-section"><h3><Shield size={16} />接入规则</h3><Select id="device-rule" label="白名单规则" value={String(rule)} disabled={busy || readOnly} onValueChange={value => setRule(Number(value) as DeviceRule)} options={[{ value: '0', label: '使用全局设置' }, { value: '1', label: '接受系统选择，不弹窗' }, { value: '2', label: '接入时自动切换，不弹窗' }]} />{rule !== 0 && <p className="field-help">{rule === 1 ? '保持 Windows 的设备选择、音量和空间音效。' : '应用此设备预设，优先于设备排序。'}</p>}</section>
         {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
       </div>
-      <footer className="sheet-footer">{!readOnly && desktop && <p>仅保存预设，下次切换时生效。</p>}<div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
+      <footer className="sheet-footer"><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
       {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} onResult={onDolbyResult} />}
     </SheetContent>
   </Sheet>
