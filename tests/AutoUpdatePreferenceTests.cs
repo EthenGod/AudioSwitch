@@ -14,6 +14,14 @@ namespace AudioSwitch
     {
         internal static void Run(Action<bool, string> check)
         {
+            var old = PreferenceStore.Parse("{\"DarkMode\":false}");
+            check(!old.IncludePrerelease && old.UpdateChannel == "GitHub", "old configs default to stable GitHub updates");
+            var preview = PreferenceStore.Parse(PreferenceStore.Export(new Preferences { IncludePrerelease = true }));
+            check(preview.IncludePrerelease && preview.UpdateChannel == "GitHub" && Wire.Decode<Preferences>(Wire.Encode(preview)).IncludePrerelease, "prerelease preference survives export import and IPC");
+            foreach (string invalid in new[] { "{\"IncludePrerelease\":\"true\"}", "{\"IncludePrerelease\":1}", "{\"UpdateChannel\":null}", "{\"UpdateChannel\":\"Mirror\"}" }) {
+                bool rejected = false; try { PreferenceStore.Parse(invalid); } catch (InvalidOperationException) { rejected = true; }
+                check(rejected, "invalid release policy rejected");
+            }
             check(new Preferences().AutoUpdateEnabled && PreferenceStore.Parse("{\"GameMode\":false}").AutoUpdateEnabled, "automatic updates default on for new and old configurations");
             var preferences = new Preferences { AutoUpdateEnabled = false };
             // Cache keys add another long directory; do not inherit the nested release build path.

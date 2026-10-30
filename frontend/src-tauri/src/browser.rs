@@ -3,7 +3,7 @@ use super::*;
 use std::{collections::HashMap, io::{BufRead, Read, Write}, net::{TcpListener, TcpStream}, sync::{Arc, Mutex, atomic::AtomicUsize}, time::{Duration, Instant}};
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
-const SECURITY: &str = "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'\r\n";
+const SECURITY: &str = "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'\r\n";
 
 struct Lifetime { clients: usize, deadline: Instant, keep_open: bool }
 impl Lifetime {

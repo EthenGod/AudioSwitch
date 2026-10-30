@@ -55,11 +55,12 @@ describe('maintenance UI', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('检查连接中断')
     expect(within(dialog).getByRole('button', { name: '取消检查' })).toBeEnabled()
   })
-  it('displays release notes as text and never offers installation', async () => {
+  it('sanitizes release Markdown and never offers installation on old backends', async () => {
     const result = { Token: '1', Kind: 'update', Status: 'available', Message: '发现新版本', CurrentVersion: '0.11.1', LatestVersion: 'v0.12.0', Notes: '<script>window.bad = true</script>' }
     const { user, dialog } = await setup(async () => result, '检查更新')
     await user.click(within(dialog).getByRole('button', { name: '开始检查' }))
-    await within(dialog).findByText('发现新版本'); expect(within(dialog).getByText(result.Notes)).toBeVisible()
+    await within(dialog).findByText('发现新版本'); expect(dialog.querySelector('script')).toBeNull()
+    expect(within(dialog).queryByText('window.bad = true')).not.toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /安装|下载/ })).not.toBeInTheDocument()
   })
   it('simulation states explicitly that no local files were checked', async () => {

@@ -22,7 +22,7 @@ namespace AudioSwitch
         private readonly PipeServer server;
         private readonly DolbyQueue dolby;
         private readonly PanelDolbyApply panelDolby;
-        private readonly BackgroundUpdate updates;
+        private BackgroundUpdate updates;
         private readonly Timer updateIdleTimer = new Timer { Interval = 30000 };
         private readonly UpdateActivity updateActivity = new UpdateActivity();
         private System.Threading.Tasks.Task<bool> activitySample;
@@ -84,7 +84,7 @@ namespace AudioSwitch
             }
             catch (Exception ex) { priorityError = "初始化设备优先级失败：" + ex.Message; Program.Log(ex); }
             ObserveDolby(tracker.Current);
-            updates = new BackgroundUpdate(new AutomaticUpdateStore(Program.DataDirectory, Application.ExecutablePath), updateIssue);
+            updates = new BackgroundUpdate(new AutomaticUpdateStore(Program.DataDirectory, Application.ExecutablePath), updateIssue, preferences.IncludePrerelease);
             updateIdleTimer.Tick += async delegate {
                 if (exiting || !preferences.AutomaticUpdatesAllowed || activityReleased || (activitySample != null && !activitySample.IsCompleted)) return;
                 updates.Start(); // A check cancelled by a rapid mode toggle can resume once its worker exits.
@@ -232,6 +232,9 @@ namespace AudioSwitch
                         preferences.AutoUpdateEnabled = request.Value; SavePreferences(); preferencesSaved = true;
                         UpdateGameMode();
                         break;
+                    case "includePrerelease":
+                        preferences.IncludePrerelease = request.Value; SavePreferences(); preferencesSaved = true;
+                        RestartUpdates(); break;
                     case "exportSettings": return new Reply { ConfigurationJson = PreferenceStore.Export(preferences) };
                     case "previewImport": return PanelImport.Preview(request.ConfigurationJson, preferences, tracker.Current);
                     case "importPreparedSettings":
@@ -242,7 +245,8 @@ namespace AudioSwitch
                         preferencesSaved = true;
                         tracker.Pending.Clear(); presetWarnings.Clear(); priorityError = null; audioError = null;
                         dolby.Cancel();
-                        if (preferences.GameMode != beforePreferences.GameMode || preferences.AutoUpdateEnabled != beforePreferences.AutoUpdateEnabled) UpdateGameMode();
+                        if (preferences.IncludePrerelease != beforePreferences.IncludePrerelease) RestartUpdates();
+                        else if (preferences.GameMode != beforePreferences.GameMode || preferences.AutoUpdateEnabled != beforePreferences.AutoUpdateEnabled) UpdateGameMode();
                         frontends.SetBrowserPort(preferences.BrowserPort); frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen);
                         break;
                     case "dismissWarning":
@@ -342,11 +346,11 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
             // Detach the response on the owner thread before the pipe serializes it.
             if (request.Action != "snapshot") PublishTraySnapshot();
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 9, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 10, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));
@@ -421,6 +425,12 @@ namespace AudioSwitch
         private void SavePreferences()
         {
             PreferenceStore.Save(PreferenceStore.SettingsPath, preferences);
+        }
+        private void RestartUpdates()
+        {
+            updates.Dispose();
+            updates = new BackgroundUpdate(new AutomaticUpdateStore(Program.DataDirectory, Application.ExecutablePath), null, preferences.IncludePrerelease);
+            UpdateGameMode();
         }
         private void UpdateGameMode()
         {

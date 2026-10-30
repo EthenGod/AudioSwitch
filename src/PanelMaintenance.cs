@@ -33,13 +33,13 @@ namespace AudioSwitch
                 {
                     var release = (checkUpdate ?? AppUpdate.Check)(cancel);
                     cancel.ThrowIfCancellationRequested();
-                    if (release == null) { result.Status = "unavailable"; result.Message = "暂未找到可用的正式版本。"; }
+                    if (release == null) { result.Status = "unavailable"; result.Message = "暂未找到可用的版本。"; }
                     else
                     {
                         result.LatestVersion = release.Tag; result.Notes = release.Notes ?? "暂无更新说明。";
                         var current = AppUpdate.ParseVersion(AppVersion.Number);
                         result.Status = AppUpdate.IsAvailable(release) ? "available" : release.Version == current ? "current" : "ahead";
-                        result.Message = result.Status == "available" ? "发现新版本。" : result.Status == "current" ? "当前已是最新正式版本。" : "本地版本高于最新正式版，无需更新。";
+                        result.Message = result.Status == "available" ? "发现新版本。" : result.Status == "current" ? "当前已是最新版本。" : "本地版本高于所选范围内的最新版本，无需更新。";
                     }
                 }
                 else if (kind == "files")

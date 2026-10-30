@@ -11,10 +11,13 @@
 
 ## 当前测试 Release
 
+- 最新本地试用包（2026-10-31）：`staging/update-backup-20261031/v0.12.1/`。包含真实更新说明排版修复、正式／测试版本选择，以及统一的文件检查和导入导出界面。前端 134 项、Rust 45 项（3 项可选测试跳过）、后台 845 项通过；离线预览检查 2 项通过。EXE 展开的 14 个文件与 ZIP 一致，文件完整性和配置不变检查通过。记录在 `staging/desktop-release-2394a033d78b4d908a7127bdf535bb40/verification.json`。离线预览在 `staging/update-backup-preview/声间-UI预览.html`。未替换 bin 或 releases，未发布；没有实际下载、安装、导入覆盖或音频写入，未完成本轮截图验收。
+- 旧试用包 `staging/local-test-20261030-markdown/` 和 `staging/update-experience-20261031/` 保留。后者尚未包含统一的导入导出页面，不作为本轮交付入口。Apple emoji 仍只设置本机字体优先，未内置 Apple 字体或图像。
+
 - 2026-10-29：`releases/v0.12.1/` 已生成便捷展开 EXE 和完整 ZIP，仅两个附件。两者均来自当前源码重新编译，不复用旧测试包。发行说明见 `releases/RELEASE-NOTES-v0.12.1.md`；完整摘要、日志和发布步骤见 `releases/DELIVERY-v0.12.1.md`。
 - PR 前检查发现 4 个更新／修复命令漏入 Tauri 权限。已同步 build.rs、主面板 capability 和自动生成的权限文件；设备提示窗口不获得更新权限。新增清单一致性回归先复现失败，再验证通过。每次新增 invoke 命令都必须同步这些文件，浏览器模拟接口不会经过 Tauri ACL。
 - 修复后候选包在 `staging/pr-ready-20261029/v0.12.1/`，PR 草稿与摘要在同级 `PR.md`。`releases/v0.12.1/` 旧附件保留原样，**不包含权限修复，不应作为最终上传件**。确认替换方式后再处理，不混用两轮摘要。
-- 当前验证：前端 125 项、Rust 40 项（3 项可选测试跳过）、后台 819 项、类型检查、生产构建、桌面编译和两附件展开校验通过。后台总数包含实际枚举设备，可能随设备数量变化。展开后 14 个文件与 ZIP 一致。真实配置未变，没有启动真实音频后台，未进行真实下载／安装。日常 bin 和旧 Release 保留。
+- 2026-10-29 PR 前验证：前端 125 项、Rust 40 项（3 项可选测试跳过）、后台 819 项、类型检查、生产构建、桌面编译和两附件展开校验通过。后台总数包含实际枚举设备，可能随设备数量变化。展开后 14 个文件与 ZIP 一致。真实配置未变，没有启动真实音频后台，未进行真实下载／安装。日常 bin 和旧 Release 保留。
 - TrayPopup.Closing 已重命名为 IsClosing，消除隐藏 Form.Closing 的编译警告。仍保留 Vite 分块体积提醒和 Rust 路径规范化提示。
 - 附件尚未上传。后续发布需用户授权，先提交与附件对应的源码和本轮包内说明，标签为 v0.12.1，设置 Pre-release，不设 Latest。下载链接已核对目标文件名，线上下载及升级仍需发布后核验。
 
@@ -53,6 +56,16 @@
 - 拖动达到列表上下限时，直接判为首位或末位。不能只要求行中心严格越过目标中线：位置已被限幅，且首行边框可能让行高相差 1 px，中间项会因此无法进入首尾。边界回归需覆盖第二、第三项分别拖到首尾及不等行高。
 
 ## 开发环境注意事项
+
+- 离线 HTML 必须先完成模板、样式、CSP 和许可插入，最后才内联 JavaScript。依赖源码可能含 `</body>` 等 HTML 字符串；内联后再全局替换标签，会把许可插进脚本并让源码显示到页面。字符串替换用回调，避免许可中的 `$` 被解释为替换指令。`npm run build:preview` 现含生成文件检查，验证脚本完整、许可独立及实际 DOM 启动；不能只检查 Vite 构建成功。
+
+- 更新说明属于外部内容。ReleaseNotes 先用 marked 解析，再用 DOMPurify 白名单清理；只允许 HTTP(S) 链接和 HTTPS 图片。桌面链接通过 open_release_link 打开默认浏览器，Rust 端再次校验协议。新增命令须同步 build.rs、主窗口能力及自动生成权限。不要启用脚本、内联样式、文件链接或嵌入页面。
+- AppUpdate 的 GitHub 网页回退现在保留说明区域的 HTML，不能再先去掉标题和列表标签，否则前端无法恢复 Markdown 排版。嵌套 div 要完整提取；API 的当前版本分支也必须保留 body。React 统一清理 HTML，旧 WinForms 备用窗口单独转为可选中文本。
+- PanelApiVersion 10 增加 IncludePrerelease 保存能力。默认仅正式版，UpdateChannel 目前只接受 GitHub。修改范围先保存，再取消旧自动任务并重新检查；现有手动结果须先取消才能切换范围。缓存的 Prerelease 标记用于启动安装和失败重试过滤：切回正式版后不能继续安装测试缓存，也不能让其失败版本阻止正式版下载。配置导入走相同更新任务重置。
+- 测试版发现使用 GitHub Releases 列表，按三段数字版本号取最高非草稿版本。标准检查继续保留原有 latest 网页及摘要回退；测试列表请求失败时明确报错，不能默默退回正式版并宣称测试版已检查。官方接口说明：https://docs.github.com/en/rest/releases/releases#list-releases 。
+- gemoji 只提供短码到 Unicode 的映射，不包含 Apple 图像。已找到 iamcal/emoji-data 的 emoji-datasource-apple，但上游单独注明 Apple 图像未获商业使用许可；不能仅凭仓库 MIT 标记把它加入公开发行包。用户偏好 Apple 样式；更新说明优先使用本机 Apple Color Emoji，缺少时回退到 Segoe UI Emoji。仅调整字体顺序不会给 Windows 安装 Apple 字体，不能声称已实现 Windows 上的 Apple 图像显示。
+- UpgradeResult 的 Directory 和 Entries 是可选字段。新文件检查组件兼容旧后台 Notes 文本；统计单位是检查项目，不能把一条“全部 13 个文件通过”误报为单个文件。保留原始检查内容，不从 UI 状态推断未执行的检查。
+- 导入导出与文件检查共用状态卡片和目录折叠样式。导入仍先选文件并展示摘要，再明确确认；处理中禁止重复操作。保存位置必须来自后台成功结果，取消文件框、写入失败和模拟流程不能显示真实备份成功。
 
 - 系统 npm 缓存目录可能无写权限。使用项目内 `staging/npm-cache`。
 - 使用已安装的独立 Node 24。不要更换全局 Node。

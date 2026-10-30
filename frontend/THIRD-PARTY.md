@@ -46,4 +46,6 @@ SOFTWARE.
 
 React / React DOM、Base UI、class-variance-authority、clsx、tailwind-merge 使用其随包提供的 MIT 许可；Lucide 使用随包提供的 ISC 许可及其保留说明。完整版本及间接依赖固定于 `package-lock.json`。
 
+更新说明使用 marked（MIT）解析 Markdown，DOMPurify（Apache-2.0 / MPL-2.0）清理 HTML，gemoji（MIT）将 GitHub emoji 短码转换为 Unicode。它们的完整许可由构建脚本收集。未包含 Apple 字体或图像；emoji 使用设备已有字体。
+
 `npm run build` 从实际安装的运行依赖收集原始 LICENSE 文本，写入 `dist/THIRD-PARTY-NOTICES.txt`；分发静态原型时应保留该文件。构建工具和测试工具不随静态界面运行。

@@ -20,7 +20,7 @@ function initial(): Snapshot {
     Preferences: {
       BrowserPort: 0,
       DarkMode: true, GameMode: false, AskOnConnect: true, IncludeCommunications: true,
-      UseDevicePriority: true, AutoUpdateEnabled: true, OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
+      UseDevicePriority: true, AutoUpdateEnabled: true, IncludePrerelease: false, UpdateChannel: 'GitHub', OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
       DeviceProfiles: { 'demo-headphones': { Volume: 65, SpatialFormat: null }, 'demo-bluetooth': { Volume: 45, SpatialFormat: '' } },
       DeviceRules: { 'demo-headphones': 2 },
       DeviceOrder: { 0: devices.filter(d => d.Flow === 0).map(d => d.Id), 1: devices.filter(d => d.Flow === 1).map(d => d.Id) },
@@ -47,7 +47,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
   }
   return {
     mode: 'preview',
-    ...mockUpgrade(),
+    ...mockUpgrade(() => state.Preferences.IncludePrerelease),
     async startDolbyApply(id, profile, expected, token) {
       if (dolbyRunning(application)) throw new Error('正在模拟应用。')
       if (!device(id).Online || device(id).Flow !== 0 || state.Defaults['0:1'] !== id) throw new Error('请选择当前在线输出设备。')

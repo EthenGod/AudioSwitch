@@ -85,7 +85,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
     DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),
-    AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), KeepBrowserPortOpen: prefs.KeepBrowserPortOpen === undefined ? false : boolean(prefs.KeepBrowserPortOpen), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
+    AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), IncludePrerelease: prefs.IncludePrerelease === undefined ? false : boolean(prefs.IncludePrerelease), UpdateChannel: 'GitHub', OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), KeepBrowserPortOpen: prefs.KeepBrowserPortOpen === undefined ? false : boolean(prefs.KeepBrowserPortOpen), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
   }
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
@@ -96,6 +96,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     CanWrite: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 1,
     CanManageBackup: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 2,
     CanCheckMaintenance: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 3,
+    CanConfigureUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 10 && typeof prefs.IncludePrerelease === 'boolean' && prefs.UpdateChannel === 'GitHub',
     CanManageUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 6,
     CanKeepBrowserPortOpen: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 8 && typeof prefs.KeepBrowserPortOpen === 'boolean',
     CanSetBrowserPort: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 9 && typeof prefs.BrowserPort === 'number',

@@ -88,7 +88,7 @@ namespace AudioSwitch
                     var startupPreferences = PreferenceStore.Load(PreferenceStore.SettingsPath);
                     var updates = new AutomaticUpdateStore(DataDirectory, Application.ExecutablePath);
                     if (updates.TryInstall(args.Contains("--background"), (payload, release, background) =>
-                        UpdateInstaller.LaunchAutomatic(payload, release, Process.GetCurrentProcess().Id, background), out updateIssue, !startupPreferences.AutomaticUpdatesAllowed)) return;
+                        UpdateInstaller.LaunchAutomatic(payload, release, Process.GetCurrentProcess().Id, background), out updateIssue, !startupPreferences.AutomaticUpdatesAllowed, includePrerelease: startupPreferences.IncludePrerelease)) return;
                     using (var host = new TrayHost(!args.Contains("--background"), updateIssue, startupPreferences))
                     {
                         var updated = args.FirstOrDefault(a => a.StartsWith("--updated=Local\\AudioSwitch-Update-Started-", StringComparison.Ordinal));

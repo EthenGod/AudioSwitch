@@ -21,6 +21,7 @@ namespace AudioSwitch
         internal string Tag, Notes, Url, Digest;
         internal long Size;
         internal int PackageFormat;
+        internal bool Prerelease;
     }
     internal sealed class UpdatePage
     {
@@ -42,18 +43,20 @@ namespace AudioSwitch
                 throw new InvalidDataException("发布版本号超出支持范围。");
             return result;
         }
-        internal static UpdateRelease ParseRelease(string json, bool allowMigration = false)
+        internal static UpdateRelease ParseRelease(string json, bool allowMigration = false, bool includePrerelease = false)
         {
             var root = new JavaScriptSerializer { MaxJsonLength = 1024 * 1024 }.DeserializeObject(json) as Dictionary<string, object>;
             if (root == null || !(root["draft"] is bool) || !(root["prerelease"] is bool)) throw new InvalidDataException("发布信息格式不正确。");
-            if ((bool)root["draft"] || (bool)root["prerelease"]) return null;
+            if ((bool)root["draft"] || ((bool)root["prerelease"] && !includePrerelease)) return null;
             string tag = root["tag_name"] as string;
             var version = ParseVersion(tag);
-            if (version < ParseVersion(AppVersion.Number) || (version == ParseVersion(AppVersion.Number) && !allowMigration)) return new UpdateRelease { Version = version, Tag = tag };
+            object notes;
+            var summary = new UpdateRelease { Version = version, Tag = tag, Prerelease = (bool)root["prerelease"], Notes = root.TryGetValue("body", out notes) ? notes as string : "" };
+            if (version < ParseVersion(AppVersion.Number) || (version == ParseVersion(AppVersion.Number) && !allowMigration)) return summary;
             var assets = root["assets"] as object[];
             string desktopName = UpdatePackage.AssetName(version, UpdatePackage.Desktop);
             bool desktop = assets != null && assets.OfType<Dictionary<string, object>>().Any(a => a.ContainsKey("name") && (a["name"] as string) == desktopName);
-            if (version == ParseVersion(AppVersion.Number) && !desktop) return new UpdateRelease { Version = version, Tag = tag };
+            if (version == ParseVersion(AppVersion.Number) && !desktop) return summary;
             int format = desktop ? UpdatePackage.Desktop : UpdatePackage.Legacy;
             string name = UpdatePackage.AssetName(version, format);
             if (assets == null) throw new InvalidDataException("这个版本还没有可安装的 Windows 更新包。");
@@ -69,14 +72,14 @@ namespace AudioSwitch
             if (!(size is int) && !(size is long)) throw new InvalidDataException("更新包大小无效。");
             long length = Convert.ToInt64(size);
             if (length <= 0 || length > MaxPackage) throw new InvalidDataException("更新包大小超出限制。");
-            object notes;
             return new UpdateRelease { Version = version, Tag = tag, Url = url, Digest = hash.Substring(7), Size = length, PackageFormat = format,
-                Notes = root.TryGetValue("body", out notes) ? notes as string : "" };
+                Prerelease = summary.Prerelease, Notes = summary.Notes };
         }
         internal static UpdateRelease Check(CancellationToken cancel)
         {
             string directory = AppDomain.CurrentDomain.BaseDirectory;
-            var release = Check(cancel, ReadPage, !PanelLaunch.IsModern(directory));
+            var preferences = File.Exists(PreferenceStore.SettingsPath) ? PreferenceStore.Parse(PreferenceStore.ReadFile(PreferenceStore.SettingsPath)) : new Preferences();
+            var release = Check(cancel, ReadPage, !PanelLaunch.IsModern(directory), preferences.IncludePrerelease);
             if (release != null && IsAvailable(release) && UpdatePackage.IsDesktop(directory)) UpdatePackage.RequireTarget(directory, release.PackageFormat);
             return release;
         }
@@ -100,8 +103,9 @@ namespace AudioSwitch
                 throw new IOException(status == HttpStatusCode.NotFound ? "当前版本 v" + AppVersion.Number + " 尚无可下载的修复包，请从发布页下载完整版本。" : "暂时无法下载修复包，请检查网络后重试。", ex);
             }
         }
-        internal static UpdateRelease Check(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read, bool allowMigration = false)
+        internal static UpdateRelease Check(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read, bool allowMigration = false, bool includePrerelease = false)
         {
+            if (includePrerelease) return CheckIncludingPrereleases(cancel, read, allowMigration);
             // The public latest-release redirect does not consume the shared anonymous REST API quota.
             UpdatePage page;
             try { page = read(ReleasesUrl + "/latest", cancel); }
@@ -138,6 +142,33 @@ namespace AudioSwitch
             ParseAssetPage(release, assets.Text, desktopObserved ? (int?)UpdatePackage.Desktop : null);
             return release;
         }
+        private static UpdateRelease CheckIncludingPrereleases(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read, bool allowMigration)
+        {
+            var serializer = new JavaScriptSerializer { MaxJsonLength = 2 * 1024 * 1024 };
+            Dictionary<string, object> newest = null; Version highest = null;
+            for (int page = 1; page <= 3; page++) {
+                cancel.ThrowIfCancellationRequested();
+                string url = ApiUrl.Substring(0, ApiUrl.Length - "/latest".Length) + "?per_page=100&page=" + page;
+                var response = read(url, cancel);
+                if (response.Address.AbsoluteUri != url) throw new InvalidDataException("更新列表地址已改变。");
+                var releases = serializer.DeserializeObject(response.Text) as object[];
+                if (releases == null) throw new InvalidDataException("更新列表格式不正确。");
+                foreach (var item in releases) {
+                    var entry = item as Dictionary<string, object>; object draft, prerelease, tag;
+                    if (entry == null || !entry.TryGetValue("draft", out draft) || !(draft is bool) || !entry.TryGetValue("prerelease", out prerelease) || !(prerelease is bool)) throw new InvalidDataException("发布信息格式不正确。");
+                    if ((bool)draft) continue;
+                    Version version;
+                    try { version = ParseVersion(entry.TryGetValue("tag_name", out tag) ? tag as string : null); }
+                    catch (InvalidDataException) { continue; }
+                    if (highest == null || version > highest) { highest = version; newest = entry; }
+                }
+                if (releases.Length < 100) {
+                    cancel.ThrowIfCancellationRequested();
+                    return newest == null ? null : ParseRelease(serializer.Serialize(newest), allowMigration, true);
+                }
+            }
+            throw new InvalidDataException("更新列表过长，请从 GitHub 发布页查看完整版本。");
+        }
         private static HttpStatusCode Status(WebException error)
         {
             var response = error.Response as HttpWebResponse;
@@ -158,14 +189,16 @@ namespace AudioSwitch
                 throw new InvalidDataException("没有取得本项目的正式版本信息，请打开发布页查看。");
             string tag = page.Address.AbsoluteUri.Substring(prefix.Length);
             var version = ParseVersion(tag);
-            // Render notes as plain text only; never execute or follow links embedded in release notes.
+            // Preserve GitHub's rendered Markdown; the frontend sanitizes this untrusted HTML.
             string notes = "请点击“打开发布页”查看完整更新说明。";
-            var body = Regex.Match(page.Text ?? "", @"<div\b[^>]*\bdata-test-selector\s*=\s*[""']body-content[""'][^>]*>(?<body>.*?)</div>", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-            if (body.Success)
-            {
-                string html = Regex.Replace(body.Groups["body"].Value, @"<(script|style)\b[^>]*>.*?</\1>", "", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-                html = Regex.Replace(html, @"</(?:p|li|h[1-6]|pre)>|<br\s*/?>", "\r\n", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-                notes = WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", "", RegexOptions.None, TimeSpan.FromSeconds(1))).Trim();
+            string cleaned = Regex.Replace(page.Text ?? "", @"<(script|style)\b[^>]*>.*?</\1>|<!--.*?-->", "", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+            var body = Regex.Match(cleaned, @"<div\b[^>]*\bdata-test-selector\s*=\s*[""']body-content[""'][^>]*>", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+            if (body.Success) {
+                string content = cleaned.Substring(body.Index + body.Length); int depth = 1;
+                foreach (Match tagMatch in Regex.Matches(content, @"<div\b[^>]*>|</div\s*>", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1))) {
+                    depth += tagMatch.Value.StartsWith("</", StringComparison.Ordinal) ? -1 : 1;
+                    if (depth == 0) { notes = content.Substring(0, tagMatch.Index).Trim(); break; }
+                }
             }
             return new UpdateRelease { Version = version, Tag = tag, Notes = notes };
         }

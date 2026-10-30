@@ -50,6 +50,8 @@ namespace AudioSwitch
             check(states.Contains("checking") && states.Contains("downloading") && states.Contains("installing"), "upgrade reports intermediate states");
             job = make("repair");
             check(job.Handle("check", CancellationToken.None, report).Status == "repairable", "upgrade damaged files offer repair without writes");
+            check(job.State.Entries != null && job.State.Entries.Length == 1 && job.State.Entries[0].Contains("隔离示例缺失文件") && job.State.Notes == Damaged().Message,
+                "upgrade file results retain structured entries and legacy notes");
             job.Handle("download", CancellationToken.None, report); job.Handle("install", CancellationToken.None, report);
             check(repairing && installs == 2, "upgrade repair uses separate same-version installer mode");
             job = make("update");

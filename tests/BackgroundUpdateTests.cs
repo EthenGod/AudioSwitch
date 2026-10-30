@@ -151,7 +151,12 @@ namespace AudioSwitch
             check(!store.Read().Attempted && store.Read().Version == "99.0.0", "verified download persists across application sessions");
             check(new AutomaticUpdateStore(root, Path.Combine(root, "moved", "AudioSwitch.exe")).Read() == null, "moving executable cannot install cache bound to its old path");
             int launches = 0; string issue;
-            check(store.TryInstall(true, (path, found, background) => { check(background && found.Tag == release.Tag && path == payload, "startup handoff retains exact payload and launch mode"); launches++; }, out issue) && issue == null, "next startup accepts a fully verified cached package");
+            var trialCache = store.Read(); trialCache.Prerelease = true; store.Save(trialCache);
+            check(!store.TryInstall(true, (path, found, bg) => launches++, out issue) && launches == 0 && !store.Read().Attempted && issue == null,
+                "stable-only policy preserves but does not install cached prerelease");
+            check(store.TryInstall(true, (path, found, background) => { check(background && found.Tag == release.Tag && path == payload, "startup handoff retains exact payload and launch mode"); launches++; }, out issue, includePrerelease: true) && issue == null, "opt-in startup accepts a fully verified cached prerelease");
+            check(store.BlockedVersion() == null && store.BlockedVersion(true) == release.Version, "failed prerelease retry marker cannot block stable updates after opting out");
+            trialCache = store.Read(); trialCache.Prerelease = false; store.Save(trialCache);
             check(!store.TryInstall(true, (path, found, bg) => launches++, out issue) && launches == 1 && issue != null, "attempt marker prevents repeated installation after interrupted handoff");
             File.WriteAllText(store.PathName, original);
             check(!store.TryInstall(false, (path, found, bg) => { throw new IOException("helper failed"); }, out issue) && store.Read().Attempted && issue.Contains("helper failed"), "helper startup failure preserves a visible retry reason and blocks auto loops");

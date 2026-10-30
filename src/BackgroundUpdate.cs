@@ -33,11 +33,11 @@ namespace AudioSwitch
         private bool disposed;
         private int attempts;
         private DateTime retryAfter;
-        internal BackgroundUpdate(AutomaticUpdateStore store, string issue) : this(store.Check,
-            store.Prepare, store.Stage, () => DateTime.UtcNow, BlockedVersion(store), issue) { }
-        private static Version BlockedVersion(AutomaticUpdateStore store)
+        internal BackgroundUpdate(AutomaticUpdateStore store, string issue, bool includePrerelease = false) : this(store.Check,
+            store.Prepare, store.Stage, () => DateTime.UtcNow, BlockedVersion(store, includePrerelease), issue) { }
+        private static Version BlockedVersion(AutomaticUpdateStore store, bool includePrerelease)
         {
-            try { return store.BlockedVersion(); }
+            try { return store.BlockedVersion(includePrerelease); }
             catch { return null; }
         }
         internal BackgroundUpdate(Func<CancellationToken, UpdateRelease> check, Func<UpdateRelease, CancellationToken, string> prepare,

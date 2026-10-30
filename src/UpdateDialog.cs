@@ -11,6 +11,12 @@ namespace AudioSwitch
 {
     internal sealed class UpdateDialog : Form
     {
+        // The legacy WinForms fallback remains a selectable text view.
+        private static string PlainNotes(string text)
+        {
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"</(?:p|li|h[1-6]|pre)>|<br\s*/?>", "\r\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+            return System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", "", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1))).Trim();
+        }
         private readonly Label status;
         private readonly TextBox notes;
         private readonly FlatAction action;
@@ -43,7 +49,7 @@ namespace AudioSwitch
             automaticHint = Palette.Label("默认开启；空闲时下载，下次启动应用。关闭后仍可手动更新。", 8, Palette.Muted, false);
             automaticHint.Name = "automaticUpdateHint"; automaticHint.SetBounds(26, 136, 528, 32); Controls.Add(automaticHint);
             automaticUpdates.CheckedChanged += async delegate { if (!applyingPreference && preferenceLoaded && !savingPreference) await SaveAutomaticUpdates(); };
-            status = Palette.Label("点击检查更新，获取最新正式版本。", 9, Palette.Text, false); status.SetBounds(26, 176, 528, 55); Controls.Add(status);
+            status = Palette.Label("点击检查更新，获取最新版本。", 9, Palette.Text, false); status.SetBounds(26, 176, 528, 55); Controls.Add(status);
             var notesCard = new Surface { Name = "updateNotesCard", Padding = new Padding(14, 12, 10, 12) };
             notesCard.SetBounds(26, 240, 528, 130); Controls.Add(notesCard);
             notes = new ReleaseNotesBox { Name = "updateNotes", AccessibleName = "更新内容", Dock = DockStyle.Fill,
@@ -126,18 +132,18 @@ namespace AudioSwitch
             {
                 if (release == null)
                 {
-                    status.Text = "正在检查 GitHub 正式版本…";
+                    status.Text = "正在检查 GitHub 版本…";
                     var found = await Task.Run(() => AppUpdate.Check(cancel.Token));
                     if (IsDisposed || cancel.IsCancellationRequested) return;
-                    if (found == null) { status.Text = "暂未找到可用的正式版本，请打开发布页查看。"; return; }
+                    if (found == null) { status.Text = "暂未找到可用版本，请打开发布页查看。"; return; }
                     if (!AppUpdate.IsAvailable(found))
                     {
-                        status.Text = found.Version == AppUpdate.ParseVersion(AppVersion.Number) ? "当前已是最新正式版本（" + found.Tag + "）。" : "本地版本 v" + AppVersion.Number + " 高于最新正式版 " + found.Tag + "，无需更新。";
-                        notes.Text = found.Notes ?? "暂无更新说明。";
+                        status.Text = found.Version == AppUpdate.ParseVersion(AppVersion.Number) ? "当前已是最新版本（" + found.Tag + "）。" : "本地版本 v" + AppVersion.Number + " 高于所选范围内的最新版本 " + found.Tag + "，无需更新。";
+                        notes.Text = PlainNotes(found.Notes ?? "暂无更新说明。");
                         return;
                     }
                     release = found; status.Text = (release.Version == AppUpdate.ParseVersion(AppVersion.Number) ? "可以安装此版本的新界面。" : "发现新版本 " + release.Tag + "。") + "下载完成后将退出并重新打开声间。";
-                    notes.Text = String.IsNullOrWhiteSpace(release.Notes) ? "发布者没有填写更新说明。" : release.Notes;
+                    notes.Text = String.IsNullOrWhiteSpace(release.Notes) ? "发布者没有填写更新说明。" : PlainNotes(release.Notes);
                     action.Text = "下载并更新";
                 }
                 else

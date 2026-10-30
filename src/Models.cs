@@ -113,6 +113,8 @@ namespace AudioSwitch
     {
         public bool GameMode { get; set; }
         public bool AutoUpdateEnabled { get; set; }
+        public bool IncludePrerelease { get; set; }
+        public string UpdateChannel { get; set; }
         public bool OpenPanelInBrowser { get; set; }
         public bool KeepBrowserPortOpen { get; set; }
         public int BrowserPort { get; set; }
@@ -124,7 +126,7 @@ namespace AudioSwitch
         public bool UseDevicePriority { get; set; }
         public List<Endpoint> DeviceOrder { get; set; }
         public Dictionary<string, DeviceRule> DeviceRules { get; set; }
-        public Preferences() { AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
+        public Preferences() { UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
     }
 
     public enum DeviceRule { Normal = 0, AcceptSystem = 1, SwitchOnConnect = 2 }

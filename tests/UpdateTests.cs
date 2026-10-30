@@ -46,6 +46,14 @@ namespace AudioSwitch
             check(AppUpdate.ParseRelease(Wire.Encode(release)).Url == parsed.Url, "new single-EXE asset does not change the full package selected for updates");
             check(AppUpdate.ParseRelease(Wire.Encode(Release("v0.10.1"))).Version < current, "existing v0.10.1 is never offered as downgrade");
             release["prerelease"] = true; check(AppUpdate.ParseRelease(Wire.Encode(release)) == null, "preview releases are ignored");
+            check(AppUpdate.ParseRelease(Wire.Encode(release), false, true).Prerelease, "opt-in accepts prerelease without weakening asset validation");
+            var trial = Release(next); trial["prerelease"] = true; trial["body"] = "## 测试更新\n- **保留格式**";
+            var draft = Release("v99.0.0"); draft["draft"] = true;
+            var selected = AppUpdate.Check(CancellationToken.None, (url, token) => new UpdatePage { Address = new Uri(url), Text = Wire.Encode(new object[] { Release("v0.10.1"), draft, trial }) }, false, true);
+            check(selected.Tag == next && selected.Prerelease && selected.Notes.Contains("## 测试更新"), "prerelease feed chooses newest numeric version, excludes drafts and preserves Markdown");
+            trial["assets"] = new object[0];
+            check(Rejects(() => AppUpdate.Check(CancellationToken.None, (url, token) => new UpdatePage { Address = new Uri(url), Text = Wire.Encode(new object[] { trial }) }, false, true)), "prerelease without installable package cannot become a valid update");
+            check(AppUpdate.ParseRelease(Wire.Encode(Release("v" + AppVersion.Number))).Notes.Contains("保留设备配置"), "same-version metadata retains release notes");
             release["prerelease"] = false; release["draft"] = true; check(AppUpdate.ParseRelease(Wire.Encode(release)) == null, "draft releases are ignored");
             release = Release(next); Asset(release)["browser_download_url"] = "https://example.com/AudioSwitch.zip";
             check(Rejects(() => AppUpdate.ParseRelease(Wire.Encode(release))), "reject update from another host");
@@ -127,7 +135,10 @@ namespace AudioSwitch
                 return Page("v0.10.1");
             });
             check(result.Tag == "v0.10.1" && requests.Count == 1, "already current/ahead version checks public release page without consuming API quota");
-            check(result.Notes.Contains("更新 & 改进") && result.Notes.Contains("保留设置") && !result.Notes.Contains("bad()"), "website release notes are readable plain text");
+            check(result.Notes.Contains("<p>更新 &amp; 改进</p>") && result.Notes.Contains("保留设置") && !result.Notes.Contains("bad()"), "website fallback preserves release formatting without scripts");
+            var nested = Page(next); nested.Text = "<div data-test-selector='body-content'><h2>更新</h2><div><pre><code>例子</code></pre></div><ul><li>末项</li></ul></div><p>页面导航</p>";
+            var nestedNotes = AppUpdate.ParseReleasePage(nested).Notes;
+            check(nestedNotes.Contains("<h2>更新</h2>") && nestedNotes.Contains("末项") && !nestedNotes.Contains("页面导航"), "nested GitHub code blocks do not truncate subsequent release notes");
             foreach (var status in new[] { WebExceptionStatus.ProtocolError, WebExceptionStatus.Timeout })
             {
                 requests.Clear();

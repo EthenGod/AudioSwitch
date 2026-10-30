@@ -21,6 +21,7 @@ namespace AudioSwitch
         public string WorkId { get; set; }
         public Dictionary<string, string> Hashes { get; set; }
         public bool Attempted { get; set; }
+        public bool Prerelease { get; set; }
         public string Failure { get; set; }
     }
     internal sealed class AutomaticUpdateStore
@@ -52,9 +53,10 @@ namespace AudioSwitch
             return item;
         }
         internal string Payload(PendingUpdate item) { return Path.Combine(dataRoot, "updates", item.WorkId, "payload"); }
-        internal Version BlockedVersion()
+        internal Version BlockedVersion(bool includePrerelease = false)
         {
             var item = Read();
+            if (item != null && item.Prerelease && !includePrerelease) return null;
             return item != null && item.Attempted && UpdatePackage.CanInstall(AppUpdate.ParseVersion(item.Version), item.PackageFormat, Path.GetDirectoryName(target)) ? AppUpdate.ParseVersion(item.Version) : null;
         }
         internal UpdateRelease Check(CancellationToken cancel)
@@ -90,7 +92,7 @@ namespace AudioSwitch
             if (!UpdatePackage.CanInstall(release.Version, release.PackageFormat, Path.GetDirectoryName(target))) throw new InvalidDataException("不能缓存相同或旧版本。");
             string id = new DirectoryInfo(Path.GetDirectoryName(payload)).Name;
             var item = new PendingUpdate { Format = release.PackageFormat == UpdatePackage.Desktop ? 2 : 1, PackageFormat = release.PackageFormat, Target = target, Version = release.Version.ToString(3), Tag = release.Tag,
-                Digest = release.Digest, WorkId = id, Hashes = UpdatePackage.Files(release.PackageFormat).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
+                Digest = release.Digest, Prerelease = release.Prerelease, WorkId = id, Hashes = UpdatePackage.Files(release.PackageFormat).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
             if (!Regex.IsMatch(id, "\\A[a-fA-F0-9]{32}\\z") || !UpdateInstaller.SamePath(Payload(item), payload)) throw new InvalidDataException("更新缓存目录不正确。");
             Validate(item); Save(item);
         }
@@ -113,7 +115,7 @@ namespace AudioSwitch
             var item = Read(); if (item == null) return;
             item.Attempted = true; item.Failure = message.Length > 2000 ? message.Substring(0, 2000) : message; Save(item);
         }
-        internal bool TryInstall(bool background, Action<string, UpdateRelease, bool> launch, out string issue, bool suspended = false, Action<int> requireRuntime = null)
+        internal bool TryInstall(bool background, Action<string, UpdateRelease, bool> launch, out string issue, bool suspended = false, Action<int> requireRuntime = null, bool includePrerelease = false)
         {
             issue = null;
             PendingUpdate marked = null;
@@ -124,6 +126,7 @@ namespace AudioSwitch
             {
                 var item = Read();
                 if (item == null || !UpdatePackage.CanInstall(AppUpdate.ParseVersion(item.Version), item.PackageFormat, Path.GetDirectoryName(target))) return false;
+                if (item.Prerelease && !includePrerelease) return false;
                 if (item.Attempted) { issue = item.Failure ?? "上次自动更新未完成，请在面板中手动重试。"; return false; }
                 Validate(item);
                 (requireRuntime ?? WebViewRuntime.Require)(item.PackageFormat);

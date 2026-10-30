@@ -20,7 +20,11 @@ describe('backup UI', () => {
   it('shows summary without writing, survives focus, and discards on Escape', async () => {
     const call = vi.fn(async () => summary), { user, read } = setup(call)
     const dialog = await open(user); await user.click(within(dialog).getByRole('button', { name: '选择备份文件' }))
-    await within(dialog).findByText('中文备份.json'); expect(within(dialog).getByText('4 台（当前离线 1 台）')).toBeVisible()
+    await within(dialog).findByText('中文备份.json')
+    const review = within(dialog).getByRole('region', { name: '备份摘要' })
+    expect(within(review).getByText('记录的设备').parentElement).toHaveTextContent('4台')
+    expect(within(review).getByText('1 台离线')).toBeVisible()
+    expect(within(review).getByText('替换当前配置')).toBeVisible()
     fireEvent.focus(window); expect(read).toHaveBeenCalledTimes(1)
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -33,10 +37,14 @@ describe('backup UI', () => {
     await user.click(within(dialog).getByRole('button', { name: '选择备份文件' })); await within(dialog).findByText('中文备份.json')
     const confirm = within(dialog).getByRole('button', { name: '确认导入' }); fireEvent.click(confirm); fireEvent.click(confirm)
     expect(call.mock.calls.filter(([command]) => command === 'confirm_import')).toHaveLength(1)
+    expect(within(dialog).getByRole('status')).toHaveTextContent('正在导入配置')
     expect(within(dialog).getByRole('button', { name: '取消' })).toBeDisabled()
     const reply = { ...backendFixture(), PanelApiVersion: 2, OperationError: null, PreferencesSaved: true, BackupPath: 'C:\\backups\\原配置.json' }
     reply.Preferences.DarkMode = false; finish(reply)
     await within(dialog).findByText('配置已导入'); expect(within(dialog).getByText(reply.BackupPath)).toBeVisible()
+    const backupLocation = within(dialog).getByRole('button', { name: '原配置备份' })
+    expect(backupLocation).toHaveAttribute('aria-expanded', 'true')
+    await user.click(backupLocation); expect(backupLocation).toHaveAttribute('aria-expanded', 'false')
     expect(document.documentElement).not.toHaveClass('dark')
   })
   it('requires refresh after uncertain import and offers no second confirmation', async () => {

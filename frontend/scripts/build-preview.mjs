@@ -2,6 +2,7 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { build } from 'vite'
+import { inlinePreviewScript } from './preview-document.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const staging = path.resolve(root, '../staging')
@@ -35,12 +36,6 @@ if (!htmlAsset) throw new Error('缺少预览页面。')
 const logo = `data:image/svg+xml;base64,${(await readFile(path.join(root, 'public/mark.svg'))).toString('base64')}`
 const inlineLogo = text => text.replaceAll('/mark.svg', logo)
 let html = String(htmlAsset.source)
-let scriptCount = 0
-html = html.replace(/<script\b[^>]*\bsrc="[^"]+"[^>]*><\/script>/g, () => {
-  scriptCount++
-  return `<script type="module">${inlineLogo(chunks[0].code).replace(/<\/script/gi, '<\\/script')}</script>`
-})
-if (scriptCount !== 1) throw new Error('预览脚本数量不符合预期。')
 html = html.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, tag => {
   const href = tag.match(/href="([^"]+)"/)?.[1]?.replace(/^\//, '')
   const css = output.find(item => item.type === 'asset' && item.fileName === href)
@@ -64,7 +59,9 @@ for (const [directory, entry] of Object.entries(lock.packages)) {
   for (const file of files) licenses.push(await readFile(path.join(packageRoot, file), 'utf8'))
 }
 const licenseJson = JSON.stringify(licenses.join('\n')).replaceAll('<', '\\u003c')
-html = html.replace('</body>', `<script type="application/json" id="preview-licenses">${licenseJson}</script></body>`)
+html = html.replace('</body>', () => `<script type="application/json" id="preview-licenses">${licenseJson}</script></body>`)
+// Finish template edits before inserting JavaScript: dependencies may contain HTML strings.
+html = inlinePreviewScript(html, inlineLogo(chunks[0].code))
 if (/<script\b[^>]*\bsrc=|<link\b[^>]*rel="(?:stylesheet|modulepreload)"/.test(html)) {
   throw new Error('预览仍含外部脚本或样式。')
 }

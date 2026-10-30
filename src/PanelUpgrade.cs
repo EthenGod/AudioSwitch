@@ -17,6 +17,8 @@ namespace AudioSwitch
         public string Message { get; set; }
         public string Version { get; set; }
         public string Notes { get; set; }
+        public string Directory { get; set; }
+        public string[] Entries { get; set; }
         public long Bytes { get; set; }
         public long Total { get; set; }
         public bool CanDownload { get; set; }
@@ -46,14 +48,16 @@ namespace AudioSwitch
         {
             cancel.ThrowIfCancellationRequested();
             if (action == "check" && State.Status == "starting") {
-                report(Result("checking", kind == "update" ? "正在检查正式版本…" : "正在检查程序文件…"));
+                report(Result("checking", kind == "update" ? "正在检查版本…" : "正在检查程序文件…"));
                 if (kind == "repair") {
                     var files = checkFiles();
                     State = Result(files.Passed ? "passed" : "repairable", files.Passed ? "文件检查通过，无需修复。" : "发现文件缺损，可下载当前版本完整包后确认修复。");
                     State.Notes = files.Message;
+                    State.Directory = files.Directory;
+                    State.Entries = files.Entries.ToArray();
                 } else {
                     release = checkRelease(cancel);
-                    State = Result(release == null ? "unavailable" : UpdatePackage.CanInstall(release.Version, release.PackageFormat, directory) ? "available" : "current", release == null ? "暂未找到可用正式版本。" : UpdatePackage.CanInstall(release.Version, release.PackageFormat, directory) ? "发现可安装版本。" : "当前没有需要安装的正式版本。");
+                    State = Result(release == null ? "unavailable" : UpdatePackage.CanInstall(release.Version, release.PackageFormat, directory) ? "available" : "current", release == null ? "暂未找到可用版本。" : UpdatePackage.CanInstall(release.Version, release.PackageFormat, directory) ? "发现可安装版本。" : "当前没有需要安装的版本。");
                 }
                 cancel.ThrowIfCancellationRequested();
                 if (State.Status == "available" || State.Status == "repairable") {

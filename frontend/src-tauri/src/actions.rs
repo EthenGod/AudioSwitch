@@ -7,7 +7,7 @@ pub struct BasicProfile { pub volume: Option<u8>, pub spatial_format: Option<Str
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, OpenPanelInBrowser, KeepBrowserPortOpen }
+pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, IncludePrerelease, OpenPanelInBrowser, KeepBrowserPortOpen }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
@@ -49,6 +49,10 @@ impl Action {
             Self::Preference { key, value } => json!({"Action":match key {
                 Preference::DarkMode => "darkMode", Preference::GameMode => "gameMode", Preference::AskOnConnect => "ask",
                 Preference::IncludeCommunications => "communications", Preference::UseDevicePriority => "priority", Preference::AutoUpdateEnabled => "automaticUpdates",
+                Preference::IncludePrerelease => {
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 10 { return Err("更新版本设置需要新版后台。".into()); }
+                    "includePrerelease"
+                },
                 Preference::KeepBrowserPortOpen => {
                     if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 8 { return Err("此设置需要新版后台。".into()); }
                     "keepBrowserPortOpen"
@@ -100,6 +104,12 @@ mod tests {
         let action = Action::Preference { key:Preference::OpenPanelInBrowser, value:true };
         assert!(action.request(&json!({"PanelApiVersion":6})).is_err());
         assert_eq!(action.request(&json!({"PanelApiVersion":7})).unwrap(), json!({"Action":"openPanelInBrowser","Value":true}));
+    }
+    #[test]
+    fn release_policy_requires_capability_and_only_saves() {
+        let action = Action::Preference { key:Preference::IncludePrerelease, value:true };
+        assert!(action.request(&json!({"PanelApiVersion":9})).is_err());
+        assert_eq!(action.request(&json!({"PanelApiVersion":10})).unwrap(), json!({"Action":"includePrerelease","Value":true}));
     }
     #[test]
     fn keep_port_requires_new_backend_and_only_changes_preference() {

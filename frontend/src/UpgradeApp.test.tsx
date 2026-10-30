@@ -5,6 +5,7 @@ import { App } from './App'
 import { createDesktopGateway } from './data/desktop'
 import { mapUpgrade } from './data/upgrade'
 import { backendFixture } from './test/backendFixture'
+import { createMockGateway } from './data/mock'
 const available = { Token:'job-1', Kind:'update', Status:'available', CanDownload:true, Bytes:0, Total:4000, Message:'发现可安装版本', Notes:'<script>不可执行说明</script>', Version:'v99.0.0' }
 const ready = { ...available, Status:'ready', CanDownload:false, Message:'文件校验通过' }
 async function setup(call: (command: string, args: Record<string, unknown>) => Promise<unknown>, title = '检查更新') {
@@ -14,12 +15,31 @@ async function setup(call: (command: string, args: Record<string, unknown>) => P
   return { user, dialog:within(screen.getByRole('dialog')) }
 }
 describe('update and repair confirmation', () => {
+  it('saves release scope, renders notes and cancels stale results before changing scope', async () => {
+    const gateway = createMockGateway(0), save = vi.spyOn(gateway, 'setPreference'), cancel = vi.spyOn(gateway, 'cancelUpgrade')
+    const user = userEvent.setup(); render(<App gateway={gateway} />)
+    await screen.findByRole('table'); await user.click(screen.getByRole('button', { name: '应用设置' }))
+    await user.click(screen.getByRole('button', { name: /检查更新/ }))
+    expect(screen.getByRole('combobox', { name: '更新渠道' })).toHaveTextContent('GitHub')
+    await user.click(screen.getByRole('combobox', { name: '接收版本' }))
+    await user.click(await screen.findByRole('option', { name: '包含测试版' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith('IncludePrerelease', true))
+    await user.click(screen.getByRole('button', { name: '模拟检查' }))
+    await screen.findByRole('heading', { name: '✨ 更新内容' }, { timeout: 2500 })
+    expect(screen.getByText(/v0.13.0（测试版示例）/)).toBeVisible()
+    await user.click(screen.getByRole('combobox', { name: '接收版本' }))
+    await user.click(await screen.findByRole('option', { name: '仅正式版' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith('IncludePrerelease', false))
+    expect(cancel).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.queryByRole('heading', { name: '✨ 更新内容' })).not.toBeInTheDocument())
+  })
   it('requires download and a separate confirmation, never claims installed', async () => {
     const call = vi.fn(async (command: string, args: Record<string, unknown>) => command === 'start_upgrade' ? available : args.action === 'download' ? ready : { ...ready, Status:'handoff', Message:'已交接，尚未确认安装完成' })
     const { user, dialog } = await setup(call)
     expect(call).not.toHaveBeenCalled()
     const start = dialog.getByRole('button', { name:'开始检查' }); fireEvent.click(start); fireEvent.click(start)
-    await dialog.findByText('发现可安装版本'); expect(dialog.getByText(available.Notes)).toBeVisible()
+    await dialog.findByText('发现可安装版本'); expect(dialog.queryByText('不可执行说明')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog').querySelector('script')).toBeNull()
     expect(call.mock.calls.filter(([c]) => c === 'start_upgrade')).toHaveLength(1)
     expect(dialog.queryByRole('button', { name:'确认安装并重启' })).not.toBeInTheDocument()
     await user.click(dialog.getByRole('button', { name:'下载更新' })); await dialog.findByText('文件校验通过')
@@ -77,5 +97,8 @@ describe('update and repair confirmation', () => {
     expect(() => mapUpgrade({ ...available, Status:'installed' })).toThrow()
     expect(() => mapUpgrade({ ...available, Bytes:-1 })).toThrow()
     expect(() => mapUpgrade({ ...ready, CanDownload:true })).toThrow()
+    expect(() => mapUpgrade({ ...ready, Entries:[42] })).toThrow()
+    expect(() => mapUpgrade({ ...ready, Directory:42 })).toThrow()
+    expect(mapUpgrade({ ...ready, Entries:['缺失：面板'], Directory:'示例目录' }).Entries).toEqual(['缺失：面板'])
   })
 })

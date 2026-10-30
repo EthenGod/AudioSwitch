@@ -145,6 +145,6 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
       if (failure.snapshot) { setSnapshot(failure.snapshot); setDark(failure.snapshot.Preferences.DarkMode) }
       if (failure.requiresRefresh) setUncertain(true)
     }} />}
-    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
+    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet preferenceBusy={busy || readOnly} onPreference={async value => { if (!await run(() => gateway.setPreference('IncludePrerelease', value), null)) throw new Error('更新设置未保存，请重试。') }} kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
   </div>
 }

@@ -18,12 +18,12 @@ export interface DeviceProfile {
 export interface Preferences {
   BrowserPort: number
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
-  IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; OpenPanelInBrowser: boolean; KeepBrowserPortOpen: boolean
+  IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; IncludePrerelease: boolean; UpdateChannel: 'GitHub'; OpenPanelInBrowser: boolean; KeepBrowserPortOpen: boolean
   DeviceProfiles: Record<string, DeviceProfile>
   DeviceRules: Record<string, DeviceRule>
   DeviceOrder: Record<Flow, string[]>
 }
-export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeCommunications' | 'UseDevicePriority' | 'AutoUpdateEnabled' | 'OpenPanelInBrowser' | 'KeepBrowserPortOpen'
+export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeCommunications' | 'UseDevicePriority' | 'AutoUpdateEnabled' | 'IncludePrerelease' | 'OpenPanelInBrowser' | 'KeepBrowserPortOpen'
 export interface Snapshot {
   DolbyProfiles?: Record<string, DolbyProfile | null>
   CanEditDolby?: boolean
@@ -39,6 +39,7 @@ export interface Snapshot {
   CanWrite?: boolean
   CanManageBackup?: boolean
   CanCheckMaintenance?: boolean
+  CanConfigureUpdates?: boolean
   CanManageUpdates?: boolean
   CanSetTrayBehavior?: boolean
   CanKeepBrowserPortOpen?: boolean
@@ -61,6 +62,7 @@ export interface UpgradeJob {
   Token: string; Kind: UpgradeKind
   Status: 'checking' | 'available' | 'repairable' | 'current' | 'passed' | 'unavailable' | 'downloading' | 'ready' | 'installing' | 'handoff' | 'cancelled' | 'error'
   Message: string; Version?: string; Notes?: string; Bytes: number; Total: number; CanDownload: boolean
+  Directory?: string; Entries?: string[]
 }
 export interface MaintenanceJob {
   Token: string; Kind: MaintenanceKind

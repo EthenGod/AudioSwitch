@@ -65,9 +65,10 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.ContainsKey("UpdateChannel") && !String.Equals(settings["UpdateChannel"] as string, "GitHub", StringComparison.Ordinal)) throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
             if (settings.ContainsKey("BrowserPort") && !(settings["BrowserPort"] is int)) throw new InvalidOperationException("浏览器端口必须为整数。");
-            foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen" })
+            foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "IncludePrerelease", "OpenPanelInBrowser", "KeepBrowserPortOpen" })
                 if (settings.ContainsKey(key) && !(settings[key] is bool)) throw new InvalidOperationException(key + " 必须为 true 或 false。");
             foreach (string key in new[] { "DeviceProfiles", "DeviceRules" })
             {
@@ -109,6 +110,7 @@ namespace AudioSwitch
         {
             if (preferences == null) throw new InvalidOperationException("缺少配置。");
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
+            if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
             if (preferences.DeviceProfiles == null) preferences.DeviceProfiles = new Dictionary<string, DeviceProfile>();
             if (preferences.DeviceRules == null) preferences.DeviceRules = new Dictionary<string, DeviceRule>();
             if (preferences.DeviceOrder == null) preferences.DeviceOrder = new List<Endpoint>();

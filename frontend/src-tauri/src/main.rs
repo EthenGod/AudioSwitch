@@ -9,6 +9,9 @@ mod prompt;
 mod dolby;
 mod dolby_apply;
 mod browser;
+mod release_links;
+#[tauri::command]
+fn open_release_link(url: String) -> Result<(), String> { release_links::open(&url) }
 use tauri::Manager;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -297,7 +300,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<upgrade::Upgrade>().close(); window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
-        .invoke_handler(tauri::generate_handler![panel_ready, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
+        .invoke_handler(tauri::generate_handler![open_release_link, panel_ready, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
         .run(context);
     if result.is_err() {
         // This native message also works when WebView2 cannot create any web UI.
