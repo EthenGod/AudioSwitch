@@ -7,6 +7,7 @@ import { Button } from './ui/button'
 import { Switch } from './ui/switch'
 import { Select } from './ui/select'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from './ui/sheet'
+import { Crossfade } from './Crossfade'
 
 function NumberField({ value, onValue, min, max, step, label, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; disabled?: boolean }) {
   const [text, setText] = useState(value === null ? '' : String(value))
@@ -25,13 +26,22 @@ function EqSlider({ label, value, onValue }: { label: string; value: number; onV
     onChange={e => { if (!pointer.current || pointer.current.moved) onValue(e.target.valueAsNumber) }} />
 }
 
+function StrengthValue({ label, value, disabled, onValue }: { label: string; value: number | null; disabled: boolean; onValue: (value: number) => void }) {
+  const last = useRef(value ?? .5)
+  if (value !== null) last.current = value
+  const visible = value !== null
+  return <div className="dolby-strength-value" data-visible={visible} aria-hidden={!visible || undefined} inert={!visible}>
+    <NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} /><span>%</span>
+  </div>
+}
+
 export function DolbyFields({ value: p, onChange, disabled = false }: { value: DolbyProfile; onChange: (p: DolbyProfile) => void; disabled?: boolean }) {
   const [advanced, setAdvanced] = useState(false), rememberedEq = useRef(p.Eq ?? Array<number>(20).fill(0))
   if (p.Eq) rememberedEq.current = p.Eq
   const raw = p.Eq ?? rememberedEq.current, ten = toTen(raw), custom = p.MainProfile === 4
   const change = <K extends keyof DolbyProfile>(key: K, value: DolbyProfile[K]) => onChange({ ...p, [key]:value })
   function editTen(index: number, value: number) {
-    if (!Number.isFinite(value) || value < -12 || value > 12 || value === ten[index]) return
+    if (advanced || !Number.isFinite(value) || value < -12 || value > 12 || value === ten[index]) return
     const next = [...ten]; next[index] = value; change('Eq', toTwenty(next))
   }
   return <div className="dolby-fields">
@@ -39,14 +49,19 @@ export function DolbyFields({ value: p, onChange, disabled = false }: { value: D
       onChange({ ...p, MainProfile:preset === 'movie' ? 0 : preset === 'keep' ? null : 4, SubProfile:preset === '4' ? 4 : preset === '5' ? 5 : null, Ieq:preset === 'movie' ? p.Ieq : null, Eq:preset === '4' || preset === '5' ? p.Eq : null })
     }} options={[{ value: 'keep', label: '保持当前预设' }, { value: 'movie', label: '电影' }, { value: '4', label: '自定义 1' }, { value: '5', label: '自定义 2' }]} />
     <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: '保持不变' }, { value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]} /></div>)}</div>
-    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label htmlFor={`dolby-${key}`}>{label}</label>{p[key] !== null && <div className="dolby-strength-value"><NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={disabled} value={Number((p[key] * 100).toFixed(8))} onValue={n => change(key, n / 100)} /><span>%</span></div>}<Switch disabled={disabled} id={`dolby-${key}`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
-    {[p.SurroundStrength, p.DialogStrength, p.LevelerStrength].some(value => value !== null) && <p className="field-help">强度可能按驱动档位取整。</p>}
+    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label htmlFor={`dolby-${key}`}>{label}</label><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
+    <Crossfade value={[p.SurroundStrength, p.DialogStrength, p.LevelerStrength].some(value => value !== null) ? 'shown' : 'hidden'} panes={[{ key: 'shown', render: () => <p className="field-help">强度可能按驱动档位取整。</p> }, { key: 'hidden', render: () => null }]} />
     <label htmlFor="dolby-ieq">智能均衡器（电影）</label><Select id="dolby-ieq" label="智能均衡器（电影）" disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: '保持不变' }, { value: '0', label: '关闭' }, { value: '2', label: '平衡' }]} />
     <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">均衡器（自定义预设）</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
       <div className="dolby-eq-toolbar"><div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div><span className="dolby-eq-range">{advanced ? '−192～192 驱动单位' : '−12～12 dB'}</span></div>
-      <fieldset className={`dolby-eq${advanced ? '' : ' dolby-eq-curve'}`} disabled={!custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
-        {advanced ? raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>) : ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /></label>)}
-      </fieldset>
+      <Crossfade value={advanced ? 'raw' : 'curve'} panes={[
+        { key: 'curve', render: () => <fieldset className="dolby-eq dolby-eq-curve" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
+          {ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /></label>)}
+        </fieldset> },
+        { key: 'raw', render: () => <fieldset className="dolby-eq" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
+          {raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { if (!advanced) return; const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>)}
+        </fieldset> },
+      ]} />
     </section>
   </div>
 }

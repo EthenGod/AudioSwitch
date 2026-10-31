@@ -27,6 +27,10 @@
 
 ## UI 注意事项
 
+- 自动切换的输出／输入列表、Dolby 的 10 点／20 段视图共用 Crossfade。固定两层交叉淡入淡出，进入 250 ms ease-out、退出 200 ms ease-in；只测量当前层并平滑改变外框高度，不轮询。退出层立即 inert、aria-hidden；PriorityList 通过 suspended 取消拖动并阻止提交，不用置灰来代替退出动画。均衡器隐藏层的编辑回调也有守卫，切视图不能改曲线。强度值保留同一节点和最后显示值完成淡出，配置立即写 null。减少动态效果沿用全局规则，卸载断开 ResizeObserver。最新 HTML 为 staging/selection-fade-preview/，尚未重新打包 EXE／ZIP。
+
+- 设备列表由 DeviceListMotion 管理。退出行立即移出正常布局，在旧显示位置原位淡出 200 ms ease-in；保留行同帧开始补位，新行淡入 250 ms ease-out。ListLayout 的布局键只包含当前可见设备 ID，不能包含仍在淡出的退出行，否则会延迟补位。布局更新前捕获显示位置；退出行绝对定位，快速恢复时清除 top 并回到正常布局。延迟清理退出节点不能重播补位。按端点 ID 保留节点，退出行立即 inert，相同快照不重播。减少动态效果时停用过渡，卸载清理动画与计时器。最新 HTML 为 staging/device-list-concurrent-preview/；上轮 EXE／ZIP 尚不含此改动。
+
 - 重新检查会先进入 checking，随后新任务才移除旧版本字段，第二次渲染仍是 checking。StageTransition 的高度测量必须同时监听状态和可影响排版的文本／版本，不能只监听 stage。相同阶段的内容更新只续接尺寸过渡，不重新淡入；进度 Bytes 不进入排版键。收缩 200 ms ease-in，展开 250 ms ease-out，打断时从当前显示高度继续。最新预览 staging/recheck-height-preview/ 包含此修复及蓝条移除，已包含在最新 recheck-height-package EXE／ZIP。
 - 检查更新和文件检查不再显示顶部蓝色说明条，含旧后台只读兼容窗口。必要的安装后果只在安装确认中显示；离线预览在标题旁保留简短的“界面预览”标识。此修改的预览在 staging/maintenance-clean-preview/，已包含在最新 recheck-height-package EXE／ZIP。
 - 更新／文件检查抽屉保留稳定滚动槽，但由 UpgradeScroll 测量实际槽宽和内容高度。无溢出时用内容层负右边距补回槽宽，保持左右等距；溢出后 250 ms 让出空间，恢复时 200 ms 补回。不要直接切换 scrollbar-gutter，否则宽度跳变。ResizeObserver 同时观察内容与视口，不轮询，不重建滚动节点；减少动态效果时取消过渡。Chromium 使用 6 px 主题滚动条，其他浏览器按实际槽宽补偿。

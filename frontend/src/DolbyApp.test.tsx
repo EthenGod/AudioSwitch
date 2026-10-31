@@ -17,6 +17,21 @@ async function setup(overrides = {}) {
   return { gateway, snapshot, onSaved, onClose, onFailure }
 }
 describe('Dolby editor and calibrated EQ', () => {
+  it('retains the last strength value during fade-out without keeping it editable or changing null semantics', () => {
+    const changed = vi.fn(), value = { ...profile(), SurroundStrength: .37 }
+    const view = render(<DolbyFields value={value} onChange={changed} />)
+    const number = screen.getByRole('spinbutton', { name: '环绕强度百分比' })
+    view.rerender(<DolbyFields value={{ ...value, SurroundStrength: null }} onChange={changed} />)
+    expect(number).toBeInTheDocument()
+    expect(number).toHaveValue(37)
+    expect(number).toBeDisabled()
+    expect(number.closest('.dolby-strength-value')).toHaveAttribute('inert')
+    expect(screen.queryByRole('spinbutton', { name: '环绕强度百分比' })).not.toBeInTheDocument()
+    view.rerender(<DolbyFields value={{ ...value, SurroundStrength: 0 }} onChange={changed} />)
+    expect(screen.getByRole('spinbutton', { name: '环绕强度百分比' })).toBe(number)
+    expect(number).toHaveValue(0)
+    expect(changed).not.toHaveBeenCalled()
+  })
   it('does not edit custom switches or open menus while Dolby controls are blocked', async () => {
     const changed = vi.fn(), user = userEvent.setup()
     render(<fieldset disabled><DolbyFields disabled value={profile()} onChange={changed} /></fieldset>)
@@ -62,9 +77,13 @@ describe('Dolby editor and calibrated EQ', () => {
   it('view switches preserve every raw detail, editing raw touches one band', () => {
     const p = profile(); p.Eq[5] = -191; const changed = vi.fn()
     render(<DolbyFields value={p} onChange={changed} />)
+    const outgoing = screen.getByRole('spinbutton', { name: '32 Hz dB' })
     fireEvent.click(screen.getByRole('button',{ name:'20 段原始值' })); fireEvent.click(screen.getByRole('button',{ name:'10 点 dB' }))
     expect(changed).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button',{ name:'20 段原始值' }))
+    expect(outgoing.closest('.view-crossfade-pane')).toHaveAttribute('inert')
+    fireEvent.change(outgoing, { target: { value: '5' } })
+    expect(changed).not.toHaveBeenCalled()
     fireEvent.change(screen.getByRole('spinbutton',{ name:'第 7 段原始值' }),{ target:{ value:'0' } })
     expect(changed.mock.calls[0][0].Eq).toEqual(p.Eq.map((v,i)=>i === 6 ? 0 : v))
   })

@@ -11,8 +11,8 @@ export function movePriority(ids: string[], from: number, to: number) {
 }
 type Drag = { id: string; pointer: number; start: number; target: number; y: number; grab: number; clientY: number; tops: number[]; heights: number[]; ids: string[] }
 
-export function PriorityList({ order, devices, busy, readOnly, label, onReorder }: {
-  order: string[]; devices: Device[]; busy: boolean; readOnly: boolean; label: string
+export function PriorityList({ order, devices, busy, readOnly, suspended = false, label, onReorder }: {
+  order: string[]; devices: Device[]; busy: boolean; readOnly: boolean; suspended?: boolean; label: string
   onReorder: (ids: string[]) => Promise<boolean>
 }) {
   const list = useRef<HTMLDivElement>(null)
@@ -34,11 +34,11 @@ export function PriorityList({ order, devices, busy, readOnly, label, onReorder 
   }, [pending])
   const cancel = () => { active.current = null; setDrag(null) }
   useEffect(() => {
-    if (active.current && (disabled || order.some((id, i) => id !== active.current!.ids[i]) || order.length !== active.current.ids.length)) cancel()
-  }, [order, disabled])
+    if (active.current && (suspended || disabled || order.some((id, i) => id !== active.current!.ids[i]) || order.length !== active.current.ids.length)) cancel()
+  }, [order, disabled, suspended])
 
   async function commit(ids: string[], id: string) {
-    if (disabled || locked.current || ids.every((value, i) => value === order[i])) { landing.current = null; return }
+    if (suspended || disabled || locked.current || ids.every((value, i) => value === order[i])) { landing.current = null; return }
     locked.current = true; setPending(ids)
     try {
       const okay = await onReorder(ids)
@@ -63,7 +63,7 @@ export function PriorityList({ order, devices, busy, readOnly, label, onReorder 
     active.current = next; setDrag(next)
   }
   function start(event: PointerEvent<HTMLButtonElement>, id: string) {
-    if (disabled || locked.current || event.button !== 0 || !list.current) return
+    if (suspended || disabled || locked.current || event.button !== 0 || !list.current) return
     const hostTop = list.current.getBoundingClientRect().top
     const rows = Array.from(list.current.querySelectorAll<HTMLElement>('.priority-row'))
     const rects = rows.map(row => row.getBoundingClientRect()), index = order.indexOf(id)
@@ -76,7 +76,7 @@ export function PriorityList({ order, devices, busy, readOnly, label, onReorder 
     if (!current || current.pointer !== event.pointerId) return
     cancel()
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    if (!disabled && order.length === current.ids.length && order.every((id, i) => id === current.ids[i])) {
+    if (!suspended && !disabled && order.length === current.ids.length && order.every((id, i) => id === current.ids[i])) {
       const next = movePriority(current.ids, current.start, current.target)
       const top = current.tops[0] + next.slice(0, current.target).reduce((sum, id) => sum + current.heights[current.ids.indexOf(id)], 0)
       landing.current = { id: current.id, offset: current.y - top }

@@ -3,6 +3,7 @@ import { ArrowRight, Check, ChevronRight, Headphones, Mic, Search, SlidersHorizo
 import type { Device, Flow, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
 import { DeviceIcon, DeviceIdentity, RoleBadges } from './shared'
+import { DeviceListMotion } from './DeviceListMotion'
 
 export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings, onAutomation }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; onSwitch: (device: Device) => void
@@ -26,11 +27,11 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
         <div className="segmented" aria-label="设备类型筛选">{([-1, 0, 1] as const).map((value, index) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{['全部设备', '声音输出', '麦克风输入'][index]}</button>)}</div>
         <label className="search-field"><Search size={14} /><input aria-label="搜索设备" placeholder="搜索设备…" value={query} onChange={e => setQuery(e.target.value)} />{query && <button aria-label="清空搜索" onClick={() => setQuery('')}>×</button>}</label>
       </div>
-      <div className="device-table" role="table" aria-label="音频设备">
+      <div className="device-table" role="table" aria-label="音频设备" tabIndex={-1}>
         <div className="device-table-head" role="row"><span role="columnheader">设备名称</span><span role="columnheader">默认角色 / 状态</span><span role="columnheader" className="text-right">操作</span></div>
-        {visible.map(device => {
+        <DeviceListMotion devices={visible}>{device => {
           const current = (snapshot.CanWrite ? (snapshot.Preferences.IncludeCommunications ? [0, 1, 2] as const : [0, 1] as const) : [1] as const).every(role => snapshot.Defaults[`${device.Flow}:${role}`] === device.Id)
-          return <div role="row" key={device.Id} className={`device-row ${current ? 'is-current' : ''}`} data-device-id={device.Id}>
+          return <div role="row" key={device.Id} className={`device-row ${current ? 'is-current' : ''}`} data-device-id={device.Id} data-online={device.Online}>
             <div role="cell"><DeviceIdentity device={device} /></div>
             <div role="cell"><RoleBadges device={device} snapshot={snapshot} /></div>
             <div role="cell" className="row-actions">
@@ -38,7 +39,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
               <Button variant="ghost" size="icon" pending={busy} aria-label={`设置 ${device.Name}，${device.Connection}`} title="设备设置" onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
             </div>
           </div>
-        })}
+        }}</DeviceListMotion>
         {!visible.length && <div className="empty-state"><Unplug size={28} /><h3>{snapshot.Devices.length ? '没有找到匹配的设备' : '还没有声音设备'}</h3><p>{snapshot.Devices.length ? '更换关键词或清除筛选。' : '请连接耳机、扬声器或麦克风。'}</p>{(query || filter !== -1) && <Button variant="outline" onClick={() => { setQuery(''); setFilter(-1) }}>清除筛选</Button>}</div>}
       </div>
       <div className="list-footnote"><button onClick={onAutomation}>管理自动切换 <ChevronRight size={13} /></button></div>
