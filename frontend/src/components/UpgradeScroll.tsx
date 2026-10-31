@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 
 /** Keep the native scroll surface, but return its reserved space until content needs it. */
-export function UpgradeScroll({ children }: { children: ReactNode }) {
+export function UpgradeScroll({ children, className = 'maintenance-content' }: { children: ReactNode; className?: string }) {
   const viewport = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const outer = viewport.current!, inner = content.current!
@@ -21,5 +21,5 @@ export function UpgradeScroll({ children }: { children: ReactNode }) {
     inner.style.removeProperty('transition')
     return () => observer.disconnect()
   }, [])
-  return <div ref={viewport} className="sheet-scroll maintenance-content upgrade-scroll"><div ref={content} className="upgrade-scroll-body">{children}</div></div>
+  return <div ref={viewport} className={`sheet-scroll upgrade-scroll ${className}`}><div ref={content} className="upgrade-scroll-body">{children}</div></div>
 }

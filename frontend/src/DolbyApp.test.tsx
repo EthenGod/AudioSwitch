@@ -17,6 +17,36 @@ async function setup(overrides = {}) {
   return { gateway, snapshot, onSaved, onClose, onFailure }
 }
 describe('Dolby editor and calibrated EQ', () => {
+  it('shows strength help on demand and Escape closes only the help, not the editor', async () => {
+    const { onClose } = await setup(), user = userEvent.setup()
+    expect(screen.queryByText('实际强度可能按驱动档位取整。')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
+    const help = screen.getByRole('button', { name: '环绕强度说明' })
+    help.focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('dialog', { name: '环绕强度说明' })).toHaveTextContent('实际强度可能按驱动档位取整。')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument())
+    expect(screen.getByRole('dialog', { name: 'Dolby 方案' })).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
+    await user.click(help)
+    await screen.findByRole('dialog', { name: '环绕强度说明' })
+    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument())
+    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
+    expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the Dolby scroll surface mounted across EQ views and reuses gutter compensation', async () => {
+    await setup()
+    const sheet = screen.getByRole('dialog', { name: 'Dolby 方案' })
+    const scroller = sheet.querySelector('.sheet-scroll')!
+    expect(scroller).toHaveClass('upgrade-scroll', 'dolby-scroll')
+    expect(scroller).not.toHaveClass('maintenance-content')
+    fireEvent.click(screen.getByRole('button', { name: '20 段原始值' }))
+    expect(sheet.querySelector('.sheet-scroll')).toBe(scroller)
+    expect(sheet.querySelectorAll('.sheet-scroll')).toHaveLength(1)
+  })
   it('retains the last strength value during fade-out without keeping it editable or changing null semantics', () => {
     const changed = vi.fn(), value = { ...profile(), SurroundStrength: .37 }
     const view = render(<DolbyFields value={value} onChange={changed} />)

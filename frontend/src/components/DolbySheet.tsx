@@ -8,6 +8,8 @@ import { Switch } from './ui/switch'
 import { Select } from './ui/select'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from './ui/sheet'
 import { Crossfade } from './Crossfade'
+import { Popover } from '@base-ui/react/popover'
+import { UpgradeScroll } from './UpgradeScroll'
 
 function NumberField({ value, onValue, min, max, step, label, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; disabled?: boolean }) {
   const [text, setText] = useState(value === null ? '' : String(value))
@@ -28,10 +30,20 @@ function EqSlider({ label, value, onValue }: { label: string; value: number; onV
 
 function StrengthValue({ label, value, disabled, onValue }: { label: string; value: number | null; disabled: boolean; onValue: (value: number) => void }) {
   const last = useRef(value ?? .5)
+  const [helpOpen, setHelpOpen] = useState(false)
   if (value !== null) last.current = value
   const visible = value !== null
+  useEffect(() => { if (!visible || disabled) setHelpOpen(false) }, [visible, disabled])
   return <div className="dolby-strength-value" data-visible={visible} aria-hidden={!visible || undefined} inert={!visible}>
-    <NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} /><span>%</span>
+    <NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
+    <Popover.Root open={helpOpen && visible && !disabled} onOpenChange={setHelpOpen}>
+      <Popover.Trigger openOnHover className="strength-help-trigger" aria-label={`${label}说明`} disabled={disabled || !visible}>%</Popover.Trigger>
+      <Popover.Portal><Popover.Positioner className="strength-help-positioner" side="top" align="end" sideOffset={8}>
+        <Popover.Popup className="strength-help-popup" aria-label={`${label}说明`} initialFocus={false}>
+          <Popover.Description>实际强度可能按驱动档位取整。</Popover.Description>
+        </Popover.Popup>
+      </Popover.Positioner></Popover.Portal>
+    </Popover.Root>
   </div>
 }
 
@@ -50,7 +62,6 @@ export function DolbyFields({ value: p, onChange, disabled = false }: { value: D
     }} options={[{ value: 'keep', label: '保持当前预设' }, { value: 'movie', label: '电影' }, { value: '4', label: '自定义 1' }, { value: '5', label: '自定义 2' }]} />
     <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: '保持不变' }, { value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]} /></div>)}</div>
     <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label htmlFor={`dolby-${key}`}>{label}</label><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
-    <Crossfade value={[p.SurroundStrength, p.DialogStrength, p.LevelerStrength].some(value => value !== null) ? 'shown' : 'hidden'} panes={[{ key: 'shown', render: () => <p className="field-help">强度可能按驱动档位取整。</p> }, { key: 'hidden', render: () => null }]} />
     <label htmlFor="dolby-ieq">智能均衡器（电影）</label><Select id="dolby-ieq" label="智能均衡器（电影）" disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: '保持不变' }, { value: '0', label: '关闭' }, { value: '2', label: '平衡' }]} />
     <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">均衡器（自定义预设）</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
       <div className="dolby-eq-toolbar"><div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div><span className="dolby-eq-range">{advanced ? '−192～192 驱动单位' : '−12～12 dB'}</span></div>
@@ -129,7 +140,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent nested className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
     <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
     {!desktop && <div className="sheet-preview">界面预览，操作不会改变系统设置</div>}
-    <div className="sheet-scroll">
+    <UpgradeScroll className="dolby-scroll">
       {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台。</p>}
       <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
       {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">切换到此设备后才能读取或立即应用。</p>}
@@ -139,7 +150,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
       {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>重新读取状态</Button>}
       <div className="volume-toggle"><label htmlFor="use-dolby">成为输出时自动应用此方案</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
       <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} disabled={blocked || !enabled} /></fieldset>
-    </div>
+    </UpgradeScroll>
     <footer className="sheet-footer">
       {application.job && <p role={['error','warning','cancelled'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
       {application.error && <p role="alert">{application.error}</p>}
