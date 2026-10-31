@@ -11,7 +11,7 @@
 
 ## 当前测试 Release
 
-- 最新本地试用包（2026-10-31）：staging/recheck-height-package-20261031/v0.12.1/。包含更新和文件检查顶部蓝条移除、重新检查时状态卡片的收缩修复，以及此前更新动画、滚动槽补偿和游戏模式改动。重新编译后台 857 项通过；此前同份前端源码 140 项、预览 2 项通过，本轮类型检查及桌面生产构建通过。EXE 展开的 14 个文件与 ZIP 一致，真实配置未变。记录 staging/desktop-release-257d00d53b654c52a1a1a0e5de2de9f5/verification.json，日志 staging/recheck-height-package.log。旧 update-spacing-package 和 bin 保留，未启动真实后台，未执行真实升级安装或音频写入，未提交或发布。
+- 上轮本地试用包（2026-10-31）：staging/recheck-height-package-20261031/v0.12.1/。包含更新和文件检查顶部蓝条移除、重新检查时状态卡片的收缩修复，以及此前更新动画、滚动槽补偿和游戏模式改动。重新编译后台 857 项通过；此前同份前端源码 140 项、预览 2 项通过，本轮类型检查及桌面生产构建通过。EXE 展开的 14 个文件与 ZIP 一致，真实配置未变。记录 staging/desktop-release-257d00d53b654c52a1a1a0e5de2de9f5/verification.json，日志 staging/recheck-height-package.log。旧 update-spacing-package 和 bin 保留，未启动真实后台，未执行真实升级安装或音频写入，未提交或发布。
 
 - 旧游戏模式试用包（2026-10-31）：staging/game-mode-package-20261031/v0.12.1/。加入后台低优先级及 EcoQoS 策略、游戏模式下自动更新置灰和作者署名，包含上轮更新／备份界面改动。后台 857 项、前端 135 项、预览 2 项通过；原生调度只在测试进程验证并恢复。两附件展开的 14 个文件一致，真实配置未变；记录 staging/desktop-release-4163ac589b6546c4a57cc44df1c0b5f3/verification.json。HTML 预览在 staging/game-mode-preview/。未测量实际游戏占用降幅，未做本轮截图和真实设备操作。旧包保留，未提交或发布。
 
@@ -27,11 +27,13 @@
 
 ## UI 注意事项
 
-- Dolby 抽屉复用 UpgradeScroll 的稳定滚动槽和宽度补偿，通过 className="dolby-scroll" 避免套用维护页排版。共用 6 px 主题滚动条，移除原生箭头；只保留一个滚动节点，切换均衡器视图不重建。强度说明收进百分号按钮，支持悬停、点击及键盘打开；Esc 只关闭说明，关闭强度时一并收起，重新开启不自动弹回。最新预览 staging/dolby-detail-preview/，尚未重新打包 EXE／ZIP。
+- 数字输入保留 type=number 和键盘步进，只用 CSS 隐藏浏览器上下箭头。分段按钮选中态要高于通用 ghost 按钮的 hover／active 背景规则。PanelAlert 的首次显示先提交透明帧，再同步展开与淡入；透明度和轻移应用于卡片本身，重复刷新不重新播放，关闭时保留最后消息完成淡出。
 
-- 自动切换的输出／输入列表、Dolby 的 10 点／20 段视图共用 Crossfade。固定两层交叉淡入淡出，进入 250 ms ease-out、退出 200 ms ease-in；只测量当前层并平滑改变外框高度，不轮询。退出层立即 inert、aria-hidden；PriorityList 通过 suspended 取消拖动并阻止提交，不用置灰来代替退出动画。均衡器隐藏层的编辑回调也有守卫，切视图不能改曲线。强度值保留同一节点和最后显示值完成淡出，配置立即写 null。减少动态效果沿用全局规则，卸载断开 ResizeObserver。最新 HTML 为 staging/selection-fade-preview/，尚未重新打包 EXE／ZIP。
+- Dolby 抽屉复用 UpgradeScroll 的稳定滚动槽和宽度补偿，通过 className="dolby-scroll" 避免套用维护页排版。共用 6 px 主题滚动条，移除原生箭头；只保留一个滚动节点，切换均衡器视图不重建。三项强度名称用普通文本和 aria-labelledby 关联开关，不能用 label 转发点击；只有右侧开关切换。说明仅在未聚焦的数值输入框悬停 250 ms 后显示，点击或聚焦立即关闭，聚焦期间不重开。百分号只作单位。Tooltip.Trigger 只覆盖输入框，不额外增加 Tab 停靠点；输入框保留 aria-description。Esc 在说明开启时只关闭说明；禁用时取消待显示提示。最新预览 staging/strength-input-preview/，已包含在 strength-input-package-20261101 EXE／ZIP。
 
-- 设备列表由 DeviceListMotion 管理。退出行立即移出正常布局，在旧显示位置原位淡出 200 ms ease-in；保留行同帧开始补位，新行淡入 250 ms ease-out。ListLayout 的布局键只包含当前可见设备 ID，不能包含仍在淡出的退出行，否则会延迟补位。布局更新前捕获显示位置；退出行绝对定位，快速恢复时清除 top 并回到正常布局。延迟清理退出节点不能重播补位。按端点 ID 保留节点，退出行立即 inert，相同快照不重播。减少动态效果时停用过渡，卸载清理动画与计时器。最新 HTML 为 staging/device-list-concurrent-preview/；上轮 EXE／ZIP 尚不含此改动。
+- 自动切换的输出／输入列表、Dolby 的 10 点／20 段视图共用 Crossfade。固定两层交叉淡入淡出，进入 250 ms ease-out、退出 200 ms ease-in；只测量当前层并平滑改变外框高度，不轮询。退出层立即 inert、aria-hidden；PriorityList 通过 suspended 取消拖动并阻止提交，不用置灰来代替退出动画。均衡器隐藏层的编辑回调也有守卫，切视图不能改曲线。强度值保留同一节点和最后显示值完成淡出，配置立即写 null。减少动态效果沿用全局规则，卸载断开 ResizeObserver。对应 HTML 为 staging/selection-fade-preview/，已包含在 strength-input-package-20261101 EXE／ZIP。
+
+- 设备列表由 DeviceListMotion 管理。退出行立即移出正常布局，在旧显示位置原位淡出 200 ms ease-in；保留行同帧开始补位，新行淡入 250 ms ease-out。ListLayout 的布局键只包含当前可见设备 ID，不能包含仍在淡出的退出行，否则会延迟补位。布局更新前捕获显示位置；退出行绝对定位，快速恢复时清除 top 并回到正常布局。延迟清理退出节点不能重播补位。按端点 ID 保留节点，退出行立即 inert，相同快照不重播。减少动态效果时停用过渡，卸载清理动画与计时器。对应 HTML 为 staging/device-list-concurrent-preview/；已包含在 strength-input-package-20261101 EXE／ZIP。
 
 - 重新检查会先进入 checking，随后新任务才移除旧版本字段，第二次渲染仍是 checking。StageTransition 的高度测量必须同时监听状态和可影响排版的文本／版本，不能只监听 stage。相同阶段的内容更新只续接尺寸过渡，不重新淡入；进度 Bytes 不进入排版键。收缩 200 ms ease-in，展开 250 ms ease-out，打断时从当前显示高度继续。最新预览 staging/recheck-height-preview/ 包含此修复及蓝条移除，已包含在最新 recheck-height-package EXE／ZIP。
 - 检查更新和文件检查不再显示顶部蓝色说明条，含旧后台只读兼容窗口。必要的安装后果只在安装确认中显示；离线预览在标题旁保留简短的“界面预览”标识。此修改的预览在 staging/maintenance-clean-preview/，已包含在最新 recheck-height-package EXE／ZIP。
@@ -51,7 +53,7 @@
 - 不要用隐藏字段或错误提示的删除来缩短页面。先删除重复说明。
 - 不要隐藏模拟预览标识。不要在产品文案中使用中点分隔符。
 - 必要说明只放一次。排序的即时切换后果放在列表前，安装后果放在确认处。错误和取消提示按实际状态显示。
-- Dolby 和设备设置底部不再重复解释“仅保存”，由按钮区区分保存与应用。均衡器范围和单位放在视图切换栏旁；自定义预设的共享范围放在预设标签旁。强度取整说明通过数值旁的百分号按钮按需查看，不再占据独立一行。保留错误、不可用原因、导入覆盖及安装重启后果，不用精简文案掩盖实际限制。
+- Dolby 和设备设置底部不再重复解释“仅保存”，由按钮区区分保存与应用。均衡器范围和单位放在视图切换栏旁；自定义预设的共享范围放在预设标签旁。强度取整说明通过悬停未聚焦的数值输入框按需查看，不再占据独立一行。保留错误、不可用原因、导入覆盖及安装重启后果，不用精简文案掩盖实际限制。
 - 浏览器模拟调用是异步的。主题和场景切换后，等待对应状态再截图。
 - 浏览器截图可能返回 JPEG。保存前检查文件头，不要直接使用 `.png` 后缀。
 - CSS 视口检查不能代替 Windows 原生缩放或真实设备验收。

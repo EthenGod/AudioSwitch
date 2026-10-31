@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { DolbyFields, DolbySheet } from './components/DolbySheet'
@@ -17,26 +17,56 @@ async function setup(overrides = {}) {
   return { gateway, snapshot, onSaved, onClose, onFailure }
 }
 describe('Dolby editor and calibrated EQ', () => {
-  it('shows strength help on demand and Escape closes only the help, not the editor', async () => {
-    const { onClose } = await setup(), user = userEvent.setup()
-    expect(screen.queryByText('实际强度可能按驱动档位取整。')).not.toBeInTheDocument()
+  it('only hovers over an unfocused input; focus closes help and percent never opens it', async () => {
+    await setup(); const user = userEvent.setup()
     await user.click(screen.getByRole('switch', { name: '环绕强度' }))
-    const help = screen.getByRole('button', { name: '环绕强度说明' })
-    help.focus()
-    await user.keyboard('{Enter}')
-    expect(await screen.findByRole('dialog', { name: '环绕强度说明' })).toHaveTextContent('实际强度可能按驱动档位取整。')
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument())
-    expect(screen.getByRole('dialog', { name: 'Dolby 方案' })).toBeVisible()
-    expect(onClose).not.toHaveBeenCalled()
-    await user.click(help)
-    await screen.findByRole('dialog', { name: '环绕强度说明' })
-    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument())
-    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
-    expect(screen.queryByRole('dialog', { name: '环绕强度说明' })).not.toBeInTheDocument()
+    const input = screen.getByRole('spinbutton', { name: '环绕强度百分比' })
+    const unit = input.closest('.dolby-strength-value')!.querySelector('.strength-unit')!
+    await user.hover(unit)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)) })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    await user.hover(input)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('实际强度可能按驱动档位取整。')
+    await user.click(input)
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument())
+    expect(input).toHaveFocus()
+    await user.unhover(input); await user.hover(input)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)) })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '环绕强度说明' })).not.toBeInTheDocument()
+    await user.tab()
+    await user.unhover(input); await user.hover(input)
+    await screen.findByRole('tooltip')
+    await user.hover(unit)
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument())
   })
-
+  it('Escape only closes hover help and disabling strength cancels a pending hover', async () => {
+    const { onClose } = await setup(), user = userEvent.setup()
+    const toggle = screen.getByRole('switch', { name: '环绕强度' })
+    await user.click(toggle)
+    const input = screen.getByRole('spinbutton', { name: '环绕强度百分比' })
+    await user.hover(input); await screen.findByRole('tooltip')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument())
+    expect(onClose).not.toHaveBeenCalled()
+    await user.unhover(input); await user.hover(input)
+    await user.click(toggle)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)) })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+  it('strength labels and row whitespace do not toggle, while the actual switch stays accessible', async () => {
+    const changed = vi.fn(), user = userEvent.setup()
+    render(<DolbyFields value={profile()} onChange={changed} />)
+    for (const name of ['环绕强度', '人声强度', '音量平衡强度']) {
+      const label = screen.getByText(name)
+      await user.click(label)
+      fireEvent.click(label.closest('.dolby-strength')!)
+      expect(screen.getByRole('switch', { name })).not.toBeChecked()
+    }
+    expect(changed).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('switch', { name: '环绕强度' }))
+    expect(changed).toHaveBeenCalledExactlyOnceWith({ ...profile(), SurroundStrength: .5 })
+  })
   it('keeps the Dolby scroll surface mounted across EQ views and reuses gutter compensation', async () => {
     await setup()
     const sheet = screen.getByRole('dialog', { name: 'Dolby 方案' })

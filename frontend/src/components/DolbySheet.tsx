@@ -8,13 +8,13 @@ import { Switch } from './ui/switch'
 import { Select } from './ui/select'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from './ui/sheet'
 import { Crossfade } from './Crossfade'
-import { Popover } from '@base-ui/react/popover'
+import { Tooltip } from '@base-ui/react/tooltip'
 import { UpgradeScroll } from './UpgradeScroll'
 
-function NumberField({ value, onValue, min, max, step, label, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; disabled?: boolean }) {
+function NumberField({ value, onValue, min, max, step, label, description, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; description?: string; disabled?: boolean }) {
   const [text, setText] = useState(value === null ? '' : String(value))
   useEffect(() => { setText(value === null ? '' : String(value)) }, [value])
-  return <input aria-label={label} type="number" min={min} max={max} step={step} disabled={disabled} placeholder={value === null ? '保持不变' : undefined} value={text} onChange={e => {
+  return <input aria-label={label} aria-description={description} type="number" min={min} max={max} step={step} disabled={disabled} placeholder={value === null ? '保持不变' : undefined} value={text} onChange={e => {
     setText(e.target.value); const n = e.target.valueAsNumber
     if (Number.isFinite(n) && n >= min && n <= max && (step !== 1 || Number.isInteger(n))) onValue(n)
   }} onBlur={() => setText(value === null ? '' : String(value))} />
@@ -31,19 +31,32 @@ function EqSlider({ label, value, onValue }: { label: string; value: number; onV
 function StrengthValue({ label, value, disabled, onValue }: { label: string; value: number | null; disabled: boolean; onValue: (value: number) => void }) {
   const last = useRef(value ?? .5)
   const [helpOpen, setHelpOpen] = useState(false)
+  const inputArea = useRef<HTMLDivElement>(null)
+  const focused = () => !!inputArea.current?.contains(document.activeElement)
+  const closeHelp = () => setHelpOpen(false)
   if (value !== null) last.current = value
   const visible = value !== null
   useEffect(() => { if (!visible || disabled) setHelpOpen(false) }, [visible, disabled])
+  useEffect(() => {
+    if (!helpOpen || !visible || disabled) return
+    // Hover does not move focus. Escape dismisses this hint before the surrounding sheet.
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault(); event.stopPropagation(); setHelpOpen(false)
+    }
+    window.addEventListener('keydown', escape, true)
+    return () => window.removeEventListener('keydown', escape, true)
+  }, [helpOpen, visible, disabled])
   return <div className="dolby-strength-value" data-visible={visible} aria-hidden={!visible || undefined} inert={!visible}>
-    <NumberField label={`${label}百分比`} min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
-    <Popover.Root open={helpOpen && visible && !disabled} onOpenChange={setHelpOpen}>
-      <Popover.Trigger openOnHover className="strength-help-trigger" aria-label={`${label}说明`} disabled={disabled || !visible}>%</Popover.Trigger>
-      <Popover.Portal><Popover.Positioner className="strength-help-positioner" side="top" align="end" sideOffset={8}>
-        <Popover.Popup className="strength-help-popup" aria-label={`${label}说明`} initialFocus={false}>
-          <Popover.Description>实际强度可能按驱动档位取整。</Popover.Description>
-        </Popover.Popup>
-      </Popover.Positioner></Popover.Portal>
-    </Popover.Root>
+    <Tooltip.Root disabled={disabled || !visible} open={helpOpen && visible && !disabled} onOpenChange={next => setHelpOpen(next && !focused())}>
+      <Tooltip.Trigger render={<div ref={inputArea} />} className="strength-input" delay={250} closeDelay={150} onPointerDown={closeHelp} onFocusCapture={closeHelp}>
+        <NumberField label={`${label}百分比`} description="实际强度可能按驱动档位取整。" min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
+      </Tooltip.Trigger>
+      <Tooltip.Portal><Tooltip.Positioner className="strength-help-positioner" side="top" align="end" sideOffset={8}>
+        <Tooltip.Popup role="tooltip" className="strength-help-popup">实际强度可能按驱动档位取整。</Tooltip.Popup>
+      </Tooltip.Positioner></Tooltip.Portal>
+    </Tooltip.Root>
+    <span className="strength-unit">%</span>
   </div>
 }
 
@@ -61,7 +74,7 @@ export function DolbyFields({ value: p, onChange, disabled = false }: { value: D
       onChange({ ...p, MainProfile:preset === 'movie' ? 0 : preset === 'keep' ? null : 4, SubProfile:preset === '4' ? 4 : preset === '5' ? 5 : null, Ieq:preset === 'movie' ? p.Ieq : null, Eq:preset === '4' || preset === '5' ? p.Eq : null })
     }} options={[{ value: 'keep', label: '保持当前预设' }, { value: 'movie', label: '电影' }, { value: '4', label: '自定义 1' }, { value: '5', label: '自定义 2' }]} />
     <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: '保持不变' }, { value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]} /></div>)}</div>
-    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><label htmlFor={`dolby-${key}`}>{label}</label><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
+    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><span className="dolby-strength-label" id={`dolby-${key}-label`}>{label}</span><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} aria-labelledby={`dolby-${key}-label`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
     <label htmlFor="dolby-ieq">智能均衡器（电影）</label><Select id="dolby-ieq" label="智能均衡器（电影）" disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: '保持不变' }, { value: '0', label: '关闭' }, { value: '2', label: '平衡' }]} />
     <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">均衡器（自定义预设）</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
       <div className="dolby-eq-toolbar"><div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div><span className="dolby-eq-range">{advanced ? '−192～192 驱动单位' : '−12～12 dB'}</span></div>
