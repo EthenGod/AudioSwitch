@@ -11,7 +11,9 @@
 
 ## 当前测试 Release
 
-- 最新本地试用包（2026-10-31）：`staging/update-backup-20261031/v0.12.1/`。包含真实更新说明排版修复、正式／测试版本选择，以及统一的文件检查和导入导出界面。前端 134 项、Rust 45 项（3 项可选测试跳过）、后台 845 项通过；离线预览检查 2 项通过。EXE 展开的 14 个文件与 ZIP 一致，文件完整性和配置不变检查通过。记录在 `staging/desktop-release-2394a033d78b4d908a7127bdf535bb40/verification.json`。离线预览在 `staging/update-backup-preview/声间-UI预览.html`。未替换 bin 或 releases，未发布；没有实际下载、安装、导入覆盖或音频写入，未完成本轮截图验收。
+- 最新本地试用包（2026-10-31）：staging/game-mode-package-20261031/v0.12.1/。加入后台低优先级及 EcoQoS 策略、游戏模式下自动更新置灰和作者署名，包含上轮更新／备份界面改动。后台 857 项、前端 135 项、预览 2 项通过；原生调度只在测试进程验证并恢复。两附件展开的 14 个文件一致，真实配置未变；记录 staging/desktop-release-4163ac589b6546c4a57cc44df1c0b5f3/verification.json。HTML 预览在 staging/game-mode-preview/。未测量实际游戏占用降幅，未做本轮截图和真实设备操作。旧包保留，未提交或发布。
+
+- 上轮本地试用包（2026-10-31）：`staging/update-backup-20261031/v0.12.1/`。包含真实更新说明排版修复、正式／测试版本选择，以及统一的文件检查和导入导出界面。前端 134 项、Rust 45 项（3 项可选测试跳过）、后台 845 项通过；离线预览检查 2 项通过。EXE 展开的 14 个文件与 ZIP 一致，文件完整性和配置不变检查通过。记录在 `staging/desktop-release-2394a033d78b4d908a7127bdf535bb40/verification.json`。离线预览在 `staging/update-backup-preview/声间-UI预览.html`。未替换 bin 或 releases，未发布；没有实际下载、安装、导入覆盖或音频写入，未完成本轮截图验收。
 - 旧试用包 `staging/local-test-20261030-markdown/` 和 `staging/update-experience-20261031/` 保留。后者尚未包含统一的导入导出页面，不作为本轮交付入口。Apple emoji 仍只设置本机字体优先，未内置 Apple 字体或图像。
 
 - 2026-10-29：`releases/v0.12.1/` 已生成便捷展开 EXE 和完整 ZIP，仅两个附件。两者均来自当前源码重新编译，不复用旧测试包。发行说明见 `releases/RELEASE-NOTES-v0.12.1.md`；完整摘要、日志和发布步骤见 `releases/DELIVERY-v0.12.1.md`。
@@ -23,6 +25,8 @@
 
 ## UI 注意事项
 
+- 游戏模式的低占用策略由 TrayHost 调用 GameModeScheduling，仅修改当前后台进程。先记录原优先级和电源调度掩码，再降低为 BelowNormal 并开启 EcoQoS；退出或释放时恢复原状态。原本 Idle／BelowNormal 或已开启 EcoQoS 时保留，不以 Normal 覆盖。系统不支持电源调度时保留其他优化；失败写入仍保留恢复记录，各项恢复互不阻断。不要为此添加设备轮询、负载监测线程或修改其他程序。接口依据：https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setprocessinformation 。
+- 游戏模式下自动更新行置灰且不可操作，但 AutoUpdateEnabled 原值保留；不能把临时暂停保存成关闭。Base UI Switch 是 span，测试禁用状态用 aria-disabled 和实际点击不提交验证，不能使用仅适用于原生表单元素的 toBeDisabled。
 - 基础预设并发检查只比较 Volume、SpatialFormat 和接入规则。不存在的 DeviceProfile 与两个基础字段均为 null 的容器等价：嵌套 Dolby 首次保存会创建容器，不能让外层旧草稿因此误报冲突。0 音量、空字符串（关闭空间音效）仍与 null 不同；保存基础设置必须保留后台最新 Dolby 内容。
 
 - 使用 `@radix-ui/colors` 的静态 CSS。版本固定为 3.0.0。

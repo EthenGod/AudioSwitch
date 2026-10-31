@@ -25,6 +25,7 @@ namespace AudioSwitch
         private BackgroundUpdate updates;
         private readonly Timer updateIdleTimer = new Timer { Interval = 30000 };
         private readonly UpdateActivity updateActivity = new UpdateActivity();
+        private readonly GameModeScheduling gameScheduling = new GameModeScheduling();
         private System.Threading.Tasks.Task<bool> activitySample;
         private System.Threading.Tasks.Task activityCleanup;
         private bool activityReleased;
@@ -434,6 +435,7 @@ namespace AudioSwitch
         }
         private void UpdateGameMode()
         {
+            gameScheduling.Apply(preferences.GameMode);
             debounce.SetGameMode(preferences.GameMode);
             updates.SetPaused(!preferences.AutomaticUpdatesAllowed, preferences.AutoUpdateEnabled ? null : "自动更新已关闭，可手动检查更新。");
             if (!preferences.AutomaticUpdatesAllowed)
@@ -470,6 +472,7 @@ namespace AudioSwitch
             panelDolby.Dispose();
             debounce.Stop();
             frontends.Close();
+            gameScheduling.Dispose();
             base.ExitThreadCore();
         }
         protected override void Dispose(bool disposing)
@@ -493,6 +496,7 @@ namespace AudioSwitch
                 }
                 dispatcher.Dispose();
                 frontends.Dispose();
+                gameScheduling.Dispose();
             }
             base.Dispose(disposing);
         }

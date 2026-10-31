@@ -18,7 +18,7 @@
 - UI 重构按独立阶段验收，每阶段完成后先汇报并等待用户确认，不自动进入下一阶段、不自动提交或合并。当前桌面版已连接真实后台；仅开发预览和离线 HTML 使用模拟数据。历史第一阶段的边界不再适用于完整桌面包。
 - 默认进程是托盘后台；`--ui` 是面板，`--prompt` 是右下角提示，`--dolby-worker` 是短时辅助进程。关闭界面必须释放对应进程，不能只是隐藏。
 - 用户显式开启“保持浏览器端口开放”时，允许无窗口的浏览器服务随后台保留。默认关闭；关闭开关后恢复按需退出，退出后台时必须释放端口及服务进程。
-- 空闲后台依靠 Core Audio 事件，不轮询设备或 Dolby。约 150 ms 的事件合并从首条事件起算，连续事件不能无限推迟处理。
+- 空闲后台依靠 Core Audio 事件，不轮询设备或 Dolby。事件合并默认约 150 ms，游戏模式为 500 ms，从首条事件起算，连续事件不能无限推迟处理。
 - 现有 WinForms 中文界面沿用 `Palette` / `FlatAction`；新前端使用独立主题与组件。提示要说明可执行的操作。不要把调试协议、RPC 编号或内部实现细节放到普通使用流程里。
 
 ## 代码地图
@@ -40,6 +40,7 @@
 | `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
 | `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
+| `src/GameModeScheduling.cs`、`src/DeviceEventBatch.cs` | 游戏模式后台优先级、效率调度及有界设备事件合并 |
 | `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |
 
 ## 必须保留的行为

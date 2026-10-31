@@ -68,6 +68,7 @@ namespace AudioSwitch
                 UpdateTests.Run(Check);
                 BackgroundUpdateTests.Run(Check);
                 GameModeTests.Run(Check);
+                GameModeSchedulingTests.Run(Check);
                 AutoUpdatePreferenceTests.Run(Check);
                 IntegrityTests.Run(Check);
                 FrontendLaunchTests.Run(Check); TrayPopupTests.Run(Check);
