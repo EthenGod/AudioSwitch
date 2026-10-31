@@ -15,6 +15,21 @@ async function setup(call: (command: string, args: Record<string, unknown>) => P
   return { user, dialog:within(screen.getByRole('dialog')) }
 }
 describe('update and repair confirmation', () => {
+  it('preserves release-note disclosure and scroll position when moving from discovery to download result', async () => {
+    const notes = '# 更新内容\n\n<details><summary>详细内容</summary><p>可复制的说明</p></details>'
+    const call = vi.fn(async (command: string) => ({ ...(command === 'start_upgrade' ? available : ready), Notes: notes }))
+    const { user, dialog } = await setup(call)
+    await user.click(dialog.getByRole('button', { name: '开始检查' }))
+    const summary = await dialog.findByText('详细内容'), details = summary.closest('details')!
+    details.open = true
+    const notesElement = summary.closest('.release-notes')!, scroll = notesElement.closest('.sheet-scroll')!
+    scroll.scrollTop = 80
+    await user.click(dialog.getByRole('button', { name: '下载更新' }))
+    await dialog.findByText('文件校验通过')
+    expect(summary.closest('.release-notes')).toBe(notesElement)
+    expect(dialog.getByText('详细内容')).toBe(summary)
+    expect(details.open).toBe(true); expect(scroll.scrollTop).toBe(80)
+  })
   it('saves release scope, renders notes and cancels stale results before changing scope', async () => {
     const gateway = createMockGateway(0), save = vi.spyOn(gateway, 'setPreference'), cancel = vi.spyOn(gateway, 'cancelUpgrade')
     const user = userEvent.setup(); render(<App gateway={gateway} />)

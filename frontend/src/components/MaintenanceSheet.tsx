@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Info, LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import type { MaintenanceJob, MaintenanceKind, Snapshot, UiGateway } from '@/data/types'
 import { Button } from './ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from './ui/sheet'
@@ -53,8 +53,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}>
     <SheetContent initialFocus={heading} closeDisabled={closing} closeLabel="关闭检查窗口">
-      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{updating ? '检查更新' : '文件检查'}</SheetTitle><SheetDescription className="sr-only">{updating ? '查看版本与更新说明' : '检查后台运行必需文件'}</SheetDescription></header>
-      <div className="sheet-preview"><Info size={14} />{desktop ? '只读检查，不安装、修复或修改配置' : '界面预览，不联网或读取本机文件'}</div>
+      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{updating ? '检查更新' : '文件检查'}{!desktop && <span className="sheet-preview-label">界面预览</span>}</SheetTitle><SheetDescription className="sr-only">{updating ? '查看版本与更新说明' : '检查后台运行必需文件'}</SheetDescription></header>
       <div className="sheet-scroll maintenance-content">
         {updating ? <>
           <UpdatePreferences includePrerelease={snapshot.Preferences.IncludePrerelease} pending={starting || !!running || closing} disabled onChange={() => {}} />

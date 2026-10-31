@@ -247,9 +247,39 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .sheet-close { position: absolute; top: 20px; right: 19px; }
 .sheet-header { padding: 20px 64px 16px 24px; flex-shrink: 0; }
 .sheet-title { font-size: var(--font-title); font-weight: 550; margin: 6px 0; }
+.sheet-preview-label { margin-left: 10px; font-size: var(--font-caption); font-weight: 400; color: var(--muted-foreground); white-space: nowrap; }
 .sheet-description { color: var(--muted-foreground); font-size: var(--font-caption); margin: 0; }
 .sheet-preview { font-size: var(--font-caption); color: var(--accent); display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--selected); flex-shrink: 0; }
 .sheet-scroll { padding: 0 24px 24px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
+/* Reserve the track, then compensate its width until scrolling is needed. */
+.upgrade-sheet .sheet-scroll { scrollbar-gutter: stable; scrollbar-color: var(--slate-7) transparent; overscroll-behavior: contain; overflow-anchor: none; min-width: 0; }
+.upgrade-scroll-body { display: flow-root; margin-right: calc(-1 * var(--scrollbar-space, 0px)); transition: margin-right var(--motion-exit) ease-in; }
+.upgrade-scroll[data-overflow=true] > .upgrade-scroll-body { margin-right: 0; transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
+@supports selector(::-webkit-scrollbar) {
+  .upgrade-sheet .sheet-scroll { scrollbar-width: auto; scrollbar-color: auto; }
+  .upgrade-sheet .sheet-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .upgrade-sheet .sheet-scroll::-webkit-scrollbar-track, .upgrade-sheet .sheet-scroll::-webkit-scrollbar-corner { background: transparent; }
+  .upgrade-sheet .sheet-scroll::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--slate-7); }
+  .upgrade-sheet .sheet-scroll::-webkit-scrollbar-thumb:hover { background: var(--slate-9); }
+  .upgrade-sheet .sheet-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
+.upgrade-status { position: relative; display: flex; flex-direction: column; justify-content: center; overflow: clip; margin: 12px 0; padding: 12px 16px; min-height: 48px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
+.upgrade-status-heading { display: flex; align-items: center; gap: 12px; }
+.upgrade-status-heading > svg { flex-shrink: 0; color: var(--indigo-11); }
+.upgrade-status-heading > div { min-width: 0; }
+.upgrade-status h3 { margin: 0; font-size: var(--font-body); font-weight: 500; overflow-wrap: anywhere; }
+.upgrade-status p { margin: 6px 0 0; font-size: var(--font-caption); color: var(--muted-foreground); }
+.upgrade-download { margin-top: 14px; animation: check-reveal var(--motion-enter) ease-out; }
+.upgrade-download > p { text-align: right; font-variant-numeric: tabular-nums; }
+.upgrade-progress { height: 4px; border-radius: 2px; overflow: hidden; background: var(--slate-4); }
+.upgrade-progress > span { display: block; width: 100%; height: 100%; background: var(--indigo-9); transform-origin: left center; transition: transform var(--motion-fast) ease-out; }
+.upgrade-progress[data-indeterminate] > span { width: 40%; animation: check-scan 1.4s ease-in-out infinite alternate; }
+.upgrade-notes { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows var(--motion-exit) ease-in, opacity var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }
+.upgrade-notes[data-open=true] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-duration: var(--motion-enter); transition-timing-function: ease-out; transition-delay: 0s; }
+.upgrade-notes > div { min-height: 0; overflow: hidden; }
+.upgrade-confirmation-reveal { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows var(--motion-exit) ease-in, opacity var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }
+.upgrade-confirmation-reveal[data-open=true] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-duration: var(--motion-enter); transition-timing-function: ease-out; transition-delay: 0s; }
+.upgrade-confirmation-reveal > div { min-height: 0; overflow: hidden; }
 .sheet-device { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .sheet-device .device-name { white-space: normal; overflow-wrap: anywhere; }
 .sheet-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
