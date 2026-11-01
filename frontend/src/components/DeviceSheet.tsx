@@ -1,3 +1,4 @@
+import { UpgradeScroll } from './UpgradeScroll'
 import { useEffect, useRef, useState } from 'react'
 import { Headphones, Info, Volume2, Shield, Sparkles } from 'lucide-react'
 import type { Device, DeviceDetails, DeviceProfile, DeviceRule, Snapshot, UiGateway } from '@/data/types'
@@ -54,7 +55,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
     <SheetContent initialFocus={heading} closeDisabled={busy}>
       <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">设备设置</SheetTitle><SheetDescription className="sr-only">音量、空间音效与接入规则</SheetDescription></header>
       {(!desktop || readOnly) && <div className="sheet-preview"><Info size={14} />{readOnly ? '只读：已保存的预设，不代表当前音效状态' : '界面预览，操作不会改变系统设置'}</div>}
-      <div className="sheet-scroll">
+      <UpgradeScroll className="">
         <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">离线</span>}</div>
         {reading && <p role="status">正在读取当前音量和支持的空间音效…</p>}
         {readError && <p role="alert" className="field-help">{readError} 未能读取的字段保留原值</p>}
@@ -63,7 +64,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
         <section className="sheet-section"><h3><Headphones size={16} />Windows 空间音效</h3><Select id="spatial" label="空间音效预设" value={spatial} disabled={device.Flow === 1 || busy || reading || readOnly || spatialUnavailable} onValueChange={setSpatial} options={[{ value: 'keep', label: '保持不变' }, { value: 'off', label: '关闭空间音效' }, ...(!readOnly ? options.filter(o => o.Id !== '').map(o => ({ value: o.Id, label: o.Name })) : []), ...(((readOnly && !['keep', 'off'].includes(spatial)) || !knownSpatial) ? [{ value: spatial, label: '保留已有音效格式' }] : [])]} />{spatialHelp && <p className="field-help">{spatialHelp}</p>}</section>
         <section className="sheet-section"><h3><Shield size={16} />接入规则</h3><Select id="device-rule" label="白名单规则" value={String(rule)} disabled={busy || readOnly} onValueChange={value => setRule(Number(value) as DeviceRule)} options={[{ value: '0', label: '使用全局设置' }, { value: '1', label: '接受系统选择，不弹窗' }, { value: '2', label: '接入时自动切换，不弹窗' }]} />{rule !== 0 && <p className="field-help">{rule === 1 ? '保持 Windows 的设备选择、音量和空间音效' : '应用此设备预设，优先于设备排序'}</p>}</section>
         {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
-      </div>
+      </UpgradeScroll>
       <footer className="sheet-footer"><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
       {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} onResult={onDolbyResult} />}
     </SheetContent>

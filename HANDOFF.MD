@@ -11,7 +11,7 @@
 
 ## 当前测试 Release
 
-- 最新已编译试用包为 staging/strength-input-package-20261101/v0.12.1/，含此前强度控件和动画修改。本轮滚动条、提示动画及游戏模式提速尚未打入完整桌面包；当前预览为 staging/toast-refresh-preview/声间-UI预览.html。
+- 最新已编译试用包为 staging/strength-input-package-20261101/v0.12.1/，含此前强度控件和动画修改。本轮滚动条、提示动画及游戏模式提速尚未打入完整桌面包；当前预览为 staging/scroll-motion-preview/声间-UI预览.html。
 
 - 上轮本地试用包（2026-10-31）：staging/recheck-height-package-20261031/v0.12.1/。包含更新和文件检查顶部蓝条移除、重新检查时状态卡片的收缩修复，以及此前更新动画、滚动槽补偿和游戏模式改动。重新编译后台 857 项通过；此前同份前端源码 140 项、预览 2 项通过，本轮类型检查及桌面生产构建通过。EXE 展开的 14 个文件与 ZIP 一致，真实配置未变。记录 staging/desktop-release-257d00d53b654c52a1a1a0e5de2de9f5/verification.json，日志 staging/recheck-height-package.log。旧 update-spacing-package 和 bin 保留，未启动真实后台，未执行真实升级安装或音频写入，未提交或发布。
 
@@ -39,7 +39,7 @@
 
 - 重新检查会先进入 checking，随后新任务才移除旧版本字段，第二次渲染仍是 checking。StageTransition 的高度测量必须同时监听状态和可影响排版的文本／版本，不能只监听 stage。相同阶段的内容更新只续接尺寸过渡，不重新淡入；进度 Bytes 不进入排版键。收缩 200 ms ease-in，展开 250 ms ease-out，打断时从当前显示高度继续。最新预览 staging/recheck-height-preview/ 包含此修复及蓝条移除，已包含在最新 recheck-height-package EXE／ZIP。
 - 检查更新和文件检查不再显示顶部蓝色说明条，含旧后台只读兼容窗口。必要的安装后果只在安装确认中显示；离线预览在标题旁保留简短的“界面预览”标识。此修改的预览在 staging/maintenance-clean-preview/，已包含在最新 recheck-height-package EXE／ZIP。
-- 更新／文件检查抽屉保留稳定滚动槽，但由 UpgradeScroll 测量实际槽宽和内容高度。无溢出时用内容层负右边距补回槽宽，保持左右等距；溢出后 250 ms 让出空间，恢复时 200 ms 补回。不要直接切换 scrollbar-gutter，否则宽度跳变。ResizeObserver 同时观察内容与视口，不轮询，不重建滚动节点；减少动态效果时取消过渡。Chromium 使用 6 px 主题滚动条，其他浏览器按实际槽宽补偿。
+- 主面板和所有抽屉共用 ScrollSurface，UpgradeScroll 仅保留抽屉接口。原生视口继续处理滚轮、触摸和键盘滚动，隐藏原生滚动条，独立外观层支持轨道点击和指针捕获拖动。内容溢出时让出 6 px，消失时收回；内容重新居中与滚动条淡入淡出同步，进入 250 ms、退出 200 ms，不回弹。退出保留最后的滑块尺寸和位置，立即禁用轨道交互；快速重现直接续接 CSS 过渡。ResizeObserver 只观察视口和正文，无常驻轮询，卸载释放观察与事件。主面板宽度限制放在 main-scroll-body 的子节点，抽屉段落规则跟随 upgrade-scroll-body；不能再对原生 scrollbar-gutter 反复补偿。当前 HTML 为 staging/scroll-motion-preview/，尚未重打桌面包。
 - UpgradeStage 只按检查、下载、校验结果和安装交接等状态播放过渡；Bytes 等轮询数据不能重播动画。说明独立保留 DOM、折叠状态和阅读位置，退出时先 inert 再收起。安装确认采用 250 ms 展开／200 ms 收起，保持原有重复提交和取消守卫；动态效果减少时取消正在运行的动画。最新纯前端预览为 staging/recheck-height-preview/，最新 recheck-height-package EXE／ZIP 已包含这些动画修改，旧包保留。
 - 设备变化合并在普通和游戏模式下均为约 150 ms，从首条事件起算，不增加空闲轮询。旧版备用面板保持 1.5 秒刷新，提示窗口保持 0.3 秒刷新。低进程优先级、EcoQoS 和暂停自动更新仍生效；不要再用延长设备等待来降低占用。
 - Toast 保留同一节点和最后一条内容完成退出，关闭时立即 inert 并移除播报角色。进入为 250 ms ease-out，退出为 200 ms ease-in，透明度和 6 px 位移同步；快速重开可反向续接。复用全局减少动态效果规则，无常驻计时器。短提示只去末尾中文句号，保留内部断句、错误原因和安装后果。主内容、抽屉及下拉列表共用无箭头的 6 px 主题滚动条；Chromium 要覆盖 scrollbar-width/color，避免原生样式覆盖伪元素规则。
@@ -135,7 +135,7 @@
 - 等待结果时保留控件 Enabled、外观和焦点，用命令守卫及无障碍 Unavailable 表达暂不可重复操作。确认快照后，选中底色和开关在 160 ms 内过渡；鼠标悬停不能盖掉选中色。开关等待期间保持原值，不替换成省略号。动画结束停表。
 - 渲染测试需包含实际的两种打开入口、设备子菜单和两个开关。只检查普通菜单项不能覆盖新布局。
 - 端口输入停输 600 ms 自动保存，失焦／Enter 立即保存，清空保存为 0。不能每输入一位就写配置；失败保留草稿且停止自动重试。端口生效时机仍为下次服务启动。
-- 端口校验文案替换该项已有的说明文字，不新增整行，也不放进输入框尺寸容器。保留 aria-describedby 和 alert。三个页面共用 36 px 最小标题栏高度，并为主区域保留滚动条位置。
+- 端口校验文案替换该项已有的说明文字，不新增整行，也不放进输入框尺寸容器。保留 aria-describedby 和 alert。三个页面共用 36 px 最小标题栏高度，主区域通过 ScrollSurface 平滑调整滚动条空间。
 
 ## 面板启动和刷新
 

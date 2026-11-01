@@ -1,3 +1,4 @@
+import { UpgradeScroll } from './UpgradeScroll'
 import { useEffect, useRef, useState } from 'react'
 import { Info, FileInput, FileOutput, CircleCheck, LoaderCircle, Settings2, Headphones, Sparkles, ArrowLeftRight, ShieldCheck } from 'lucide-react'
 import type { ImportPreview, Snapshot, UiGateway } from '@/data/types'
@@ -48,7 +49,7 @@ export function BackupSheet({ mode, gateway, onClose: finishClose, onResult, onF
     <SheetContent initialFocus={heading} closeDisabled={busy} closeLabel="关闭备份窗口">
       <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{importing ? '导入设置' : '导出备份'}</SheetTitle><SheetDescription className="sr-only">{importing ? '检查备份内容，再确认替换' : '保存完整设备偏好与音效预设'}</SheetDescription></header>
       {!desktop && <div className="sheet-preview"><Info size={14} />界面预览，不读写文件或系统配置</div>}
-      <div className="sheet-scroll backup-content">
+      <UpgradeScroll className="backup-content">
         <div className={`file-check-summary backup-hero ${complete ? 'is-passed' : ''}`}>
           <span className="file-check-symbol">{complete ? <CircleCheck size={26} /> : importing ? <FileInput size={26} /> : <FileOutput size={26} />}</span>
           <div>
@@ -73,7 +74,7 @@ export function BackupSheet({ mode, gateway, onClose: finishClose, onResult, onF
           <div className="backup-confirm"><ShieldCheck size={18} aria-hidden="true" /><div><strong>替换当前配置</strong><p>先备份原配置，再导入。不会切换设备或应用音效；开机自启不变。</p></div></div>
         </section>}
         {complete && <div className="backup-complete">{desktop ? <CheckDisclosure defaultOpen label={importing ? '原配置备份' : '保存位置'}><p>{complete}</p></CheckDisclosure> : <p className="field-help">{complete}</p>}</div>}
-      </div>
+      </UpgradeScroll>
       <footer className="sheet-footer"><div>
         <Button variant="outline" disabled={busy} onClick={onClose}>{complete ? '完成' : '取消'}</Button>
         {!complete && !uncertain && (importing ? <>

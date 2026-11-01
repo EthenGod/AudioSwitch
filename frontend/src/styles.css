@@ -273,9 +273,6 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .sheet-preview { font-size: var(--font-caption); color: var(--accent); display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--selected); flex-shrink: 0; }
 .sheet-scroll { padding: 0 24px 24px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
 /* Reserve the track, then compensate its width until scrolling is needed. */
-:is(.upgrade-sheet, .dolby-sheet) .sheet-scroll { scrollbar-gutter: stable; scrollbar-color: var(--slate-7) transparent; overscroll-behavior: contain; overflow-anchor: none; min-width: 0; }
-.upgrade-scroll-body { display: flow-root; margin-right: calc(-1 * var(--scrollbar-space, 0px)); transition: margin-right var(--motion-exit) ease-in; }
-.upgrade-scroll[data-overflow=true] > .upgrade-scroll-body { margin-right: 0; transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
 @supports selector(::-webkit-scrollbar) {
   :is(.main-content, .sheet-scroll, .ui-select-list) { scrollbar-width: auto; scrollbar-color: auto; }
   :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -284,6 +281,19 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
   :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-thumb:hover { background: var(--slate-9); }
   :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 }
+.scroll-surface { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.scroll-surface > .scroll-viewport { position: absolute; inset: 0; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; scrollbar-gutter: auto; overscroll-behavior: contain; overflow-anchor: none; }
+.scroll-surface > .scroll-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.scroll-viewport:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.scroll-body { display: flow-root; min-width: 0; margin-right: 0; }
+.scroll-surface[data-overflow=true] > .scroll-viewport > .scroll-body { margin-right: 6px; }
+.scroll-surface[data-ready=true] > .scroll-viewport > .scroll-body { transition: margin-right var(--motion-exit) ease-in; }
+.scroll-surface[data-ready=true][data-overflow=true] > .scroll-viewport > .scroll-body { transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
+.scroll-rail { position: absolute; top: 6px; right: 0; bottom: 6px; width: 10px; opacity: 0; visibility: hidden; pointer-events: none; touch-action: none; user-select: none; transition: opacity var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }
+.scroll-surface[data-overflow=true] > .scroll-rail { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity var(--motion-enter) ease-out, visibility 0s; }
+.scroll-thumb { width: 6px; margin-inline: 2px; border-radius: 3px; background: var(--slate-7); transition: background var(--motion-fast) ease-out; }
+.scroll-rail:hover .scroll-thumb, .scroll-rail:active .scroll-thumb { background: var(--slate-9); }
+@media (forced-colors: active) { .scroll-thumb { background: CanvasText; forced-color-adjust: none; } }
 .upgrade-status { position: relative; display: flex; flex-direction: column; justify-content: center; overflow: clip; margin: 12px 0; padding: 12px 16px; min-height: 48px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
 .upgrade-status-heading { display: flex; align-items: center; gap: 12px; }
 .upgrade-status-heading > svg { flex-shrink: 0; color: var(--indigo-11); }
@@ -366,7 +376,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
-.backup-content > p { line-height: 1.7; }
+.backup-content > .upgrade-scroll-body > p { line-height: 1.7; }
 .backup-hero { min-height: 88px; }
 .backup-hero > div { min-width: 0; }
 .backup-hero h3 { overflow-wrap: anywhere; }
@@ -390,7 +400,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .backup-confirm p { margin: 6px 0 0; color: var(--muted-foreground); font-size: var(--font-caption); line-height: 1.65; }
 .maintenance-item:disabled { opacity: .5; cursor: not-allowed; }
 .sheet-footer > div { flex-wrap: wrap; }
-.maintenance-content > p { margin: 16px 0; line-height: 1.7; }
+.maintenance-content > .upgrade-scroll-body > p { margin: 16px 0; line-height: 1.7; }
 .maintenance-progress { display: flex; gap: 10px; align-items: center; }
 .release-notes { line-height: 1.75; overflow-wrap: anywhere; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI', 'Microsoft YaHei UI', sans-serif; }
 .release-notes :is(h1,h2) { font-size: var(--font-title); margin: 24px 0 12px; font-weight: 650; }
@@ -496,7 +506,7 @@ button { touch-action: manipulation; }
 .priority-row .device-identity { min-width: 0; }
 .list-footnote { justify-content: flex-end; }
 .summary-device h2 { line-height: 1.5; }
-.main-content > * { max-width: 1120px; margin-inline: auto; }
+.main-scroll-body > * { max-width: 1120px; margin-inline: auto; }
 .ui-switch-thumb { background: var(--white-a12); }
 .ui-switch { background: var(--slate-8); }
 @media (max-width: 650px) {

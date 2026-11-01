@@ -15,6 +15,7 @@ import { APP_VERSION } from './version'
 import { PageTransition } from './components/PageTransition'
 import { ActionSlot } from './components/ActionSlot'
 import { PanelAlert } from './components/PanelAlert'
+import { ScrollSurface } from './components/ScrollSurface'
 import { Toast, type Notice } from './components/Toast'
 
 const pages = {
@@ -121,7 +122,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
     </aside>
     <div className="workspace">
       {(!desktop || readOnly) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? '连接中断，仅显示上次状态' : uncertain ? '操作结果尚未确认，请先刷新状态' : readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '已连接设备' : '界面预览，操作不会改变系统设置'}</span></div>}
-      <main ref={main} id="main-content" tabIndex={-1} className="main-content">
+      <ScrollSurface main viewportRef={main} id="main-content" className="main-content" bodyClassName="main-scroll-body">
         <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">
           <ActionSlot visible={page === 'devices'}><Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button></ActionSlot>
           <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />游戏模式</span></ActionSlot>
@@ -136,7 +137,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
           {page === 'settings' && <Settings onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
         </>}
         </PageTransition>
-      </main>
+      </ScrollSurface>
       <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{desktop ? busy ? '正在处理操作…' : snapshot?.DolbyApplying ? '正在应用 Dolby，刷新可查看结果' : loading || refreshing ? '正在读取…' : error ? '连接不可用，请重试' : '已连接' : busy ? '正在更新预览…' : '模拟数据'}</span>{!desktop && <div className="preview-scenario"><SlidersHorizontal size={12} /><span>预览场景</span><Select label="预览场景" value={scenario} pending={busy} disabled={loading} onValueChange={value => { void loadScenario(value as Scenario) }} options={[{ value: 'normal', label: '常规设备' }, { value: 'empty', label: '空设备' }, { value: 'duplicate', label: '同名设备' }, { value: 'long', label: '长名称' }, { value: 'loading', label: '加载中' }, { value: 'error', label: '连接错误' }]} /></div>}</footer>
     </div>
     <Toast notice={notice} onClose={() => setNotice(null)} />

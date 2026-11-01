@@ -36,6 +36,7 @@
 | `src/Dashboard.cs`、`DevicePrompt.cs`、`*Dialog.cs`、`DolbyEditor.cs` | 面板、提示、设备设置、排序及 Dolby 编辑器 |
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
+| `frontend/src/components/ScrollSurface.tsx`、`UpgradeScroll.tsx` | 主面板及抽屉滚动、滚动条动画和内容居中 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
 | `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
