@@ -37,14 +37,15 @@ describe('device prompt', () => {
     fireEvent.blur(close); expect(outcome()).toHaveTextContent('当前使用桌面扬声器')
     expect(call).not.toHaveBeenCalledWith('close_prompt')
     expect(call.mock.calls.some(([command]) => command === 'prompt_action')).toBe(false)
+    await waitFor(() => expect(screen.getByRole('main')).toHaveAttribute('data-phase', 'open'))
     fireEvent.click(screen.getByRole('button', { name: '选择其他设备' }))
     expect(screen.getByRole('combobox')).toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveAttribute('data-choosing', 'true')
-    expect(call).toHaveBeenCalledWith('resize_prompt', { expanded: true, reducedMotion: false })
+    expect(call).toHaveBeenCalledWith('resize_prompt', { expanded: true, reducedMotion: false, compact: false })
     fireEvent.click(screen.getByRole('button', { name: '选择其他设备' }))
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveAttribute('data-choosing', 'false')
-    expect(call).toHaveBeenCalledWith('resize_prompt', { expanded: false, reducedMotion: false })
+    expect(call).toHaveBeenCalledWith('resize_prompt', { expanded: false, reducedMotion: false, compact: false })
   })
   it('keeps the card during exit and sends only one close after the fade', async () => {
     const { call, gateway: g } = gateway(); render(<PromptApp gateway={g} />)
@@ -160,8 +161,13 @@ describe('device prompt', () => {
   it('disconnection without online devices can be closed without switching', async () => {
     const raw = fixture(); raw.State.Devices = []; raw.State.Defaults = {} as typeof raw.State.Defaults
     raw.Pending[0].DisconnectedDevices = [{ Id: 'lost', Flow: 0 }]
-    const { gateway: g } = gateway(raw); render(<PromptApp gateway={g} />)
+    const { call, gateway: g } = gateway(raw); const { container } = render(<PromptApp gateway={g} />)
     await screen.findByRole('heading', { name: '当前设备已断开' }); expect(screen.getByRole('button', { name: '切换' })).toBeDisabled()
+    expect(screen.getByRole('main')).toHaveAttribute('data-compact', 'true')
+    expect(container.querySelector('.prompt-secondary')).toBeNull()
+    await waitFor(() => expect(call).toHaveBeenCalledWith('resize_prompt', { expanded: false, reducedMotion: true, compact: true }))
+    await waitFor(() => expect(call).toHaveBeenCalledWith('panel_ready', { dark: true }))
+    expect(call.mock.calls.findIndex(([command]) => command === 'resize_prompt')).toBeLessThan(call.mock.calls.findIndex(([command]) => command === 'panel_ready'))
     expect(screen.queryByRole('button', { name: '保留原设备' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '关闭提示' })).toBeEnabled()
   })

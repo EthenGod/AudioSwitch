@@ -13,16 +13,19 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   const selection = useRef({ token: '', id: '' })
   const firstToken = useRef('')
   const [choosing, setChoosing] = useState(false)
-  const lastExpansion = useRef(false)
+  const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening')
+  const compact = !!state?.pending.find(item => item.Token === token)?.Disconnected
+  const lastExpansion = useRef('false:false')
+  const resizeTask = useRef(Promise.resolve())
   useEffect(() => {
-    if (lastExpansion.current === choosing) return
-    lastExpansion.current = choosing
+    const layout = `${choosing}:${compact}`
+    if (lastExpansion.current === layout) return
+    lastExpansion.current = layout
     // A resize failure leaves the existing scrollable viewport usable.
-    void gateway.resize?.(choosing, window.matchMedia('(prefers-reduced-motion: reduce)').matches).catch(() => {})
-  }, [choosing, gateway])
+    resizeTask.current = (gateway.resize?.(choosing, phase === 'opening' || window.matchMedia('(prefers-reduced-motion: reduce)').matches, compact) ?? Promise.resolve()).catch(() => {})
+  }, [choosing, compact, gateway, phase])
   const [hoverAction, setHoverAction] = useState<'selected' | 'previous' | 'close' | null>(null)
   const [focusAction, setFocusAction] = useState<'selected' | 'previous' | 'close' | null>(null)
-  const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening')
   const leaving = useRef(false), mounted = useRef(true)
   const exitWait = useRef<{ timer: ReturnType<typeof setTimeout>; finish: () => void } | null>(null)
   useEffect(() => {
@@ -105,7 +108,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     if (!loaded || leaving.current) return
     let active = true, frame = 0
     // The themed first frame is ready before the native window becomes visible.
-    void (gateway.ready?.(dark) ?? Promise.resolve()).catch(() => {}).then(() => {
+    void resizeTask.current.then(() => gateway.ready?.(dark)).catch(() => {}).then(() => {
       if (active && !leaving.current) frame = requestAnimationFrame(() => {
         if (active && !leaving.current) setPhase('open')
       })
@@ -134,7 +137,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   const action = hoverAction ?? focusAction
   const feedback = action === 'close' ? 'close' : action === 'selected' && canSelect ? 'selected' : action === 'previous' && canPrevious ? 'previous' : 'current'
   const targetName = devices.find(d => d.Id === selected)?.Name ?? '没有可用设备'
-  return <main className={`prompt-shell ${dark ? 'dark' : ''}`} data-phase={phase} data-choosing={choosing} data-closed={closed || undefined} onKeyDown={event => {
+  return <main className={`prompt-shell ${dark ? 'dark' : ''}`} data-phase={phase} data-choosing={choosing} data-compact={compact} data-closed={closed || undefined} onKeyDown={event => {
     if (event.key === 'Escape' && !event.defaultPrevented && !busy) { event.preventDefault(); void close() }
   }}>
     <header className="prompt-header">
@@ -180,9 +183,9 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     </ScrollSurface>
     {!closed && arrival && state && <footer className="prompt-actions" aria-busy={busy}>
       <Button className="prompt-primary" disabled={!canSelect} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('selected')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('selected')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'selected', token, id: selected })}>{busy && <LoaderCircle className="spin" aria-hidden="true" />}{!arrival.Disconnected && arrival.NewIds.includes(selected) ? '使用新设备' : '切换'}</Button>
-      <div className="prompt-secondary">
-        {!arrival.Disconnected && <Button variant="ghost" disabled={!canPrevious} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('previous')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('previous')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'previous', token })}>保留原设备</Button>}
-      </div>
+      {!arrival.Disconnected && <div className="prompt-secondary">
+        <Button variant="ghost" disabled={!canPrevious} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('previous')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('previous')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'previous', token })}>保留原设备</Button>
+      </div>}
     </footer>}
   </main>
 }

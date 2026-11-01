@@ -23,8 +23,8 @@ struct Bridge { gate: tokio::sync::Mutex<()>, uncertain: AtomicBool, import: tok
 struct PanelPresentation { shown: AtomicBool }
 
 #[tauri::command]
-async fn resize_prompt(window: tauri::WebviewWindow, motion: tauri::State<'_, prompt_layout::Motion>, expanded: bool, reduced_motion: bool) -> Result<(), String> {
-    prompt_layout::resize(window, motion.generation.clone(), expanded, reduced_motion).await
+async fn resize_prompt(window: tauri::WebviewWindow, motion: tauri::State<'_, prompt_layout::Motion>, expanded: bool, reduced_motion: bool, compact: bool) -> Result<(), String> {
+    prompt_layout::resize(window, motion.generation.clone(), expanded, reduced_motion, compact).await
 }
 
 #[tauri::command]

@@ -48,7 +48,8 @@ test('generated preview contains a complete executable bundle, root and separate
   // Execute only this trusted local bundle in a DOM test environment; external resources are disabled.
   dom.window.eval(module.textContent)
   if (document.documentElement.dataset.previewView === 'prompt') {
-    await waitFor(() => assert.ok(within(document.body).getByRole('heading', { name: '发现新的输出设备' })), { container: document.body, timeout: 3000 })
+    const heading = document.documentElement.dataset.previewDisconnected === 'true' ? '当前设备已断开' : '发现新的输出设备'
+    await waitFor(() => assert.ok(within(document.body).getByRole('heading', { name: heading })), { container: document.body, timeout: 3000 })
     assert.match(document.body.textContent, /界面预览，操作不会改变系统设置/)
     assert.equal(within(document.body).queryByRole('combobox'), null)
     within(document.body).getByRole('button', { name: '选择其他设备' }).click()

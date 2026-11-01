@@ -14,12 +14,12 @@ fn height_at(from: i32, to: i32, progress: f64, expanding: bool) -> i32 {
     (from as f64 + (to - from) as f64 * eased).round() as i32
 }
 
-fn target_height(scale: f64, expanded: bool, chrome: i32, available: i32) -> i32 {
-    (((COLLAPSED_HEIGHT + if expanded { CHOICE_HEIGHT } else { 0.0 }) * scale).round() as i32 + chrome)
+fn target_height(scale: f64, expanded: bool, compact: bool, chrome: i32, available: i32) -> i32 {
+    (((COLLAPSED_HEIGHT - if compact { 40.0 } else { 0.0 } + if expanded { CHOICE_HEIGHT } else { 0.0 }) * scale).round() as i32 + chrome)
         .clamp(1, available.max(1))
 }
 
-pub async fn resize(window: tauri::WebviewWindow, generation: Arc<AtomicU64>, expanded: bool, reduced_motion: bool) -> Result<(), String> {
+pub async fn resize(window: tauri::WebviewWindow, generation: Arc<AtomicU64>, expanded: bool, reduced_motion: bool, compact: bool) -> Result<(), String> {
     if window.label() != "prompt" { return Err("此窗口不能调整设备提示大小".into()); }
     let revision = generation.fetch_add(1, Ordering::SeqCst) + 1;
     let position = window.outer_position().map_err(|e| e.to_string())?;
@@ -29,13 +29,14 @@ pub async fn resize(window: tauri::WebviewWindow, generation: Arc<AtomicU64>, ex
     let monitor = window.current_monitor().map_err(|e| e.to_string())?;
     let available = monitor.map(|m| bottom - m.work_area().position.y).unwrap_or(i32::MAX);
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
-    let target = target_height(scale, expanded, outer.height as i32 - inner.height as i32, available);
+    let target = target_height(scale, expanded, compact, outer.height as i32 - inner.height as i32, available);
+    let growing = target > outer.height as i32;
     let started = Instant::now();
-    let duration = if expanded { 250.0 } else { 200.0 };
+    let duration = if growing { 250.0 } else { 200.0 };
     loop {
         if generation.load(Ordering::SeqCst) != revision { return Ok(()); }
         let t = if reduced_motion { 1.0 } else { (started.elapsed().as_secs_f64() * 1000.0 / duration).min(1.0) };
-        let height = height_at(outer.height as i32, target, t, expanded);
+        let height = height_at(outer.height as i32, target, t, growing);
         let current = window.clone();
         let guard = generation.clone();
         let (done, finished) = tokio::sync::oneshot::channel();
@@ -62,14 +63,16 @@ mod tests {
     #[test]
     fn upward_resize_is_bounded_and_reverses_from_current_height() {
         for scale in [1.0, 1.25, 1.5, 2.0] {
-            let closed = target_height(scale, false, 0, 2000);
-            let open = target_height(scale, true, 0, 2000);
+            let closed = target_height(scale, false, false, 0, 2000);
+            let open = target_height(scale, true, false, 0, 2000);
             let mid = height_at(closed, open, 0.5, true);
             assert!(closed < mid && mid < open);
             assert_eq!(height_at(mid, closed, 0.0, false), mid);
             assert_eq!(height_at(mid, closed, 1.0, false), closed);
         }
-        assert_eq!(target_height(2.0, true, 0, 500), 500);
-        assert_eq!(target_height(1.0, false, 30, 1000), 370);
+        assert_eq!(target_height(2.0, true, false, 0, 500), 500);
+        assert_eq!(target_height(1.0, false, false, 30, 1000), 370);
+        assert_eq!(target_height(1.0, false, true, 0, 1000), 300);
+        assert_eq!(target_height(1.5, true, true, 0, 1000), 516);
     }
 }
