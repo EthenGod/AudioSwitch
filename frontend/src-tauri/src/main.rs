@@ -6,6 +6,7 @@ mod backup;
 mod maintenance;
 mod upgrade;
 mod prompt;
+mod prompt_layout;
 mod dolby;
 mod dolby_apply;
 mod browser;
@@ -22,14 +23,19 @@ struct Bridge { gate: tokio::sync::Mutex<()>, uncertain: AtomicBool, import: tok
 struct PanelPresentation { shown: AtomicBool }
 
 #[tauri::command]
+async fn resize_prompt(window: tauri::WebviewWindow, motion: tauri::State<'_, prompt_layout::Motion>, expanded: bool, reduced_motion: bool) -> Result<(), String> {
+    prompt_layout::resize(window, motion.generation.clone(), expanded, reduced_motion).await
+}
+
+#[tauri::command]
 fn panel_ready(window: tauri::WebviewWindow, presentation: tauri::State<'_, PanelPresentation>, dark: bool) -> Result<(), String> {
-    if window.label() != "main" { return Err("此窗口不能显示主面板。".into()); }
+    if window.label() != "main" && window.label() != "prompt" { return Err("此窗口不能显示界面。".into()); }
     let color = if dark { tauri::window::Color(17, 17, 19, 255) } else { tauri::window::Color(252, 252, 253, 255) };
     window.set_background_color(Some(color)).map_err(|e| e.to_string())?;
     window.set_theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light })).map_err(|e| e.to_string())?;
     if !presentation.shown.swap(true, Ordering::SeqCst) {
         window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+        if window.label() == "main" { window.set_focus().map_err(|e| e.to_string())?; }
     }
     Ok(())
 }
@@ -253,12 +259,14 @@ fn main() {
     if is_prompt {
         let config = &mut context.config_mut().app.windows[0];
         config.label = "prompt".into(); config.title = "声间 设备提示".into();
-        config.width = 400.0; config.height = 380.0; config.min_width = Some(320.0); config.min_height = Some(300.0);
-        config.visible = true; config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
+        config.width = 400.0; config.height = prompt_layout::COLLAPSED_HEIGHT; config.min_width = Some(320.0); config.min_height = Some(300.0);
+        config.visible = false; config.focus = false; config.always_on_top = true; config.skip_taskbar = true;
+        config.decorations = false;
     }
     let result = tauri::Builder::default()
         .manage(Bridge::default())
         .manage(PanelPresentation::default())
+        .manage(prompt_layout::Motion::default())
         .manage(session)
         .manage(maintenance::Maintenance::default())
         .manage(upgrade::Upgrade::default())
@@ -293,14 +301,16 @@ fn main() {
                 let Some(window) = app.get_webview_window(label) else { break };
                 if app.state::<prompt::Session>().exited() { let _ = window.close(); break; }
                 // Script failures and slow reads must not leave an invisible, uncloseable panel.
-                if !is_prompt && started.elapsed().as_secs() >= 5 && !app.state::<PanelPresentation>().shown.swap(true, Ordering::SeqCst) {
+                if started.elapsed().as_secs() >= 5 && !app.state::<PanelPresentation>().shown.swap(true, Ordering::SeqCst) {
+                    // Restore a system close button if the borderless prompt script never becomes ready.
+                    if is_prompt { let _ = window.set_decorations(true); }
                     let _ = window.show();
                 }
             });
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, tauri::WindowEvent::Destroyed) { window.state::<upgrade::Upgrade>().close(); window.state::<maintenance::Maintenance>().cancel_all(); window.state::<dolby::Reader>().close(); } })
-        .invoke_handler(tauri::generate_handler![open_release_link, panel_ready, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
+        .invoke_handler(tauri::generate_handler![open_release_link, panel_ready, resize_prompt, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
         .run(context);
     if result.is_err() {
         // This native message also works when WebView2 cannot create any web UI.

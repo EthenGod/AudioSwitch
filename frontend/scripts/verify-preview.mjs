@@ -47,6 +47,16 @@ test('generated preview contains a complete executable bundle, root and separate
   assert.match(document.querySelector('meta[http-equiv="Content-Security-Policy"]').content, /connect-src 'none'/)
   // Execute only this trusted local bundle in a DOM test environment; external resources are disabled.
   dom.window.eval(module.textContent)
+  if (document.documentElement.dataset.previewView === 'prompt') {
+    await waitFor(() => assert.ok(within(document.body).getByRole('heading', { name: '发现新的输出设备' })), { container: document.body, timeout: 3000 })
+    assert.match(document.body.textContent, /界面预览，操作不会改变系统设置/)
+    assert.equal(within(document.body).queryByRole('combobox'), null)
+    within(document.body).getByRole('button', { name: '选择其他设备' }).click()
+    await waitFor(() => assert.ok(within(document.body).getByRole('combobox', { name: '声音输出' })), { container: document.body })
+    within(document.body).getByRole('button', { name: '关闭提示' }).click()
+    await waitFor(() => assert.match(document.body.textContent, /提示已关闭/), { container: document.body })
+    return
+  }
   await waitFor(() => assert.ok(within(document.body).getByRole('table')), { container: document.body, timeout: 3000 })
   within(document.body).getByRole('button', { name: '应用设置', exact: true }).click()
   await waitFor(() => assert.ok(within(document.body).getByRole('button', { name: /检查更新/ })), { container: document.body })

@@ -10,6 +10,8 @@ it('registers every native command in the application ACL and an intended window
   const panel = JSON.parse(read('capabilities/read-only.json'))
   const prompt = JSON.parse(read('capabilities/prompt.json'))
   expect([...manifest].sort()).toEqual([...handlers].sort())
+  expect(prompt.permissions).toContain('allow-resize-prompt')
+  expect(panel.permissions).not.toContain('allow-resize-prompt')
   for (const command of handlers) {
     const permission = `allow-${command.replaceAll('_', '-')}`
     expect([...panel.permissions, ...prompt.permissions], command).toContain(permission)

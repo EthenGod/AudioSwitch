@@ -15,6 +15,8 @@ export interface PromptGateway {
   respond(action: PromptAction): Promise<PromptState>
   close(): Promise<void>
   openPanel(): Promise<void>
+  ready?(dark: boolean): Promise<void>
+  resize?(expanded: boolean, reducedMotion: boolean): Promise<void>
 }
 export class PromptFailure extends Error {
   constructor(message: string, public state?: PromptState) { super(message) }
@@ -54,6 +56,8 @@ export function createPromptGateway(call: Transport = invoke): PromptGateway {
   let busy = false, uncertain = false
   return {
     mode: 'desktop',
+    async ready(dark) { await call('panel_ready', { dark }) },
+    async resize(expanded, reducedMotion) { await call('resize_prompt', { expanded, reducedMotion }) },
     async read() {
       if (busy) throw new Error('正在处理上一个操作。')
       try { const state = mapPrompt(await call('read_prompt_snapshot')); uncertain = false; return state }
@@ -106,6 +110,6 @@ export function createPreviewPromptGateway(disconnected = false, dark = true): P
       return structuredClone(state)
     },
     async close() {},
-    async openPanel() { window.location.assign(window.location.pathname) },
+    async openPanel() { window.location.assign(`${window.location.pathname}?view=panel`) },
   }
 }

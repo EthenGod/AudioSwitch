@@ -39,6 +39,7 @@
 | `frontend/src/components/ScrollSurface.tsx`、`UpgradeScroll.tsx` | 主面板及抽屉滚动、滚动条动画和内容居中 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
 | `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
+| `frontend/src/PromptApp.tsx`、`frontend/src-tauri/src/prompt_layout.rs` | 右下角设备提示、操作预览和固定底边的窗口缩放 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
 | `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
 | `src/GameModeScheduling.cs`、`src/DeviceEventBatch.cs` | 游戏模式后台优先级、效率调度及有界设备事件合并 |
