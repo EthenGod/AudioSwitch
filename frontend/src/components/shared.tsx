@@ -19,7 +19,7 @@ export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Sna
   return <div className="badges">{active.length ? active.map(role => <span className={`role-badge ${role === 1 ? 'primary-badge' : ''}`} key={role}>{role === 1 && <Check size={11} />}{['控制台', '多媒体', '通话'][role]}</span>) : <span className="subtle-label"><span className="online-dot" /> 可用</span>}</div>
 }
 export function SettingRow({ title, description, children, muted = false }: { title: string; description?: ReactNode; children: ReactNode; muted?: boolean }) {
-  return <div className="setting-row" data-muted={muted || undefined}><div><div className="setting-title">{title}</div>{description && <p>{description}</p>}</div><div className="setting-control">{children}</div></div>
+  return <div className="setting-row" data-muted={muted || undefined}><div><div className="setting-title">{title}</div>{description && <p>{typeof description === 'string' ? description.trim().replace(/。+$/u, '') : description}</p>}</div><div className="setting-control">{children}</div></div>
 }
 export function ToggleRow({ title, description, value, disabled, pending, muted, onChange }: { title: string; description?: string; value: boolean; disabled?: boolean; pending?: boolean; muted?: boolean; onChange: (value: boolean) => void }) {
   return <SettingRow title={title} description={description} muted={muted}><Switch aria-label={title} checked={value} disabled={disabled} pending={pending} onCheckedChange={onChange} /></SettingRow>

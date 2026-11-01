@@ -215,7 +215,6 @@ namespace AudioSwitch
             tips.SetToolTip(updateMessage, updateMessage.Text);
             currentPreferences = reply.Preferences;
             applying = true; gameMode.Checked = reply.Preferences.GameMode; applying = false;
-            refreshTimer.Interval = reply.Preferences.GameMode ? 5000 : 1500;
             tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
             currentReply = reply;
             startupState = reply.Startup ?? new StartupState { Available = preview, Message = "登录 Windows 后只启动托盘" };

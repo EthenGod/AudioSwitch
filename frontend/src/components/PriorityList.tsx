@@ -121,7 +121,7 @@ export function PriorityList({ order, devices, busy, readOnly, suspended = false
           <div className="row-actions"><Button variant="ghost" size="icon" aria-label={`上移 ${device.Name}`} pending={busy || pending !== null} disabled={readOnly || !!drag || index === 0} onClick={() => void commit(movePriority(shown, index, index - 1), id)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label={`下移 ${device.Name}`} pending={busy || pending !== null} disabled={readOnly || !!drag || index === shown.length - 1} onClick={() => void commit(movePriority(shown, index, index + 1), id)}><ArrowDown /></Button></div>
         </div>
       })}
-      {!shown.length && <div className="empty-state"><p>暂无可排序的设备。</p></div>}
+      {!shown.length && <div className="empty-state"><p>暂无可排序的设备</p></div>}
     </div>
     <span className="sr-only" role="status">{announcement}</span>
   </>

@@ -40,7 +40,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
             </div>
           </div>
         }}</DeviceListMotion>
-        {!visible.length && <div className="empty-state"><Unplug size={28} /><h3>{snapshot.Devices.length ? '没有找到匹配的设备' : '还没有声音设备'}</h3><p>{snapshot.Devices.length ? '更换关键词或清除筛选。' : '请连接耳机、扬声器或麦克风。'}</p>{(query || filter !== -1) && <Button variant="outline" onClick={() => { setQuery(''); setFilter(-1) }}>清除筛选</Button>}</div>}
+        {!visible.length && <div className="empty-state"><Unplug size={28} /><h3>{snapshot.Devices.length ? '没有找到匹配的设备' : '还没有声音设备'}</h3><p>{snapshot.Devices.length ? '更换关键词或清除筛选' : '请连接耳机、扬声器或麦克风'}</p>{(query || filter !== -1) && <Button variant="outline" onClick={() => { setQuery(''); setFilter(-1) }}>清除筛选</Button>}</div>}
       </div>
       <div className="list-footnote"><button onClick={onAutomation}>管理自动切换 <ChevronRight size={13} /></button></div>
     </section>

@@ -68,7 +68,7 @@ describe('desktop write UI with isolated transport', () => {
     await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: '自动切换' }))
     await user.click(screen.getByRole('switch', { name: '按设备优先级选择' }))
-    await screen.findByText('操作超时，请先刷新确认。')
+    await screen.findByText('操作超时，请先刷新确认')
     expect(screen.getByRole('switch', { name: '按设备优先级选择' })).toBeChecked()
     expect(screen.getByRole('switch', { name: '按设备优先级选择' })).toHaveAttribute('aria-disabled', 'true')
     await user.click(screen.getByRole('button', { name: '声音设备' }))

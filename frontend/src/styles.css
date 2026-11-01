@@ -250,6 +250,8 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .loading-state, .error-state { min-height: 340px; }
 .skeleton-row { width: 90%; max-width: 480px; height: 45px; border-radius: var(--radius); background: var(--muted); }
 .toast { position: fixed; z-index: 40; right: 24px; bottom: 49px; max-width: min(480px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 15px; border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow-panel); border-radius: var(--radius-panel); color: var(--accent); }
+.toast { opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none; transition: opacity var(--motion-exit) ease-in, transform var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }
+.toast[data-open=true] { opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto; transition: opacity var(--motion-enter) ease-out, transform var(--motion-enter) ease-out, visibility 0s; }
 .toast > span { color: var(--foreground); font-size: var(--font-caption); line-height: 1.7; }
 .toast-error { color: var(--danger); }
 .sheet-backdrop { position: fixed; inset: 0; background: var(--black-a7); z-index: 50; transition: opacity var(--motion-enter) ease-out; }
@@ -275,12 +277,12 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .upgrade-scroll-body { display: flow-root; margin-right: calc(-1 * var(--scrollbar-space, 0px)); transition: margin-right var(--motion-exit) ease-in; }
 .upgrade-scroll[data-overflow=true] > .upgrade-scroll-body { margin-right: 0; transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
 @supports selector(::-webkit-scrollbar) {
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll { scrollbar-width: auto; scrollbar-color: auto; }
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar-track, :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar-corner { background: transparent; }
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--slate-7); }
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar-thumb:hover { background: var(--slate-9); }
-  :is(.upgrade-sheet, .dolby-sheet) .sheet-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  :is(.main-content, .sheet-scroll, .ui-select-list) { scrollbar-width: auto; scrollbar-color: auto; }
+  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar { width: 6px; height: 6px; }
+  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-track, :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-corner { background: transparent; }
+  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--slate-7); }
+  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-thumb:hover { background: var(--slate-9); }
+  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 }
 .upgrade-status { position: relative; display: flex; flex-direction: column; justify-content: center; overflow: clip; margin: 12px 0; padding: 12px 16px; min-height: 48px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
 .upgrade-status-heading { display: flex; align-items: center; gap: 12px; }

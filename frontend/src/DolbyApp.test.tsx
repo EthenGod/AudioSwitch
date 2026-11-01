@@ -26,7 +26,7 @@ describe('Dolby editor and calibrated EQ', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)) })
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
     await user.hover(input)
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('实际强度可能按驱动档位取整。')
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('实际强度可能按驱动档位取整')
     await user.click(input)
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument())
     expect(input).toHaveFocus()

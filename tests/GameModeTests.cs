@@ -84,14 +84,14 @@ namespace AudioSwitch
             int events = 0; long first = -1; var watch = System.Diagnostics.Stopwatch.StartNew();
             using (var batch = new DeviceEventBatch(() => { events++; if (first < 0) first = watch.ElapsedMilliseconds; }))
             {
-                batch.SetGameMode(true); batch.Signal();
-                while (watch.ElapsedMilliseconds < 450) { Application.DoEvents(); batch.Signal(); Thread.Sleep(10); }
-                check(events == 0, "game mode coalesces repeated device notifications for 500 ms");
-                while (watch.ElapsedMilliseconds < 680) { Application.DoEvents(); Thread.Sleep(10); }
-                check(events == 1 && first < 680, "continuous device events cannot postpone the game mode batch indefinitely");
-                batch.SetGameMode(false); watch.Restart(); batch.Signal();
+                batch.Signal();
+                while (watch.ElapsedMilliseconds < 90) { Application.DoEvents(); batch.Signal(); Thread.Sleep(10); }
+                check(events == 0, "device events still coalesce instead of refreshing on every notification");
+                while (watch.ElapsedMilliseconds < 350) { Application.DoEvents(); Thread.Sleep(10); }
+                check(events == 1 && first >= 100 && first < 350, "device event response completes within 350 ms instead of waiting 500 ms");
+                watch.Restart(); batch.Signal();
                 while (watch.ElapsedMilliseconds < 300) { Application.DoEvents(); Thread.Sleep(10); }
-                check(events == 2, "leaving game mode restores normal event response time");
+                check(events == 2, "subsequent device events retain the same quick response time");
                 while (watch.ElapsedMilliseconds < 500) { Application.DoEvents(); Thread.Sleep(10); }
                 check(events == 2, "game mode event batching adds no idle polling");
             }
@@ -115,7 +115,7 @@ namespace AudioSwitch
                     if (!dark)
                     {
                         int snapshots = requests.Count(r => r.Action == "snapshot"); Pump(1800);
-                        check(requests.Count(r => r.Action == "snapshot") == snapshots, "game mode avoids normal 1.5-second dashboard polling");
+                        check(requests.Count(r => r.Action == "snapshot") > snapshots, "game mode keeps the normal 1.5-second fallback dashboard refresh");
                     }
                     check(toggle.Parent.Dock == DockStyle.Left && toggle.Parent.ClientRectangle.Contains(toggle.Bounds) && toggle.Parent.Controls.Cast<Control>().Where(c => c != toggle).All(c => !c.Bounds.IntersectsWith(toggle.Bounds)), "game mode fits left sidebar without overlap in minimum window in theme " + dark);
                     check(!Children(form).Any(c => c.Name == "automaticUpdates"), "automatic update toggle has moved out of dashboard in theme " + dark);
@@ -143,9 +143,10 @@ namespace AudioSwitch
             }, false, pendingReply))
             {
                 prompt.Show(); Pump(850);
-                check(promptRequests == 0, "game mode reduces prompt polling below its normal 300-ms frequency");
+                check(promptRequests > 0, "game mode keeps the normal 300-ms prompt refresh");
+                int beforeChoose = promptRequests;
                 Children(prompt).OfType<Button>().Single(button => button.Name == "choose").PerformClick();
-                check(promptRequests == 1 && prompt.IsDisposed, "manual prompt action remains immediate despite slower game-mode polling");
+                check(promptRequests == beforeChoose + 1 && prompt.IsDisposed, "manual prompt action remains immediate in game mode");
             }
         }
     }

@@ -17,7 +17,7 @@ export function PanelAlert({ message, warning = false, children }: { message: st
     <div className="panel-alert-clip">
       <div className="panel-alert" data-tone={warning ? 'warning' : 'error'} role={open ? warning ? 'status' : 'alert' : undefined}>
         <TriangleAlert className="panel-alert-icon" size={18} aria-hidden="true" />
-        <p>{message || lastMessage}</p>
+        <p>{(message || lastMessage).trim().replace(/。+$/u, '')}</p>
         <div className="panel-alert-actions">{children}</div>
       </div>
     </div>

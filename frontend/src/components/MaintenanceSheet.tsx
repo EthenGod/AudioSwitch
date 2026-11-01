@@ -26,7 +26,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
     if (!job || !running || closing || error) return
     let active = true
     const timer = window.setTimeout(() => {
-      gateway.readMaintenance(job.Token).then(value => { if (active) accept(value) }).catch(e => { if (active) setError(e instanceof Error ? e.message : '无法读取检查状态，请重试或取消。') })
+      gateway.readMaintenance(job.Token).then(value => { if (active) accept(value) }).catch(e => { if (active) setError(e instanceof Error ? e.message : '无法读取检查状态，请重试或取消') })
     }, 400)
     return () => { active = false; window.clearTimeout(timer) }
   }, [gateway, job, running, closing, error])
@@ -36,7 +36,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
     try {
       if (current.current?.Status === 'running') accept(await gateway.cancelMaintenance(current.current.Token))
       if (close && alive.current) onClose()
-    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '未能确认取消，请重试。') }
+    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '未能确认取消，请重试') }
     finally { lock.current = false; closeRequested.current = false; if (alive.current) setClosing(false) }
   }
   async function start() {
@@ -48,7 +48,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
         if (value.Status === 'running') accept(await gateway.cancelMaintenance(value.Token))
         if (alive.current) onClose()
       }
-    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '无法开始检查，请重试。') }
+    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '无法开始检查，请重试') }
     finally { lock.current = false; closeRequested.current = false; if (alive.current) { setStarting(false); setClosing(false) } }
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}>
@@ -57,9 +57,9 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
       <div className="sheet-scroll maintenance-content">
         {updating ? <>
           <UpdatePreferences includePrerelease={snapshot.Preferences.IncludePrerelease} pending={starting || !!running || closing} disabled onChange={() => {}} />
-          {(!snapshot.Preferences.AutoUpdateEnabled || snapshot.Preferences.GameMode) && <p className="field-help">自动更新已暂停，仍可手动检查。</p>}
-          <p className="field-help">当前后台仅支持检查，请手动下载完整包。</p>
-        </> : <p className="field-help">当前后台只支持检查后台文件，不检查面板或修复文件。</p>}
+          {(!snapshot.Preferences.AutoUpdateEnabled || snapshot.Preferences.GameMode) && <p className="field-help">自动更新已暂停，仍可手动检查</p>}
+          <p className="field-help">当前后台仅支持检查，请手动下载完整包</p>
+        </> : <p className="field-help">当前后台只支持检查后台文件，不检查面板或修复文件</p>}
         {(starting || running || closing) && <p role="status" className="maintenance-progress"><LoaderCircle className="spin" size={17} />{closing ? '正在取消并等待检查退出…' : starting ? '正在启动检查…' : job?.Message}</p>}
         {error && <p role="alert" className="backend-warning">{error}</p>}
         {job && job.Status !== 'running' && <section className="sheet-section" aria-live="polite">
@@ -69,7 +69,7 @@ export function MaintenanceSheet({ kind, gateway, snapshot, onClose: finishClose
           {updating && job.Notes && <><h3>更新说明</h3><ReleaseNotes source={job.Notes} /></>}
         </section>}
       </div>
-      <footer className="sheet-footer">{(starting || running) && <p>关闭窗口会停止本次检查。</p>}<div>
+      <footer className="sheet-footer">{(starting || running) && <p>关闭窗口会停止本次检查</p>}<div>
         <Button variant="outline" disabled={closing} onClick={() => void stop(true)}>关闭</Button>
         {running || starting ? <Button disabled={closing || starting} onClick={() => void stop(false)}>取消检查</Button> : <Button disabled={closing} onClick={() => void start()}>{job ? '重新检查' : desktop ? '开始检查' : '模拟检查'}</Button>}
         {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>重新读取状态</Button>}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Gamepad2, Headphones, Info, LoaderCircle, Moon, RefreshCw, Settings2, SlidersHorizontal, Sun, ArrowRightLeft, X, TriangleAlert, Check } from 'lucide-react'
+import { Gamepad2, Headphones, Info, LoaderCircle, Moon, RefreshCw, Settings2, SlidersHorizontal, Sun, ArrowRightLeft, X } from 'lucide-react'
 import type { Device, Page, PreferenceKey, UiGateway, Scenario, Snapshot } from './data/types'
 import { Button } from './components/ui/button'
 import { Select } from './components/ui/select'
@@ -15,13 +15,13 @@ import { APP_VERSION } from './version'
 import { PageTransition } from './components/PageTransition'
 import { ActionSlot } from './components/ActionSlot'
 import { PanelAlert } from './components/PanelAlert'
+import { Toast, type Notice } from './components/Toast'
 
 const pages = {
   devices: { title: '声音设备', Icon: Headphones },
   automation: { title: '自动切换', Icon: ArrowRightLeft },
   settings: { title: '应用设置', Icon: Settings2 },
 }
-type Notice = { text: string; error?: boolean } | null
 
 export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark: boolean) => void }) {
   const desktop = gateway.mode === 'desktop'
@@ -79,7 +79,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
         if (e.snapshot) { setSnapshot(e.snapshot); setDark(e.snapshot.Preferences.DarkMode) }
         if (e.requiresRefresh) setUncertain(true)
       }
-      setNotice({ text: e instanceof Error ? e.message : '操作未完成，请重试。', error: true }); return false
+      setNotice({ text: e instanceof Error ? e.message : '操作未完成，请重试', error: true }); return false
     }
     finally { locked.current = false; setBusy(false) }
   }, [])
@@ -88,14 +88,14 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
     if (gateway.mode !== 'preview' || locked.current || loading) return
     locked.current = true; setLoading(true); setError(''); setSnapshot(null); setNotice(null); setEditing(null); setScenario(next)
     try { const data = await gateway.setScenario(next); setSnapshot(data); setDark(data.Preferences.DarkMode) }
-    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据。') }
+    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据') }
     finally { locked.current = false; setLoading(false) }
   }
   const refresh = useCallback(async () => {
     if (locked.current) return
     locked.current = true; setRefreshing(true)
     try { const data = await gateway.read(); setSnapshot(data); setDark(data.Preferences.DarkMode); setUncertain(false); setError('') }
-    catch (e) { setError(e instanceof Error ? e.message : '无法读取设备状态。') }
+    catch (e) { setError(e instanceof Error ? e.message : '无法读取设备状态') }
     finally { locked.current = false; setLoading(false); setRefreshing(false) }
   }, [gateway])
   useEffect(() => {
@@ -131,7 +131,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
         <PanelAlert warning message={desktop && snapshot?.BackendWarning && snapshot.BackendWarning !== dismissedWarning ? snapshot.BackendWarning : ''}><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot?.BackendWarning ?? '')}><X /></Button></PanelAlert>
         <PageTransition page={page}>
         {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>
-          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」。` : `已在预览中切换到「${device.Name}」。`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
+          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」` : `已在预览中切换到「${device.Name}」`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
           {page === 'automation' && <Automation desktop={desktop} snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => run(() => gateway.reorder(flow, ids), null)} />}
           {page === 'settings' && <Settings onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
         </>}
@@ -139,12 +139,12 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
       </main>
       <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{desktop ? busy ? '正在处理操作…' : snapshot?.DolbyApplying ? '正在应用 Dolby，刷新可查看结果' : loading || refreshing ? '正在读取…' : error ? '连接不可用，请重试' : '已连接' : busy ? '正在更新预览…' : '模拟数据'}</span>{!desktop && <div className="preview-scenario"><SlidersHorizontal size={12} /><span>预览场景</span><Select label="预览场景" value={scenario} pending={busy} disabled={loading} onValueChange={value => { void loadScenario(value as Scenario) }} options={[{ value: 'normal', label: '常规设备' }, { value: 'empty', label: '空设备' }, { value: 'duplicate', label: '同名设备' }, { value: 'long', label: '长名称' }, { value: 'loading', label: '加载中' }, { value: 'error', label: '连接错误' }]} /></div>}</footer>
     </div>
-    {notice && <div className={`toast ${notice.error ? 'toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{notice.error ? <TriangleAlert size={17} /> : <Check size={17} />}<span>{notice.text}</span><Button variant="ghost" size="icon" aria-label="关闭操作提示" onClick={() => setNotice(null)}><X /></Button></div>}
-    {editing && snapshot && <DeviceSheet onDolbyResult={(text, error) => setNotice({ text, error })} onDolbySaved={data => { setSnapshot(data); setNotice({ text: desktop ? 'Dolby 方案已保存。' : 'Dolby 示例方案已保存。' }) }} onDolbyFailure={failure => { setNotice({ text:failure.message, error:true }); if (failure.snapshot) setSnapshot(failure.snapshot); if (failure.requiresRefresh) setUncertain(true) }} key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} gateway={gateway} saveError={notice?.error ? notice.text : undefined} onClose={() => setEditing(null)} onSave={(profile, rule, expectedProfile, expectedRule) => run(() => gateway.saveDevice(editing.Id, profile, rule, expectedProfile, expectedRule), desktop ? '预设已保存。' : '预设已保存在本次预览中。')} />}
+    <Toast notice={notice} onClose={() => setNotice(null)} />
+    {editing && snapshot && <DeviceSheet onDolbyResult={(text, error) => setNotice({ text, error })} onDolbySaved={data => { setSnapshot(data); setNotice({ text: desktop ? 'Dolby 方案已保存' : 'Dolby 示例方案已保存' }) }} onDolbyFailure={failure => { setNotice({ text:failure.message, error:true }); if (failure.snapshot) setSnapshot(failure.snapshot); if (failure.requiresRefresh) setUncertain(true) }} key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} gateway={gateway} saveError={notice?.error ? notice.text : undefined} onClose={() => setEditing(null)} onSave={(profile, rule, expectedProfile, expectedRule) => run(() => gateway.saveDevice(editing.Id, profile, rule, expectedProfile, expectedRule), desktop ? '预设已保存' : '预设已保存在本次预览中')} />}
     {backup && <BackupSheet mode={backup} gateway={gateway} onClose={() => setBackup(null)} onResult={data => { setSnapshot(data); setDark(data.Preferences.DarkMode) }} onFailure={failure => {
       if (failure.snapshot) { setSnapshot(failure.snapshot); setDark(failure.snapshot.Preferences.DarkMode) }
       if (failure.requiresRefresh) setUncertain(true)
     }} />}
-    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet preferenceBusy={busy || readOnly} onPreference={async value => { if (!await run(() => gateway.setPreference('IncludePrerelease', value), null)) throw new Error('更新设置未保存，请重试。') }} kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
+    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet preferenceBusy={busy || readOnly} onPreference={async value => { if (!await run(() => gateway.setPreference('IncludePrerelease', value), null)) throw new Error('更新设置未保存，请重试') }} kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
   </div>
 }

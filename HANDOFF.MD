@@ -11,6 +11,8 @@
 
 ## 当前测试 Release
 
+- 最新已编译试用包为 staging/strength-input-package-20261101/v0.12.1/，含此前强度控件和动画修改。本轮滚动条、提示动画及游戏模式提速尚未打入完整桌面包；当前预览为 staging/toast-refresh-preview/声间-UI预览.html。
+
 - 上轮本地试用包（2026-10-31）：staging/recheck-height-package-20261031/v0.12.1/。包含更新和文件检查顶部蓝条移除、重新检查时状态卡片的收缩修复，以及此前更新动画、滚动槽补偿和游戏模式改动。重新编译后台 857 项通过；此前同份前端源码 140 项、预览 2 项通过，本轮类型检查及桌面生产构建通过。EXE 展开的 14 个文件与 ZIP 一致，真实配置未变。记录 staging/desktop-release-257d00d53b654c52a1a1a0e5de2de9f5/verification.json，日志 staging/recheck-height-package.log。旧 update-spacing-package 和 bin 保留，未启动真实后台，未执行真实升级安装或音频写入，未提交或发布。
 
 - 旧游戏模式试用包（2026-10-31）：staging/game-mode-package-20261031/v0.12.1/。加入后台低优先级及 EcoQoS 策略、游戏模式下自动更新置灰和作者署名，包含上轮更新／备份界面改动。后台 857 项、前端 135 项、预览 2 项通过；原生调度只在测试进程验证并恢复。两附件展开的 14 个文件一致，真实配置未变；记录 staging/desktop-release-4163ac589b6546c4a57cc44df1c0b5f3/verification.json。HTML 预览在 staging/game-mode-preview/。未测量实际游戏占用降幅，未做本轮截图和真实设备操作。旧包保留，未提交或发布。
@@ -39,6 +41,8 @@
 - 检查更新和文件检查不再显示顶部蓝色说明条，含旧后台只读兼容窗口。必要的安装后果只在安装确认中显示；离线预览在标题旁保留简短的“界面预览”标识。此修改的预览在 staging/maintenance-clean-preview/，已包含在最新 recheck-height-package EXE／ZIP。
 - 更新／文件检查抽屉保留稳定滚动槽，但由 UpgradeScroll 测量实际槽宽和内容高度。无溢出时用内容层负右边距补回槽宽，保持左右等距；溢出后 250 ms 让出空间，恢复时 200 ms 补回。不要直接切换 scrollbar-gutter，否则宽度跳变。ResizeObserver 同时观察内容与视口，不轮询，不重建滚动节点；减少动态效果时取消过渡。Chromium 使用 6 px 主题滚动条，其他浏览器按实际槽宽补偿。
 - UpgradeStage 只按检查、下载、校验结果和安装交接等状态播放过渡；Bytes 等轮询数据不能重播动画。说明独立保留 DOM、折叠状态和阅读位置，退出时先 inert 再收起。安装确认采用 250 ms 展开／200 ms 收起，保持原有重复提交和取消守卫；动态效果减少时取消正在运行的动画。最新纯前端预览为 staging/recheck-height-preview/，最新 recheck-height-package EXE／ZIP 已包含这些动画修改，旧包保留。
+- 设备变化合并在普通和游戏模式下均为约 150 ms，从首条事件起算，不增加空闲轮询。旧版备用面板保持 1.5 秒刷新，提示窗口保持 0.3 秒刷新。低进程优先级、EcoQoS 和暂停自动更新仍生效；不要再用延长设备等待来降低占用。
+- Toast 保留同一节点和最后一条内容完成退出，关闭时立即 inert 并移除播报角色。进入为 250 ms ease-out，退出为 200 ms ease-in，透明度和 6 px 位移同步；快速重开可反向续接。复用全局减少动态效果规则，无常驻计时器。短提示只去末尾中文句号，保留内部断句、错误原因和安装后果。主内容、抽屉及下拉列表共用无箭头的 6 px 主题滚动条；Chromium 要覆盖 scrollbar-width/color，避免原生样式覆盖伪元素规则。
 - 游戏模式的低占用策略由 TrayHost 调用 GameModeScheduling，仅修改当前后台进程。先记录原优先级和电源调度掩码，再降低为 BelowNormal 并开启 EcoQoS；退出或释放时恢复原状态。原本 Idle／BelowNormal 或已开启 EcoQoS 时保留，不以 Normal 覆盖。系统不支持电源调度时保留其他优化；失败写入仍保留恢复记录，各项恢复互不阻断。不要为此添加设备轮询、负载监测线程或修改其他程序。接口依据：https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setprocessinformation 。
 - 游戏模式下自动更新行置灰且不可操作，但 AutoUpdateEnabled 原值保留；不能把临时暂停保存成关闭。Base UI Switch 是 span，测试禁用状态用 aria-disabled 和实际点击不提交验证，不能使用仅适用于原生表单元素的 toBeDisabled。
 - 基础预设并发检查只比较 Volume、SpatialFormat 和接入规则。不存在的 DeviceProfile 与两个基础字段均为 null 的容器等价：嵌套 Dolby 首次保存会创建容器，不能让外层旧草稿因此误报冲突。0 音量、空字符串（关闭空间音效）仍与 null 不同；保存基础设置必须保留后台最新 Dolby 内容。

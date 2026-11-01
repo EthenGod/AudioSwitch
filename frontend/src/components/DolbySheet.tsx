@@ -50,10 +50,10 @@ function StrengthValue({ label, value, disabled, onValue }: { label: string; val
   return <div className="dolby-strength-value" data-visible={visible} aria-hidden={!visible || undefined} inert={!visible}>
     <Tooltip.Root disabled={disabled || !visible} open={helpOpen && visible && !disabled} onOpenChange={next => setHelpOpen(next && !focused())}>
       <Tooltip.Trigger render={<div ref={inputArea} />} className="strength-input" delay={250} closeDelay={150} onPointerDown={closeHelp} onFocusCapture={closeHelp}>
-        <NumberField label={`${label}百分比`} description="实际强度可能按驱动档位取整。" min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
+        <NumberField label={`${label}百分比`} description="实际强度可能按驱动档位取整" min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
       </Tooltip.Trigger>
       <Tooltip.Portal><Tooltip.Positioner className="strength-help-positioner" side="top" align="end" sideOffset={8}>
-        <Tooltip.Popup role="tooltip" className="strength-help-popup">实际强度可能按驱动档位取整。</Tooltip.Popup>
+        <Tooltip.Popup role="tooltip" className="strength-help-popup">实际强度可能按驱动档位取整</Tooltip.Popup>
       </Tooltip.Positioner></Tooltip.Portal>
     </Tooltip.Root>
     <span className="strength-unit">%</span>
@@ -154,9 +154,9 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
     <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
     {!desktop && <div className="sheet-preview">界面预览，操作不会改变系统设置</div>}
     <UpgradeScroll className="dolby-scroll">
-      {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台。</p>}
+      {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台</p>}
       <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
-      {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">切换到此设备后才能读取或立即应用。</p>}
+      {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">切换到此设备后才能读取或立即应用</p>}
       {(starting || running || closing) && <p role="status">{closing ? '正在取消并等待读取退出…' : '正在读取 Dolby…'}</p>}
       {message && <p role={job?.Status === 'error' ? 'alert' : 'status'}>{message}</p>}
       {error && <p role="alert" className="field-help">{error}</p>}
@@ -174,7 +174,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
         <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>
         <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? '保存并应用' : '保存并应用（模拟）'}</Button>
       </div>
-      {desktop && !snapshot.CanApplyDolby && <p>当前后台不支持此处立即应用，可继续仅保存。</p>}
+      {desktop && !snapshot.CanApplyDolby && <p>当前后台不支持此处立即应用，可继续仅保存</p>}
     </footer>
   </SheetContent></Sheet>
 }

@@ -67,7 +67,6 @@ namespace AudioSwitch
                 if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, CreateTrayCommands(), preferences.DarkMode);
             };
             debounce = new DeviceEventBatch(() => RefreshAudio(true, true));
-            debounce.SetGameMode(preferences.GameMode);
             audio.Listen(delegate {
                 if (exiting) return;
                 // Bound the wait from the first event; later callbacks must not postpone it.
@@ -436,7 +435,6 @@ namespace AudioSwitch
         private void UpdateGameMode()
         {
             gameScheduling.Apply(preferences.GameMode);
-            debounce.SetGameMode(preferences.GameMode);
             updates.SetPaused(!preferences.AutomaticUpdatesAllowed, preferences.AutoUpdateEnabled ? null : "自动更新已关闭，可手动检查更新。");
             if (!preferences.AutomaticUpdatesAllowed)
             {
