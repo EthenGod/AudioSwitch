@@ -132,7 +132,6 @@ namespace AudioSwitch
         }
         internal void RenderReply(Reply reply)
         {
-            timer.Interval = 300;
             Palette.Apply(reply.Preferences.DarkMode);
             if (reply.Pending.Count == 0)
             {

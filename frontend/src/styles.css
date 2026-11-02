@@ -467,7 +467,7 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .release-table th { background: var(--card); font-weight: 600; }
 .release-table [align=center] { text-align: center; }
 .release-table [align=right] { text-align: right; }
-.release-notes summary, .file-check-directory summary { cursor: pointer; padding: 8px 0; color: var(--muted-foreground); }
+.release-notes summary { cursor: pointer; padding: 8px 0; color: var(--muted-foreground); }
 .file-check-result { animation: check-reveal var(--motion-enter) ease-out; }
 .file-check-panel { overflow: clip; }
 .file-check-welcome { animation: check-reveal var(--motion-enter) ease-out; }
@@ -512,9 +512,6 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .file-check-list span { color: var(--foreground); overflow-wrap: anywhere; }
 .file-check-result .is-passed { color: var(--green-11); }
 .file-check-result .is-failed { color: var(--red-11); }
-.file-check-directory { font-size: var(--font-caption); margin-top: 12px; }
-.file-check-directory svg { display: inline; vertical-align: middle; margin-right: 6px; }
-.file-check-directory :is(p,pre) { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: var(--muted-foreground); }
 @keyframes check-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .file-check-result { animation: none; } }
 .upgrade-sheet .backend-warning { overflow-wrap: anywhere; }

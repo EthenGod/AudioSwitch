@@ -24,7 +24,7 @@ namespace AudioSwitch
         {
             if (!File.Exists(path)) return new Preferences();
             string text = ReadFile(path); bool legacy;
-            var result = Parse(text, out legacy);
+            var result = Parse(text, out legacy, true);
             if (legacy) { Backup(path, result, "before-migration"); Save(path, result); }
             return result;
         }
@@ -34,7 +34,7 @@ namespace AudioSwitch
             return File.ReadAllText(path, new UTF8Encoding(false, true));
         }
         internal static Preferences Parse(string text) { bool legacy; return Parse(text, out legacy); }
-        private static Preferences Parse(string text, out bool legacy)
+        private static Preferences Parse(string text, out bool legacy, bool migrateLocalHistory = false)
         {
             legacy = false;
             try
@@ -51,8 +51,16 @@ namespace AudioSwitch
                     if (!root.ContainsKey("Settings") || (settings = root["Settings"] as Dictionary<string, object>) == null) throw new InvalidOperationException("缺少 Settings 内容。");
                 }
                 else { legacy = true; settings = root; }
+                // Trial builds embedded the optional suggestion cache in settings.json.
+                // Never validate an imported configuration against another computer's cache.
+                object oldHistory;
+                settings.TryGetValue("RecentDeviceAliases", out oldHistory);
+                settings.Remove("RecentDeviceAliases");
                 Shape(settings);
                 var result = Wire.Decode<Preferences>(Wire.Encode(settings));
+                var names = oldHistory as object[];
+                if (migrateLocalHistory && names != null && names.Length <= Preferences.AliasHistoryLimit && names.All(n => ValidAlias(n as string)))
+                    result.RecentDeviceAliases = names.Cast<string>().Distinct(StringComparer.Ordinal).ToList();
                 Validate(result);
                 return result;
             }
@@ -65,13 +73,7 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "RecentDeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
-            if (settings.ContainsKey("RecentDeviceAliases"))
-            {
-                var history = settings["RecentDeviceAliases"] as object[];
-                if (history == null || history.Length > Preferences.AliasHistoryLimit || history.Any(name => !(name is string)))
-                    throw new InvalidOperationException("最近使用的设备名称列表无效。");
-            }
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
             if (settings.ContainsKey("DeviceAliases"))
             {
                 var aliases = settings["DeviceAliases"] as Dictionary<string, object>;

@@ -15,6 +15,22 @@ async function setup(call: (command: string, args: Record<string, unknown>) => P
   return { user, dialog:within(screen.getByRole('dialog')) }
 }
 describe('update and repair confirmation', () => {
+  it('can close the update sheet after losing confirmation of a preference write', async () => {
+    const raw = backendFixture()
+    const reply = { ...raw, PanelApiVersion: 11, Preferences: { ...raw.Preferences, UpdateChannel: 'GitHub', IncludePrerelease: false } }
+    const gateway = createDesktopGateway(async () => reply, async () => { throw new Error('连接中断') })
+    const user = userEvent.setup()
+    render(<App gateway={gateway} />)
+    await screen.findByRole('table')
+    await user.click(screen.getByRole('button', { name: '应用设置' }))
+    await user.click(screen.getByRole('button', { name: /检查更新/ }))
+    const dialog = within(screen.getByRole('dialog'))
+    await user.click(dialog.getByRole('combobox', { name: '接收版本' }))
+    await user.click(await screen.findByRole('option', { name: '包含测试版' }))
+    await dialog.findByText('更新设置未保存，请重试')
+    await user.click(dialog.getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
   it('preserves release-note disclosure and scroll position when moving from discovery to download result', async () => {
     const notes = '# 更新内容\n\n<details><summary>详细内容</summary><p>可复制的说明</p></details>'
     const call = vi.fn(async (command: string) => ({ ...(command === 'start_upgrade' ? available : ready), Notes: notes }))

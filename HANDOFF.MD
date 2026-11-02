@@ -11,27 +11,16 @@
 
 ## v0.12.2 正式版
 
+- PR #2 后的审查和修复见 [代码检查记录](CODE_REVIEW.md)。本轮测试附件位于 `staging/review-pr2-e8b883a/v0.12.2/`。打包版的浏览器根地址与带参数的链接共用会话入口；离线预览仍使用模拟设备。
+
 - 便捷展开修订包在 `staging/clean-expand-0122/v0.12.2/`。此前的同版本附件保留。启动器直接从内置资源读取 ZIP，先校验临时目录里的文件，再把该目录改名为 `AudioSwitch`。成功后只新增程序文件夹，失败时错误提示给出本次临时目录。更新包和便捷入口共用解压检查，须先验证目标目录，再打开 ZIP。
 
 - 最终附件位于 `releases/v0.12.2/`，含托盘菜单隐藏“处理设备变化”的调整。两包摘要见 [交付记录](releases/DELIVERY-v0.12.2.md)。GitHub 发布仍待单独操作。
 
 ## v0.12.1 历史测试记录
 
-- 最新已编译试用包为 staging/prompt-polish-package-20261102/v0.12.1/，包含提示右上角按钮位置和圆角调整、断开提示收紧、下拉滚动条去箭头及进出时临时滚动条修复。便捷展开 EXE 和完整 ZIP 均重新编译，后台 857 项、前端生产构建和桌面编译通过；两附件展开内容一致，真实配置摘要未变。记录 staging/desktop-release-f566602af75c454aa76f569143027101/verification.json，日志 staging/prompt-polish-package-20261102.log。旧包和 bin 保留，未启动真实后台、未执行音频写入或升级安装。Windows 实际弹窗及插拔仍需实机确认。
-
-- 上轮本地试用包（2026-10-31）：staging/recheck-height-package-20261031/v0.12.1/。包含更新和文件检查顶部蓝条移除、重新检查时状态卡片的收缩修复，以及此前更新动画、滚动槽补偿和游戏模式改动。重新编译后台 857 项通过；此前同份前端源码 140 项、预览 2 项通过，本轮类型检查及桌面生产构建通过。EXE 展开的 14 个文件与 ZIP 一致，真实配置未变。记录 staging/desktop-release-257d00d53b654c52a1a1a0e5de2de9f5/verification.json，日志 staging/recheck-height-package.log。旧 update-spacing-package 和 bin 保留，未启动真实后台，未执行真实升级安装或音频写入，未提交或发布。
-
-- 旧游戏模式试用包（2026-10-31）：staging/game-mode-package-20261031/v0.12.1/。加入后台低优先级及 EcoQoS 策略、游戏模式下自动更新置灰和作者署名，包含上轮更新／备份界面改动。后台 857 项、前端 135 项、预览 2 项通过；原生调度只在测试进程验证并恢复。两附件展开的 14 个文件一致，真实配置未变；记录 staging/desktop-release-4163ac589b6546c4a57cc44df1c0b5f3/verification.json。HTML 预览在 staging/game-mode-preview/。未测量实际游戏占用降幅，未做本轮截图和真实设备操作。旧包保留，未提交或发布。
-
-- 上轮本地试用包（2026-10-31）：`staging/update-backup-20261031/v0.12.1/`。包含真实更新说明排版修复、正式／测试版本选择，以及统一的文件检查和导入导出界面。前端 134 项、Rust 45 项（3 项可选测试跳过）、后台 845 项通过；离线预览检查 2 项通过。EXE 展开的 14 个文件与 ZIP 一致，文件完整性和配置不变检查通过。记录在 `staging/desktop-release-2394a033d78b4d908a7127bdf535bb40/verification.json`。离线预览在 `staging/update-backup-preview/声间-UI预览.html`。未替换 bin 或 releases，未发布；没有实际下载、安装、导入覆盖或音频写入，未完成本轮截图验收。
-- 旧试用包 `staging/local-test-20261030-markdown/` 和 `staging/update-experience-20261031/` 保留。后者尚未包含统一的导入导出页面，不作为本轮交付入口。Apple emoji 仍只设置本机字体优先，未内置 Apple 字体或图像。
-
-- 2026-10-29：`releases/v0.12.1/` 已生成便捷展开 EXE 和完整 ZIP，仅两个附件。两者均来自当前源码重新编译，不复用旧测试包。发行说明见 `releases/RELEASE-NOTES-v0.12.1.md`；完整摘要、日志和发布步骤见 `releases/DELIVERY-v0.12.1.md`。
-- PR 前检查发现 4 个更新／修复命令漏入 Tauri 权限。已同步 build.rs、主面板 capability 和自动生成的权限文件；设备提示窗口不获得更新权限。新增清单一致性回归先复现失败，再验证通过。每次新增 invoke 命令都必须同步这些文件，浏览器模拟接口不会经过 Tauri ACL。
-- 修复后候选包在 `staging/pr-ready-20261029/v0.12.1/`，PR 草稿与摘要在同级 `PR.md`。`releases/v0.12.1/` 旧附件保留原样，**不包含权限修复，不应作为最终上传件**。确认替换方式后再处理，不混用两轮摘要。
-- 2026-10-29 PR 前验证：前端 125 项、Rust 40 项（3 项可选测试跳过）、后台 819 项、类型检查、生产构建、桌面编译和两附件展开校验通过。后台总数包含实际枚举设备，可能随设备数量变化。展开后 14 个文件与 ZIP 一致。真实配置未变，没有启动真实音频后台，未进行真实下载／安装。日常 bin 和旧 Release 保留。
-- TrayPopup.Closing 已重命名为 IsClosing，消除隐藏 Form.Closing 的编译警告。仍保留 Vite 分块体积提醒和 Rust 路径规范化提示。
-- 附件尚未上传。后续发布需用户授权，先提交与附件对应的源码和本轮包内说明，标签为 v0.12.1，设置 Pre-release，不设 Latest。下载链接已核对目标文件名，线上下载及升级仍需发布后核验。
+- 旧版附件和权限修正记录见 [v0.12.1 交付记录](releases/DELIVERY-v0.12.1.md)。该版本最后一份提示窗口试用包在 `staging/prompt-polish-package-20261102/v0.12.1/`。
+- 新增桌面命令时同步检查 Rust 注册、构建清单和窗口权限。浏览器模拟测试不能验证桌面权限。
 
 ## 自定义设备名称
 

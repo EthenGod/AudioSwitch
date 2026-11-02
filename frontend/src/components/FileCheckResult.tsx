@@ -8,7 +8,7 @@ export function FileCheckResult({ status, message, directory, entries = [], lega
   const Icon = passed ? ShieldCheck : failed ? ShieldAlert : Info
   const items = entries.map(text => {
     const ok = /^(示例)?通过[:：]/.test(text)
-    const bad = !ok && /缺失|不符|失败|损坏|无法|错误|异常|不匹配/.test(text)
+    const bad = !ok && /缺失|不符|失败|损坏|无法|错误|异常|不匹配|^检查未完成[:：]/.test(text)
     return { text, ok, bad }
   }).sort((a, b) => Number(b.bad) - Number(a.bad) || Number(a.ok) - Number(b.ok))
   return <div className="file-check-result">

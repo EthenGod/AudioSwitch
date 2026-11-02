@@ -41,7 +41,7 @@ export function UpgradeSheet({ kind, gateway, snapshot, onPreference, preference
     return () => { valid = false; window.clearTimeout(timer) }
   }, [gateway, job, polling, busy, error])
   async function perform(action: 'check' | 'download' | 'install' | 'cancel' | 'close') {
-    if (savingPolicy || preferenceBusy) return
+    if (savingPolicy || (preferenceBusy && action !== 'close' && action !== 'cancel')) return
     if (committing.current && action !== 'close') return
     if (action === 'close' && committing.current && installPending) return
     if (lock.current) { if (action === 'close' && !committing.current) closeRequested.current = true; return }
@@ -66,7 +66,10 @@ export function UpgradeSheet({ kind, gateway, snapshot, onPreference, preference
           if (lock.current || savingPolicy || !onPreference) return
           lock.current = true; setSavingPolicy(true); setError('')
           void (async () => {
-            if (upgradeActive(current.current)) accept(await gateway.cancelUpgrade(current.current!.Token))
+            if (upgradeActive(current.current)) {
+              accept(await gateway.cancelUpgrade(current.current!.Token))
+              setConfirm(false)
+            }
             await onPreference(value); setJob(null); current.current = null
           })().catch(e => setError(e instanceof Error ? e.message : '无法保存更新设置。')).finally(() => { lock.current = false; setSavingPolicy(false) })
         }} />}
@@ -76,7 +79,7 @@ export function UpgradeSheet({ kind, gateway, snapshot, onPreference, preference
         {kind === 'repair' && (polling || busy) && !(job?.Status === 'checking' || !job) && <p className="maintenance-progress" role="status"><LoaderCircle size={17} className="spin" />{busy ? '正在处理，请稍候…' : job?.Message}</p>}
         <PanelAlert message={error} />
         {kind === 'repair' && job && !['checking', 'passed', 'repairable', 'unavailable', 'error', 'cancelled'].includes(job.Status) && <section className="sheet-section" aria-live="polite">
-          {!polling && !(kind === 'repair' && ['passed', 'repairable', 'unavailable', 'error', 'cancelled'].includes(job.Status)) && <h3>{job.Message}</h3>}
+          {!polling && <h3>{job.Message}</h3>}
           {job.Version && <p>版本：{job.Version}</p>}
           {job.Status === 'downloading' && <><progress aria-label="下载进度" max={job.Total || undefined} value={job.Total ? Math.min(job.Bytes, job.Total) : undefined} /><p>{(job.Bytes / 1048576).toFixed(1)} MiB{job.Total > 0 && ` / ${(job.Total / 1048576).toFixed(1)} MiB`}</p></>}
         </section>}

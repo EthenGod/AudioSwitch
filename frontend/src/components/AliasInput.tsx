@@ -1,8 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
-const words = new Intl.Segmenter('zh', { granularity: 'word' })
+let words: Intl.Segmenter | undefined
 
 function nextWordEnd(name: string, caret: number) {
+  if (typeof Intl.Segmenter !== 'function') return caret
+  words ??= new Intl.Segmenter('zh', { granularity: 'word' })
   // Segment the whole name so a partially typed word keeps its original boundary.
   const remaining = [...words.segment(name)].filter(part => part.isWordLike && part.index + part.segment.length > caret)
   return remaining.length > 1 ? remaining[0].index + remaining[0].segment.length : name.length
@@ -20,8 +22,8 @@ export function AliasInput({ value, onChange, names, placeholder, disabled }: {
   const prefix = value.toLowerCase()
   const match = edited && end && !composing && !disabled && value.trim()
     ? names.find(name => name.slice(0, value.length).toLowerCase() === prefix) : undefined
-  const suffix = match?.slice(value.length)
-  const boundary = suffix && match ? nextWordEnd(match, value.length) : value.length
+  const boundary = match && match.length > value.length ? nextWordEnd(match, value.length) : value.length
+  const suffix = boundary > value.length ? match?.slice(value.length) : undefined
   function align() {
     if (input.current && mirror.current) mirror.current.scrollLeft = input.current.scrollLeft
   }

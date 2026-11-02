@@ -52,6 +52,11 @@ namespace AudioSwitch
             incoming.DeviceAliases["online"] = "导入的设备名";
             var oldBackup = Wire.Encode(new ConfigurationFile { Format = "AudioSwitch.Settings", Version = 1, Settings = incoming });
             DeviceAliasCache.Save(folder, current.RecentDeviceAliases);
+            var localPath = Path.Combine(folder, "trial-settings.json");
+            File.WriteAllText(localPath, oldBackup);
+            check(PreferenceStore.Load(localPath).RecentDeviceAliases.SequenceEqual(incoming.RecentDeviceAliases), "trial settings on the local computer retain valid suggestions for migration");
+            oldBackup = oldBackup.Replace("[\"外机词条\"]", "42");
+            check(!PanelImport.Preview(oldBackup, current, state).ConfigurationJson.Contains("RecentDeviceAliases"), "preview ignores malformed obsolete suggestion cache");
             result = PreferenceStore.Import(path, oldBackup, current, out backup);
             check(result.DeviceAliases["online"] == "导入的设备名" && result.RecentDeviceAliases.SequenceEqual(current.RecentDeviceAliases), "import transfers assigned names but keeps local suggestions");
             check(!File.ReadAllText(backup).Contains("RecentDeviceAliases") && !File.ReadAllText(path).Contains("RecentDeviceAliases"), "settings and their backups exclude local history");

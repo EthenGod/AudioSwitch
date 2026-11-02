@@ -15,3 +15,7 @@ it('keeps old backend details and never reports a cancelled or incomplete check 
   expect(screen.getByText('旧后台原始结果')).toBeInTheDocument()
   expect(screen.queryByLabelText('检查项目统计')).toBeNull()
 })
+it('counts an incomplete manifest check reported by the backend as a problem', () => {
+  render(<FileCheckResult status="repairable" message="发现文件缺损" entries={['检查未完成：清单为空']} />)
+  expect(screen.getByText('1 项异常')).toBeInTheDocument()
+})

@@ -10,4 +10,3 @@ export function UpdatePreferences({ includePrerelease, pending, disabled, onChan
     {disabled && <p className="field-help">连接新版后台后可更改接收版本</p>}
   </section>
 }
-
