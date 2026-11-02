@@ -46,6 +46,7 @@ namespace AudioSwitch
                 Require(Run(launcher, "--check-files --quiet") == 0 && Directory.GetFiles(one).Length == 1 && Directory.GetDirectories(one).Length == 0, "standalone read-only check needs no config and writes nothing");
                 Require(Run(launcher, "--extract-only") == 0, "standalone extracts without starting the real backend");
                 string expanded = Path.Combine(one, "AudioSwitch");
+                Require(Directory.GetDirectories(one).SequenceEqual(new[] { expanded }) && Directory.GetFiles(one).SequenceEqual(new[] { launcher }), "first expansion leaves only the launcher and AudioSwitch directory");
                 Require(UpdatePackage.DesktopFiles.All(n => AppUpdate.Hash(Path.Combine(desktop, n)) == AppUpdate.Hash(Path.Combine(expanded, n))), "all 14 expanded files match full ZIP bytes");
                 Require(Run(Path.Combine(expanded, "AudioSwitch.exe"), "--check-files --quiet") == 0, "expanded backend complete integrity check");
                 File.WriteAllText(Path.Combine(expanded, "user-note.txt"), "keep this extra file");

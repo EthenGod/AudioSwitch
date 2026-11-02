@@ -3,6 +3,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -66,32 +67,19 @@ namespace AudioSwitch
                         ValidateExisting(target, minimumVersion);
                         return target; // Reuse a complete same/newer installation; never undo an update.
                     }
+                    if (archive.Length <= 0 || archive.Length > AppUpdate.MaxPackage) throw new InvalidDataException("内置程序包大小无效。");
                     string work = Path.Combine(root, "AudioSwitch-unpack-" + Guid.NewGuid().ToString("N"));
-                    string payload = Path.Combine(work, "payload"), zip = Path.Combine(work, "package.zip");
-                    // Both sides of the single directory move are fixed descendants of this executable's directory.
-                    if (!Path.GetFullPath(payload).StartsWith(root, StringComparison.OrdinalIgnoreCase) || !Path.GetFullPath(target).StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                        throw new IOException("展开目录越界。");
                     UpdateInstaller.RejectLinks(work);
                     Directory.CreateDirectory(work);
                     try {
-                        using (var output = new FileStream(zip, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
-                            var buffer = new byte[81920]; long total = 0; int count;
-                            while ((count = archive.Read(buffer, 0, buffer.Length)) > 0) {
-                                total += count;
-                                if (total > AppUpdate.MaxPackage) throw new InvalidDataException("内置程序包超过大小限制。");
-                                output.Write(buffer, 0, count);
-                            }
-                            if (total == 0) throw new InvalidDataException("内置程序包为空。");
-                        }
-                        AppUpdate.Extract(zip, payload, CancellationToken.None, false, UpdatePackage.Desktop);
-                        AppUpdate.ValidatePayload(payload, minimumVersion, UpdatePackage.Desktop);
-                        ValidateExisting(payload, minimumVersion);
-                        UpdateInstaller.RejectLinks(payload); UpdateInstaller.RejectLinks(target);
-                        Directory.Move(payload, target); // No overwrite, including if another writer created target.
+                        AppUpdate.Extract(() => new ZipArchive(archive, ZipArchiveMode.Read, true), work, CancellationToken.None, false, UpdatePackage.Desktop);
+                        AppUpdate.ValidatePayload(work, minimumVersion, UpdatePackage.Desktop);
+                        ValidateExisting(work, minimumVersion);
+                        UpdateInstaller.RejectLinks(work); UpdateInstaller.RejectLinks(target);
+                        Directory.Move(work, target); // Same-volume rename publishes the complete, verified installation.
                         return target;
                     }
                     catch (Exception ex) { throw new IOException("展开未完成，未替换已有程序。保留的展开文件：" + work + "\r\n" + ex.Message, ex); }
-                    // Preserve the archive/work directory for recovery; never bulk-delete output.
                 }
                 finally { if (held) mutex.ReleaseMutex(); }
             }

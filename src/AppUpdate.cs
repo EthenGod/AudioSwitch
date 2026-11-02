@@ -319,9 +319,13 @@ namespace AudioSwitch
         }
         internal static void Extract(string zip, string destination, CancellationToken cancel, bool replaceAttempt = false, int format = UpdatePackage.Legacy)
         {
+            Extract(() => ZipFile.OpenRead(zip), destination, cancel, replaceAttempt, format);
+        }
+        internal static void Extract(Func<ZipArchive> openArchive, string destination, CancellationToken cancel, bool replaceAttempt, int format)
+        {
             UpdatePackage.RequirePayload(destination, format);
             var files = UpdatePackage.Files(format);
-            using (var archive = ZipFile.OpenRead(zip))
+            using (var archive = openArchive())
             {
                 // Only the fixed distribution files are allowed; no arbitrary paths, settings, or DLLs.
                 if (archive.Entries.Count != files.Length || files.Any(name => archive.Entries.Count(e => e.FullName == name) != 1))
