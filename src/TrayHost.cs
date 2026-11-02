@@ -177,7 +177,7 @@ namespace AudioSwitch
         private IList<TrayCommand> CreateTrayCommands()
         {
             return TrayMenuModel.Create(tracker.Current, preferences, PanelLaunch.IsModern(Path.GetDirectoryName(Application.ExecutablePath)),
-                tracker.Pending.Count, ShowFrontend, frontends.ShowBrowser, RunMenuCommand, ExitThread);
+                () => ShowFrontend(false), frontends.ShowBrowser, RunMenuCommand, ExitThread);
         }
         private void PublishTraySnapshot()
         {

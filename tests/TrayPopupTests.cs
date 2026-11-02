@@ -61,7 +61,7 @@ namespace AudioSwitch
                 using (var backdrop = new Form { FormBorderStyle = FormBorderStyle.None, TopMost = true, ShowInTaskbar = false,
                     StartPosition = FormStartPosition.Manual, Bounds = new Rectangle(240, 200, 440, 400), BackColor = dark ? Color.White : Color.Black }) {
                     backdrop.Show(); Pump(40);
-                    var items = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => { }, () => { }, r => { }, () => { });
+                    var items = TrayMenuModel.Create(State(), new Preferences(), true, () => { }, () => { }, r => { }, () => { });
                     using (var popup = new TrayPopup(items, new Point(600, 570), dark, 1, true)) {
                         popup.Show();
                         // Let DWM present the transparent frame without pumping the animation timer.
@@ -104,15 +104,16 @@ namespace AudioSwitch
         internal static void Run(Action<bool, string> check)
         {
             var requests = new List<Request>(); int opens = 0;
-            var items = TrayMenuModel.Create(State(), new Preferences { GameMode = true }, false, 1, p => opens++, () => opens++, requests.Add, () => opens++);
+            var items = TrayMenuModel.Create(State(), new Preferences { GameMode = true }, false, () => opens++, () => opens++, requests.Add, () => opens++);
             check(!items[1].Enabled && requests.Count == 0 && opens == 0, "tray snapshot never enumerates or writes audio and disables unavailable browser");
+            check(items.All(i => i.Key != "pending"), "release tray omits manual device-change prompt");
             var output = items.Single(i => i.Text == "声音输出"); var input = items.Single(i => i.Text == "麦克风输入");
             check(output.Children.Count == 3 && input.Children.Count == 1 && output.Children.Single(c => c.Checked).Text == "同名耳机", "tray separates input and output and preserves defaults");
             output.Children.Single(c => c.Text == "同名耳机" && !c.Checked).Execute();
             check(requests.Count == 1 && requests[0].Action == "switch" && requests[0].DeviceId == "output-1", "same-name tray devices select by endpoint ID");
             var game = items.Single(i => i.Text == "游戏模式"); game.Execute();
             check(game.Checked && requests.Last().Action == "gameMode" && !requests.Last().Value, "game mode uses confirmed snapshot and does not switch audio");
-            var empty = TrayMenuModel.Create(new AudioState(), new Preferences(), true, 0, p => { }, () => { }, requests.Add, () => { });
+            var empty = TrayMenuModel.Create(new AudioState(), new Preferences(), true, () => { }, () => { }, requests.Add, () => { });
             check(empty.Single(i => i.Text == "声音输出").Children.All(i => !i.Enabled), "empty tray device page has no clickable false device");
             var typed = State(); typed.FormFactors["output-0"] = 1; typed.FormFactors["output-1"] = 3; typed.FormFactors["output-2"] = 9; typed.FormFactors["mic"] = 5;
             check(TrayMenuModel.DeviceGlyph(typed.Devices[0], typed) == TrayGlyph.Speaker && TrayMenuModel.DeviceGlyph(typed.Devices[1], typed) == TrayGlyph.Output && TrayMenuModel.DeviceGlyph(typed.Devices[2], typed) == TrayGlyph.Monitor, "same-name endpoints use Windows form factors by ID");
@@ -142,7 +143,7 @@ namespace AudioSwitch
                 if (request.Action == "gameMode") preferences.GameMode = request.Value;
                 if (request.Action == "priority") preferences.UseDevicePriority = request.Value;
             };
-            Func<IList<TrayCommand>> snapshot = () => TrayMenuModel.Create(state, preferences, true, 0, p => { }, () => { }, apply, () => { });
+            Func<IList<TrayCommand>> snapshot = () => TrayMenuModel.Create(state, preferences, true, () => { }, () => { }, apply, () => { });
             using (var popup = new TrayPopup(snapshot(), new Point(700, 700), true, 1, false, (command, done) => { submitted++; accepted = command; finish = done; })) {
                 popup.Show(); popup.Navigate(popup.Rows.Single(r => r.Command.Key == "flow:0").Command);
                 popup.HandleNavigation(Keys.End);
@@ -173,7 +174,7 @@ namespace AudioSwitch
         private static void SelectionMotion(Action<bool, string> check)
         {
             var state = State(); var preferences = new Preferences { DeviceOrder = State().Devices };
-            Func<IList<TrayCommand>> snapshot = () => TrayMenuModel.Create(state, preferences, true, 0, p => { }, () => { }, r => { }, () => { });
+            Func<IList<TrayCommand>> snapshot = () => TrayMenuModel.Create(state, preferences, true, () => { }, () => { }, r => { }, () => { });
             using (var popup = new TrayPopup(snapshot(), new Point(700, 700), true, 1, true)) {
                 popup.Show(); popup.Navigate(popup.Rows.Single(r => r.Command.Key == "flow:0").Command); Pump(320);
                 var row = popup.Rows.Single(r => r.Command.Key == "device:output-1");
@@ -196,7 +197,7 @@ namespace AudioSwitch
             SelectionMotion(check);
             foreach (bool dark in new[] { false, true }) foreach (float scale in new[] { 1F, 1.5F, 2F }) {
                 int commands = 0;
-                var items = TrayMenuModel.Create(State(20), new Preferences { GameMode = false }, true, 0, p => commands++, () => commands++, r => commands++, () => commands++);
+                var items = TrayMenuModel.Create(State(20), new Preferences { GameMode = false }, true, () => commands++, () => commands++, r => commands++, () => commands++);
                 var area = Screen.PrimaryScreen.WorkingArea;
                 using (var popup = new TrayPopup(items, new Point(area.Right - 4, area.Bottom - 4), dark, scale, false, systemCorners: false)) {
                     check(!popup.IsHandleCreated, "popup styles and lifecycle are configured before first handle " + scale);
@@ -263,8 +264,8 @@ namespace AudioSwitch
                 }
             }
             CompositedCorners(check, directory);
-            var entries = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => { }, () => { }, r => { }, () => { });
-            var unavailableBrowser = TrayMenuModel.Create(State(), new Preferences(), false, 0, p => { }, () => { }, r => { }, () => { });
+            var entries = TrayMenuModel.Create(State(), new Preferences(), true, () => { }, () => { }, r => { }, () => { });
+            var unavailableBrowser = TrayMenuModel.Create(State(), new Preferences(), false, () => { }, () => { }, r => { }, () => { });
             using (var popup = new TrayPopup(unavailableBrowser, new Point(400, 500), true, 1, false)) {
                 popup.Show(); popup.HandleNavigation(Keys.Home); popup.HandleNavigation(Keys.Right);
                 check(popup.Rows[0].Focused, "horizontal navigation skips an unavailable browser action");
@@ -333,7 +334,7 @@ namespace AudioSwitch
             }
             for (int entry = 0; entry < 2; entry++) {
                 int opened = 0;
-                var actions = TrayMenuModel.Create(State(), new Preferences(), true, 0, p => opened++, () => opened++, r => { }, () => { });
+                var actions = TrayMenuModel.Create(State(), new Preferences(), true, () => opened++, () => opened++, r => { }, () => { });
                 using (var popup = new TrayPopup(actions, new Point(600, 570), true, 1, true)) {
                     popup.Show(); Pump(300); popup.ActivateCommand(actions[entry]); Pump(60);
                     check(popup.Visible && popup.IsClosing && popup.PresentationOpacity > 0 && popup.PresentationOpacity < 1 && popup.Rows[entry].Enabled && opened == 0, "top action fades without dimming or launching another surface early " + entry);
@@ -365,7 +366,7 @@ namespace AudioSwitch
                 Exception failure = null;
                 int ownerThread = Thread.CurrentThread.ManagedThreadId, actionThread = 0, executed = 0;
                 var livePreferences = new Preferences();
-                Func<IList<TrayCommand>> liveSnapshot = () => TrayMenuModel.Create(State(), livePreferences, true, 0, p => { }, () => { }, r => {
+                Func<IList<TrayCommand>> liveSnapshot = () => TrayMenuModel.Create(State(), livePreferences, true, () => { }, () => { }, r => {
                     actionThread = Thread.CurrentThread.ManagedThreadId; executed++; livePreferences.GameMode = r.Value;
                 }, () => { });
                 using (var host = new TrayPopupHost(action => cover.BeginInvoke(action), ex => failure = ex, liveSnapshot)) {

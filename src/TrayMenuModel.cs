@@ -22,14 +22,13 @@ namespace AudioSwitch
             if (name.Contains("显示器") || name.Contains("hdmi") || name.Contains("displayport") || name.Contains("monitor")) return TrayGlyph.Monitor;
             return TrayGlyph.Speaker;
         }
-        internal static IList<TrayCommand> Create(AudioState state, Preferences preferences, bool browser, int pending,
-            Action<bool> open, Action openBrowser, Action<Request> request, Action exit)
+        internal static IList<TrayCommand> Create(AudioState state, Preferences preferences, bool browser,
+            Action openPanel, Action openBrowser, Action<Request> request, Action exit)
         {
             var items = new List<TrayCommand> {
-                new TrayCommand("打开主面板", TrayGlyph.Panel, () => open(false)) { Key = "panel", AnimateClose = true },
+                new TrayCommand("打开主面板", TrayGlyph.Panel, openPanel) { Key = "panel", AnimateClose = true },
                 new TrayCommand("在浏览器打开", TrayGlyph.Browser, openBrowser) { Key = "browser", Enabled = browser, AnimateClose = true }
             };
-            if (pending > 0) items.Add(new TrayCommand("处理设备变化", TrayGlyph.Devices, () => open(true)) { Key = "pending", BreakBefore = true, AnimateClose = true });
             foreach (int flow in new[] { 0, 1 }) {
                 string current = state.Default(flow, 1);
                 var children = new List<TrayCommand>();

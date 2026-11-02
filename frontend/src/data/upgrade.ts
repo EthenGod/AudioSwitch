@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../version'
 import type { UpgradeJob, UpgradeKind } from './types'
 import { demoNotes } from './demoNotes'
 export const upgradeActive = (job: UpgradeJob | null) => !!job && ['checking', 'available', 'repairable', 'downloading', 'ready', 'installing'].includes(job.Status)
@@ -25,7 +26,7 @@ export function mockUpgrade(includePrerelease: () => boolean = () => false) {
     async readUpgrade(token: string) {
       const j = current(token)
       if (Date.now() >= finish) {
-        if (j.Status === 'checking') Object.assign(j, { Status:j.Kind === 'update' ? 'available' : 'repairable', Message:j.Kind === 'update' ? '示例：发现可安装版本。' : '示例：发现文件缺损，可下载完整包修复。', Version: j.Kind === 'repair' ? 'v0.12.1（示例）' : includePrerelease() ? 'v0.13.0（测试版示例）' : 'v0.12.2（正式版示例）', Notes: j.Kind === 'update' ? demoNotes : undefined, Directory: j.Kind === 'repair' ? '示例程序目录' : undefined, Entries: j.Kind === 'repair' ? ['通过：AudioSwitch.exe', '通过：AudioSwitch.exe.config', '缺失：audio-switch-panel.exe', '无法读取：vendor/svcl/svcl.exe'] : undefined, CanDownload:true })
+        if (j.Status === 'checking') Object.assign(j, { Status:j.Kind === 'update' ? 'available' : 'repairable', Message:j.Kind === 'update' ? '示例：发现可安装版本。' : '示例：发现文件缺损，可下载完整包修复。', Version: j.Kind === 'repair' ? `v${APP_VERSION}（示例）` : includePrerelease() ? 'v0.13.0（测试版示例）' : 'v0.12.3（正式版示例）', Notes: j.Kind === 'update' ? demoNotes : undefined, Directory: j.Kind === 'repair' ? '示例程序目录' : undefined, Entries: j.Kind === 'repair' ? ['通过：AudioSwitch.exe', '通过：AudioSwitch.exe.config', '缺失：audio-switch-panel.exe', '无法读取：vendor/svcl/svcl.exe'] : undefined, CanDownload:true })
         if (j.Status === 'downloading') Object.assign(j, { Status:'ready', Message:'模拟下载与校验完成。', Bytes:j.Total })
         if (j.Status === 'installing') Object.assign(j, { Status:'handoff', Message:'模拟交接结束。没有安装、退出或重启任何程序。' })
       } else if (j.Status === 'downloading') j.Bytes = Math.min(j.Total, j.Bytes + 1024 * 1024)
