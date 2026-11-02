@@ -8,8 +8,10 @@ export type Scenario = 'normal' | 'empty' | 'duplicate' | 'long' | 'loading' | '
 export type Page = 'devices' | 'automation' | 'settings'
 export interface Device {
   Id: string; Name: string; Flow: Flow; Online: boolean
+  SystemName?: string
   Connection: string; Kind: 'headphones' | 'speaker' | 'microphone' | 'monitor'
 }
+export interface AliasEdit { name: string; expected: string }
 export interface DeviceProfile {
   Volume: number | null
   /** null = keep current; empty string = off; otherwise a format ID. */
@@ -19,6 +21,7 @@ export interface Preferences {
   BrowserPort: number
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
   IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; IncludePrerelease: boolean; UpdateChannel: 'GitHub'; OpenPanelInBrowser: boolean; KeepBrowserPortOpen: boolean
+  DeviceAliases?: Record<string, string>
   DeviceProfiles: Record<string, DeviceProfile>
   DeviceRules: Record<string, DeviceRule>
   DeviceOrder: Record<Flow, string[]>
@@ -26,6 +29,7 @@ export interface Preferences {
 export type PreferenceKey = 'DarkMode' | 'GameMode' | 'AskOnConnect' | 'IncludeCommunications' | 'UseDevicePriority' | 'AutoUpdateEnabled' | 'IncludePrerelease' | 'OpenPanelInBrowser' | 'KeepBrowserPortOpen'
 export interface Snapshot {
   DolbyProfiles?: Record<string, DolbyProfile | null>
+  CanRenameDevices?: boolean
   CanEditDolby?: boolean
   CanApplyDolby?: boolean
   Devices: Device[]
@@ -86,7 +90,7 @@ export interface AudioGateway {
   read(): Promise<Snapshot>
   readDevice(id: string): Promise<DeviceDetails>
   switchDevice(id: string): Promise<Snapshot>
-  saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule, expectedProfile?: DeviceProfile | null, expectedRule?: DeviceRule): Promise<Snapshot>
+  saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule, expectedProfile?: DeviceProfile | null, expectedRule?: DeviceRule, rename?: AliasEdit): Promise<Snapshot>
   setPreference(key: PreferenceKey, value: boolean): Promise<Snapshot>
   setBrowserPort(port: number): Promise<Snapshot>
   setStartup(value: boolean): Promise<Snapshot>

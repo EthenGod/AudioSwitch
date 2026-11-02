@@ -1,4 +1,4 @@
-import type { Device, DeviceProfile, DeviceRule, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
+import type { Device, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scenario, Snapshot } from './types'
 import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
 import { mockUpgrade } from './upgrade'
 import { APP_VERSION } from '../version'
@@ -25,6 +25,7 @@ function initial(): Snapshot {
       DeviceRules: { 'demo-headphones': 2 },
       DeviceOrder: { 0: devices.filter(d => d.Flow === 0).map(d => d.Id), 1: devices.filter(d => d.Flow === 1).map(d => d.Id) },
     },
+    CanRenameDevices: true,
     StartupEnabled: false,
   }
 }
@@ -39,7 +40,14 @@ export function createMockGateway(latency = 260): PreviewGateway {
   let importSequence = 0
   let maintenance: MaintenanceJob | null = null, maintenanceSequence = 0, finishAt = 0
   const delay = (ms = latency) => new Promise<void>(resolve => setTimeout(resolve, ms))
-  const copy = () => structuredClone(state)
+  const copy = () => {
+    const snapshot = structuredClone(state)
+    for (const row of snapshot.Devices) {
+      const alias = snapshot.Preferences.DeviceAliases?.[row.Id]
+      if (alias) { row.SystemName = row.Name; row.Name = alias }
+    }
+    return snapshot
+  }
   const device = (id: string) => {
     const found = state.Devices.find(d => d.Id === id)
     if (!found) throw new Error('设备已不在列表中，请刷新后重试。')
@@ -148,11 +156,17 @@ export function createMockGateway(latency = 260): PreviewGateway {
       if (state.Preferences.IncludeCommunications) state.Defaults[`${selected.Flow}:2`] = id
       return copy()
     },
-    async saveDevice(id: string, profile: DeviceProfile, rule: DeviceRule) {
+    async saveDevice(id, profile, rule, _expectedProfile, _expectedRule, rename) {
       await delay()
       const selected = device(id)
       if (profile.Volume !== null && (!Number.isInteger(profile.Volume) || profile.Volume < 0 || profile.Volume > 100)) throw new Error('音量需要是 0 到 100 的整数。')
       if (![0, 1, 2].includes(rule)) throw new Error('请选择有效的白名单规则。')
+      if (rename) {
+        const aliases = state.Preferences.DeviceAliases ??= {}
+        if ((aliases[id] ?? '') !== rename.expected) throw new Error('设备名称已被其他窗口修改')
+        if (rename.name) aliases[id] = rename.name
+        else delete aliases[id]
+      }
       const previous = state.Preferences.DeviceProfiles[id]
       state.Preferences.DeviceProfiles[id] = {
         Volume: profile.Volume,

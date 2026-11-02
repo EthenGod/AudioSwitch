@@ -1,7 +1,7 @@
 import { UpgradeScroll } from './UpgradeScroll'
 import { useEffect, useRef, useState } from 'react'
 import { Headphones, Info, Volume2, Shield, Sparkles } from 'lucide-react'
-import type { Device, DeviceDetails, DeviceProfile, DeviceRule, Snapshot, UiGateway } from '@/data/types'
+import type { AliasEdit, Device, DeviceDetails, DeviceProfile, DeviceRule, Snapshot, UiGateway } from '@/data/types'
 import { SONIC_FORMAT } from '@/data/mock'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
@@ -13,7 +13,7 @@ import { OperationFailure } from '@/data/desktop'
 
 export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway, saveError, onClose: finishClose, onSave, onDolbySaved, onDolbyFailure, onDolbyResult }: {
   device: Device; snapshot: Snapshot; busy: boolean; readOnly?: boolean; gateway: UiGateway; saveError?: string; onClose: () => void
-  onSave: (profile: DeviceProfile, rule: DeviceRule, expectedProfile: DeviceProfile | null, expectedRule: DeviceRule) => Promise<boolean>
+  onSave: (profile: DeviceProfile, rule: DeviceRule, expectedProfile: DeviceProfile | null, expectedRule: DeviceRule, rename?: AliasEdit) => Promise<boolean>
   onDolbySaved: (snapshot: Snapshot) => void; onDolbyFailure: (error: OperationFailure) => void
   onDolbyResult?: (text: string, error: boolean) => void
 }) {
@@ -24,6 +24,8 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
   const [dolbyOpen, setDolbyOpen] = useState(false)
   const [baseline] = useState(() => snapshot.Preferences.DeviceProfiles[device.Id] ?? null)
   const [baselineRule] = useState(() => snapshot.Preferences.DeviceRules[device.Id] ?? 0)
+  const [originalAlias] = useState(() => snapshot.Preferences.DeviceAliases?.[device.Id] ?? '')
+  const [alias, setAlias] = useState(originalAlias)
   const initial = baseline ?? { Volume: null, SpatialFormat: null }
   const [details, setDetails] = useState<DeviceDetails | null>(null)
   const [reading, setReading] = useState(desktop && !readOnly && device.Online)
@@ -48,7 +50,9 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
   const volumeHelp = desktop && !readOnly ? volumeUnavailable ? `${details?.VolumeError || '当前音量不可读'}；保留原预设` : `当前音量 ${details?.CurrentVolume}%` : ''
   const knownSpatial = ['keep', 'off', ...options.map(o => o.Id)].includes(spatial)
   async function save() {
-    const okay = await onSave({ Volume: useVolume ? volume : null, SpatialFormat: spatial === 'keep' ? null : spatial === 'off' ? '' : spatial }, rule, baseline, baselineRule)
+    const name = alias.trim()
+    const rename = snapshot.CanRenameDevices && name !== originalAlias ? { name, expected: originalAlias } : undefined
+    const okay = await onSave({ Volume: useVolume ? volume : null, SpatialFormat: spatial === 'keep' ? null : spatial === 'off' ? '' : spatial }, rule, baseline, baselineRule, rename)
     if (okay) onClose()
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open && !busy) onClose() }}>
@@ -57,6 +61,9 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
       {(!desktop || readOnly) && <div className="sheet-preview"><Info size={14} />{readOnly ? '只读：已保存的预设，不代表当前音效状态' : '界面预览，操作不会改变系统设置'}</div>}
       <UpgradeScroll className="">
         <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">离线</span>}</div>
+        {snapshot.CanRenameDevices && <section className="sheet-section device-alias"><h3><label htmlFor="device-alias">自定义名称</label></h3>
+          <input id="device-alias" type="text" maxLength={64} placeholder={device.SystemName ?? device.Name} value={alias} disabled={busy || readOnly} onChange={e => setAlias(e.target.value)} />
+        </section>}
         {reading && <p role="status">正在读取当前音量和支持的空间音效…</p>}
         {readError && <p role="alert" className="field-help">{readError} 未能读取的字段保留原值</p>}
         {saveError && <p role="alert" className="field-help">{saveError}</p>}

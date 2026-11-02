@@ -40,7 +40,16 @@ export function mapPrompt(value: unknown): PromptState {
       if (!/^[01]:[012]$/.test(key) || (id !== null && typeof id !== 'string')) throw invalid()
       if (typeof id === 'string' && id) previous[key as keyof typeof previous] = id
     }
-    return { Token: p.Token, Flow: p.Flow, NewIds: ids(p.NewDevices), Disconnected: ids(p.DisconnectedDevices).length > 0, PreviousName: p.PreviousName, PreviousDefaults: previous }
+    const lost = ids(p.DisconnectedDevices)
+    const aliases = snapshot.Preferences.DeviceAliases
+    let previousName = p.PreviousName
+    if (lost.some(id => aliases?.[id])) {
+      previousName = lost.map((id, index) => aliases?.[id] ?? String((raw.DisconnectedDevices[index] as { Name?: string }).Name ?? id)).join('、')
+    } else if (!lost.length) {
+      const id = previous[`${p.Flow}:1`]
+      if (id && aliases?.[id]) previousName = aliases[id]
+    }
+    return { Token: p.Token, Flow: p.Flow, NewIds: ids(p.NewDevices), Disconnected: lost.length > 0, PreviousName: previousName, PreviousDefaults: previous }
   })
   return { snapshot, pending }
 }

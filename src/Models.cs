@@ -111,6 +111,12 @@ namespace AudioSwitch
 
     public sealed class Preferences
     {
+        public Dictionary<string, string> DeviceAliases { get; set; }
+        internal string DisplayName(Endpoint device)
+        {
+            string alias;
+            return DeviceAliases.TryGetValue(device.Id, out alias) ? alias : device.Name;
+        }
         public bool GameMode { get; set; }
         public bool AutoUpdateEnabled { get; set; }
         public bool IncludePrerelease { get; set; }
@@ -126,7 +132,7 @@ namespace AudioSwitch
         public bool UseDevicePriority { get; set; }
         public List<Endpoint> DeviceOrder { get; set; }
         public Dictionary<string, DeviceRule> DeviceRules { get; set; }
-        public Preferences() { UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
+        public Preferences() { DeviceAliases = new Dictionary<string, string>(); UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
     }
 
     public enum DeviceRule { Normal = 0, AcceptSystem = 1, SwitchOnConnect = 2 }
@@ -144,6 +150,8 @@ namespace AudioSwitch
         public int? BrowserPort { get; set; }
         public DeviceProfile Profile { get; set; }
         // Optimistic check for the basic editor; Dolby remains owned by the backend.
+        public string DeviceAlias { get; set; }
+        public string ExpectedDeviceAlias { get; set; }
         public DeviceProfile ExpectedProfile { get; set; }
         public DolbyProfile DolbyProfile { get; set; }
         public DolbyProfile ExpectedDolbyProfile { get; set; }

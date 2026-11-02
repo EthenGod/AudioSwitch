@@ -6,6 +6,10 @@ use serde_json::{json, Value};
 pub struct BasicProfile { pub volume: Option<u8>, pub spatial_format: Option<String> }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AliasEdit { name: String, expected: String }
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, UseDevicePriority, AutoUpdateEnabled, IncludePrerelease, OpenPanelInBrowser, KeepBrowserPortOpen }
 
@@ -13,7 +17,7 @@ pub enum Preference { DarkMode, GameMode, AskOnConnect, IncludeCommunications, U
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
 pub enum Action {
     Switch { id: String },
-    SaveBasic { id: String, profile: BasicProfile, expected_profile: Option<BasicProfile>, rule: u8, expected_rule: u8 },
+    SaveBasic { id: String, profile: BasicProfile, expected_profile: Option<BasicProfile>, rule: u8, expected_rule: u8, rename: Option<AliasEdit> },
     Preference { key: Preference, value: bool },
     BrowserPort { port: u16 },
     Reorder { flow: u8, ids: Vec<String> },
@@ -40,10 +44,11 @@ impl Action {
                 if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 9 { return Err("自定义端口需要新版后台。".into()); }
                 json!({"Action":"browserPort", "BrowserPort":port})
             },
-            Self::SaveBasic { id: device, profile: next, expected_profile, rule, expected_rule } => {
+            Self::SaveBasic { id: device, profile: next, expected_profile, rule, expected_rule, rename } => {
                 id(device)?;
                 if *rule > 2 || *expected_rule > 2 { return Err("白名单规则无效。".into()); }
-                json!({"Action":"saveBasicDeviceSettings", "DeviceId":device, "Profile":profile(next)?,
+                if rename.is_some() && snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 11 { return Err("自定义设备名称需要新版后台。".into()); }
+                json!({"Action":"saveBasicDeviceSettings", "DeviceAlias":rename.as_ref().map(|r| &r.name), "ExpectedDeviceAlias":rename.as_ref().map(|r| &r.expected), "DeviceId":device, "Profile":profile(next)?,
                     "ExpectedProfile":expected_profile.as_ref().map(profile).transpose()?, "DeviceRule":rule, "ExpectedDeviceRule":expected_rule, "Value":false})
             },
             Self::Preference { key, value } => json!({"Action":match key {
@@ -125,6 +130,14 @@ mod tests {
         assert_eq!(request["Profile"]["Volume"], 0); assert_eq!(request["Profile"]["SpatialFormat"], Value::Null);
         assert!(request["Profile"].get("Dolby").is_none());
         assert!(action.request(&json!({})).is_err());
+    }
+    #[test]
+    fn renaming_requires_new_backend_and_carries_expected_name() {
+        let action: Action = serde_json::from_value(json!({"kind":"saveBasic","id":"speaker","profile":{"Volume":null,"SpatialFormat":null},"rule":0,"expectedRule":0,"rename":{"name":"书桌","expected":"旧名"}})).unwrap();
+        assert!(action.request(&json!({"PanelApiVersion":10})).is_err());
+        let request = action.request(&json!({"PanelApiVersion":11})).unwrap();
+        assert_eq!(request["DeviceAlias"], "书桌");
+        assert_eq!(request["ExpectedDeviceAlias"], "旧名");
     }
     #[test]
     fn startup_uses_backend_path_and_keeps_expected_registration() {

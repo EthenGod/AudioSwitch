@@ -81,7 +81,14 @@ export function mapSnapshot(value: unknown): Snapshot {
     if (rule !== 0 && rule !== 1 && rule !== 2) throw invalid()
     rules[id] = rule
   }
+  const aliases: Record<string, string> = Object.create(null)
+  for (const [id, alias] of Object.entries(object(prefs.DeviceAliases ?? {}))) {
+    aliases[id] = string(alias)
+    const device = devices.get(id)
+    if (device) { device.SystemName = device.Name; device.Name = aliases[id] }
+  }
   const preferences: Preferences = {
+    DeviceAliases: aliases,
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
     DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),
@@ -89,6 +96,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   }
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
+    CanRenameDevices: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 11,
     DolbyProfiles: dolbyProfiles, CanEditDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 4,
     CanApplyDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 5,
     StartupEnabled: boolean(startup.Enabled), StartupMessage: optionalText(startup.Message),
@@ -181,6 +189,7 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
         const saved = actual.Preferences.DeviceProfiles[action.id as string], requested = action.profile as DeviceProfile
         matched = !!saved && saved.Volume === requested.Volume && saved.SpatialFormat === requested.SpatialFormat
           && (actual.Preferences.DeviceRules[action.id as string] ?? 0) === action.rule
+          && (!action.rename || (actual.Preferences.DeviceAliases?.[action.id as string] ?? '') === (action.rename as { name: string }).name)
       }
       if (action.kind === 'reorder') {
         const order = actual.Preferences.DeviceOrder[action.flow as Flow], requested = action.ids as string[]
@@ -309,10 +318,11 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       return request
     },
     switchDevice: id => mutate({ kind: 'switch', id }),
-    saveDevice: (id, profile, rule, expectedProfile, expectedRule) => {
+    saveDevice: (id, profile, rule, expectedProfile, expectedRule, rename) => {
       if (!snapshot?.CanWrite) return Promise.reject(new OperationFailure('当前后台只支持只读，请使用第三阶段后台。'))
       if (expectedProfile === undefined || expectedRule === undefined) return Promise.reject(new OperationFailure('缺少原预设，请重新打开设备设置。'))
-      return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule })
+      if (rename && !snapshot.CanRenameDevices) return Promise.reject(new OperationFailure('自定义设备名称需要新版后台'))
+      return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule, ...(rename && { rename }) })
     },
     setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
     setBrowserPort: port => {

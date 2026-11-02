@@ -3,6 +3,16 @@ import { createDesktopGateway, mapSnapshot } from './desktop'
 import { backendFixture } from '../test/backendFixture'
 
 describe('read-only backend boundary', () => {
+  it('maps aliases by endpoint ID and keeps the original name and icon', () => {
+    const raw = backendFixture()
+    const result = mapSnapshot({ ...raw, PanelApiVersion: 11, Preferences: { ...raw.Preferences, DeviceAliases: { 'endpoint-b': '耳机', offline: '书桌' } } })
+    expect(result.CanRenameDevices).toBe(true)
+    expect(result.Devices.find(row => row.Id === 'endpoint-a')?.Name).toBe('同名扬声器')
+    expect(result.Devices.find(row => row.Id === 'endpoint-b')).toMatchObject({ Name: '耳机', SystemName: '同名扬声器', Kind: 'speaker' })
+    expect(result.Devices.find(row => row.Id === 'offline')).toMatchObject({ Name: '书桌', Online: false })
+    expect(mapSnapshot(raw).CanRenameDevices).toBe(false)
+  })
+
   it('uses endpoint form factors by ID, with safe old-backend and offline fallbacks', () => {
     const raw = backendFixture()
     const current = mapSnapshot({ ...raw, State: { ...raw.State, FormFactors: { 'endpoint-a': 3, 'endpoint-b': 9, mic: 5 } } })

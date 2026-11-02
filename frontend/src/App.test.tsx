@@ -14,6 +14,23 @@ async function setup() {
 }
 
 describe('preview workflows', () => {
+  it('saves an alias and restores the system name when cleared', async () => {
+    const { user } = await setup()
+    const open = () => user.click(screen.getByRole('button', { name: '设置当前输出' }))
+    const save = async () => {
+      await user.click(screen.getByRole('button', { name: '仅保存（模拟）' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    }
+    await open()
+    await user.type(screen.getByRole('textbox', { name: '自定义名称' }), '书房')
+    await save()
+    expect(screen.getByRole('heading', { name: '书房' })).toBeVisible()
+    await open()
+    await user.clear(screen.getByRole('textbox', { name: '自定义名称' }))
+    await save()
+    expect(screen.getByRole('heading', { name: 'Studio 耳机' })).toBeVisible()
+  })
+
   it('keeps the heading outside navigation motion and closes only the top sheet on outside click', async () => {
     const { user } = await setup()
     expect(screen.getByRole('heading', { name: '声音设备' }).closest('.page-content')).toBeNull()

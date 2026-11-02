@@ -34,12 +34,12 @@ namespace AudioSwitch
                 var children = new List<TrayCommand>();
                 foreach (var device in DevicePriority.Ordered(state.Devices, preferences, state, flow)) {
                     string id = device.Id;
-                    children.Add(new TrayCommand(device.Name, DeviceGlyph(device, state), () => request(new Request { Action = "switch", DeviceId = id })) { Key = "device:" + id, KeepOpen = true, Checked = current == id });
+                    children.Add(new TrayCommand(preferences.DisplayName(device), DeviceGlyph(device, state), () => request(new Request { Action = "switch", DeviceId = id })) { Key = "device:" + id, KeepOpen = true, Checked = current == id });
                 }
                 if (children.Count == 0) children.Add(new TrayCommand("暂无可用设备", flow == 0 ? TrayGlyph.Output : TrayGlyph.Microphone) { Key = "empty:" + flow, Enabled = false });
                 var selected = state.Devices.FirstOrDefault(d => d.Id == current);
                 items.Add(new TrayCommand(flow == 0 ? "声音输出" : "麦克风输入", selected == null ? (flow == 0 ? TrayGlyph.Speaker : TrayGlyph.Microphone) : DeviceGlyph(selected, state)) {
-                    Key = "flow:" + flow, Detail = selected == null ? "暂无默认设备" : selected.Name, Children = children, BreakBefore = flow == 0
+                    Key = "flow:" + flow, Detail = selected == null ? "暂无默认设备" : preferences.DisplayName(selected), Children = children, BreakBefore = flow == 0
                 });
             }
             bool priority = preferences.UseDevicePriority;

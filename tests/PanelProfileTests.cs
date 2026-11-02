@@ -10,6 +10,7 @@ namespace AudioSwitch
         internal static void Run(Action<bool, string> check)
         {
             FirstDolbySave(check);
+            DeviceAliases(check);
             var preferences = new Preferences();
             var state = new AudioState();
             state.Devices.Add(new Endpoint { Id = "online", Name = "同名设备", Flow = 0 });
@@ -53,6 +54,27 @@ namespace AudioSwitch
             check(preferences.DeviceProfiles.ContainsKey("mic") && saves == 3, "panel saves absent profile without capturing current volume");
             request.DeviceId = "missing";
             Reject(delegate { PanelProfile.SaveBasic(preferences, state, request, delegate { saves++; }); }, check, "panel rejects unknown endpoint");
+        }
+        private static void DeviceAliases(Action<bool, string> check)
+        {
+            var p = new Preferences();
+            var state = new AudioState();
+            var online = new Endpoint { Id = "a", Name = "USB", Flow = 0 };
+            var offline = new Endpoint { Id = "b", Name = "USB", Flow = 0 };
+            state.Devices.Add(online); p.DeviceOrder.Add(offline);
+            var edit = new Request { DeviceId = "b", DeviceAlias = "卧室音箱", ExpectedDeviceAlias = "",
+                Profile = new DeviceProfile(), DeviceRule = DeviceRule.Normal, ExpectedDeviceRule = DeviceRule.Normal };
+            PanelProfile.SaveBasic(p, state, edit, delegate { });
+            var restored = PreferenceStore.Parse(PreferenceStore.Export(p));
+            check(restored.DisplayName(online) == "USB" && restored.DisplayName(offline) == "卧室音箱" && offline.Name == "USB", "offline alias follows ID across backup round trip");
+            edit.DeviceAlias = "";
+            Reject(delegate { PanelProfile.SaveBasic(p, state, edit, delegate { }); }, check, "stale editor cannot clear a newer alias");
+            edit.ExpectedDeviceAlias = "卧室音箱";
+            Reject(delegate { PanelProfile.SaveBasic(p, state, edit, delegate { throw new InvalidOperationException(); }); }, check, "alias persistence failure is reported");
+            check(p.DisplayName(offline) == "卧室音箱", "failed alias save rolls back");
+            PanelProfile.SaveBasic(p, state, edit, delegate { });
+            check(!PreferenceStore.Export(p).Contains("\"DeviceAliases\""), "clearing the last alias retains the older backup format");
+            check(!p.DeviceAliases.ContainsKey("b") && p.DisplayName(offline) == "USB", "clearing alias restores OS name");
         }
         private static void FirstDolbySave(Action<bool, string> check)
         {

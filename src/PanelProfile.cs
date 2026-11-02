@@ -45,10 +45,21 @@ namespace AudioSwitch
             next.Volume = request.Profile.Volume;
             next.SpatialFormat = device.Flow == 1 && current != null ? current.SpatialFormat : request.Profile.SpatialFormat;
             DeviceProfiles.Validate(next, device.Flow);
+            string originalAlias;
+            preferences.DeviceAliases.TryGetValue(request.DeviceId, out originalAlias);
+            if (request.DeviceAlias != null)
+            {
+                if ((originalAlias ?? "") != request.ExpectedDeviceAlias)
+                    throw new InvalidOperationException("设备名称已被其他窗口修改，请重新打开设备设置。");
+                if (request.DeviceAlias.Length > 0 && !PreferenceStore.ValidAlias(request.DeviceAlias))
+                    throw new InvalidOperationException("设备名称无效，最多可输入 64 个字符。");
+            }
             var originalRule = DeviceAutomation.Rule(preferences, request.DeviceId);
             try
             {
                 preferences.DeviceProfiles[request.DeviceId] = next;
+                if (request.DeviceAlias == "") preferences.DeviceAliases.Remove(request.DeviceId);
+                else if (request.DeviceAlias != null) preferences.DeviceAliases[request.DeviceId] = request.DeviceAlias;
                 if (request.DeviceRule.Value == DeviceRule.Normal) preferences.DeviceRules.Remove(request.DeviceId);
                 else preferences.DeviceRules[request.DeviceId] = request.DeviceRule.Value;
                 persist();
@@ -57,6 +68,8 @@ namespace AudioSwitch
             {
                 if (current == null) preferences.DeviceProfiles.Remove(request.DeviceId);
                 else preferences.DeviceProfiles[request.DeviceId] = current;
+                if (originalAlias == null) preferences.DeviceAliases.Remove(request.DeviceId);
+                else preferences.DeviceAliases[request.DeviceId] = originalAlias;
                 if (originalRule == DeviceRule.Normal) preferences.DeviceRules.Remove(request.DeviceId);
                 else preferences.DeviceRules[request.DeviceId] = originalRule;
                 throw;

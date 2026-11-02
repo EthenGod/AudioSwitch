@@ -65,7 +65,13 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.ContainsKey("DeviceAliases"))
+            {
+                var aliases = settings["DeviceAliases"] as Dictionary<string, object>;
+                if (aliases == null || aliases.Values.Any(value => !(value is string)))
+                    throw new InvalidOperationException("自定义名称必须是按设备 ID 保存的文本。");
+            }
             if (settings.ContainsKey("UpdateChannel") && !String.Equals(settings["UpdateChannel"] as string, "GitHub", StringComparison.Ordinal)) throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
             if (settings.ContainsKey("BrowserPort") && !(settings["BrowserPort"] is int)) throw new InvalidOperationException("浏览器端口必须为整数。");
             foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "IncludePrerelease", "OpenPanelInBrowser", "KeepBrowserPortOpen" })
@@ -106,11 +112,18 @@ namespace AudioSwitch
                 }
             }
         }
+        internal static bool ValidAlias(string value)
+        {
+            return !String.IsNullOrWhiteSpace(value) && value.Length <= 64 && value == value.Trim() && !value.Any(Char.IsControl);
+        }
         private static void Validate(Preferences preferences)
         {
             if (preferences == null) throw new InvalidOperationException("缺少配置。");
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
             if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
+            if (preferences.DeviceAliases == null || preferences.DeviceAliases.Any(pair =>
+                String.IsNullOrWhiteSpace(pair.Key) || !ValidAlias(pair.Value)))
+                throw new InvalidOperationException("自定义名称无效，最多可输入 64 个字符。");
             if (preferences.DeviceProfiles == null) preferences.DeviceProfiles = new Dictionary<string, DeviceProfile>();
             if (preferences.DeviceRules == null) preferences.DeviceRules = new Dictionary<string, DeviceRule>();
             if (preferences.DeviceOrder == null) preferences.DeviceOrder = new List<Endpoint>();
@@ -129,7 +142,10 @@ namespace AudioSwitch
         internal static string Export(Preferences preferences)
         {
             var copy = Wire.Decode<Preferences>(Wire.Encode(preferences)); Validate(copy);
-            string json = Pretty(Wire.Encode(new ConfigurationFile { Format = "AudioSwitch.Settings", Version = 1, Settings = copy }));
+            // Older releases reject unknown fields. Keep their format when no names are customized.
+            var settings = Wire.Decode<Dictionary<string, object>>(Wire.Encode(copy));
+            if (copy.DeviceAliases.Count == 0) settings.Remove("DeviceAliases");
+            string json = Pretty(Wire.Encode(new { Format = "AudioSwitch.Settings", Version = 1, Settings = settings }));
             if (Encoding.UTF8.GetByteCount(json) > MaxBytes) throw new InvalidOperationException("配置超过 1 MiB，无法保存。");
             return json;
         }

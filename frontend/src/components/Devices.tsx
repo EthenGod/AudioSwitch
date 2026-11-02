@@ -11,7 +11,7 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
 }) {
   const [filter, setFilter] = useState<Flow | -1>(-1)
   const [query, setQuery] = useState('')
-  const visible = snapshot.Devices.filter(d => (filter === -1 || d.Flow === filter) && `${d.Name} ${d.Connection}`.toLowerCase().includes(query.toLowerCase().trim()))
+  const visible = snapshot.Devices.filter(d => (filter === -1 || d.Flow === filter) && `${d.Name} ${d.SystemName ?? ''} ${d.Connection}`.toLowerCase().includes(query.toLowerCase().trim()))
   return <>
     <div className="summary-grid">{([0, 1] as Flow[]).map(flow => {
       const current = snapshot.Devices.find(d => d.Id === snapshot.Defaults[`${flow}:1`])
