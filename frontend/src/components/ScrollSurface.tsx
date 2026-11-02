@@ -12,7 +12,12 @@ export function ScrollSurface({ children, className, bodyClassName = '', main = 
     let overflow = false, range = 0, travel = 0, size = 0
     let drag: { id: number; y: number; scroll: number } | null = null
     const updateThumb = () => {
-      if (overflow) grip.style.transform = `translateY(${Math.max(0, Math.min(1, outer.scrollTop / range)) * travel}px)`
+      if (!overflow) return
+      // Offset by the rendered thumb height so its bottom stays on the rail
+      // even when the user scrolls halfway through a length transition.
+      const percent = Math.max(0, Math.min(1, outer.scrollTop / range)) * 100
+      grip.style.top = `${percent}%`
+      grip.style.transform = `translateY(${-percent}%)`
     }
     const measure = () => {
       const style = getComputedStyle(outer)

@@ -65,8 +65,10 @@ html:has(.prompt-shell), body:has(.prompt-shell), #root:has(.prompt-shell) { hei
 .prompt-tools { display: flex; margin-left: auto; gap: 2px; }
 .prompt-tools [data-slot=button] { border-radius: calc(var(--radius-panel) - 8px); }
 .prompt-preview { padding: 4px 20px; font-size: var(--font-caption); color: var(--muted-foreground); background: var(--card); }
-.prompt-content { display: flex; flex-direction: column; padding: 16px 20px; overflow-wrap: anywhere; }
-.prompt-content > .scroll-body { flex-shrink: 0; margin-block: auto; }
+.prompt-content { padding: 24px 20px; overflow-wrap: anywhere; }
+/* The native window and the selector can resize on different frames. Anchor the
+   heading to the top, and keep the rail inside the existing side padding. */
+.prompt-shell .scroll-surface[data-overflow=true] > .prompt-content > .scroll-body { margin-right: 0; }
 .prompt-event[data-advance] { animation: prompt-event-in 250ms ease-out both; }
 @keyframes prompt-event-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .prompt-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
@@ -103,12 +105,6 @@ html:has(.prompt-shell), body:has(.prompt-shell), #root:has(.prompt-shell) { hei
 .prompt-preview-stage:has(.prompt-shell[data-compact=true]) { height: 328px; }
 .prompt-preview-stage:has(.prompt-shell[data-compact=true][data-choosing=true]) { height: 372px; }
 .prompt-preview-stage .prompt-shell { height: 100%; }
-@media (max-height: 260px) {
-  .prompt-header { padding: 8px 8px 4px 16px; }
-  .prompt-content { padding: 8px 16px; }
-  .prompt-actions { padding: 8px 16px; }
-  .prompt-actions button { min-height: 32px; }
-}
 
 /* Radix steps: 1–2 surfaces, 3–5 interaction, 6–8 borders, 9–10 fills, 11–12 text. */
 :root {
@@ -329,7 +325,11 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .scroll-surface[data-ready=true][data-overflow=true] > .scroll-viewport > .scroll-body { transition-duration: var(--motion-enter); transition-timing-function: ease-out; }
 .scroll-rail { position: absolute; top: 6px; right: 0; bottom: 6px; width: 10px; opacity: 0; visibility: hidden; pointer-events: none; touch-action: none; user-select: none; transition: opacity var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }
 .scroll-surface[data-overflow=true] > .scroll-rail { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity var(--motion-enter) ease-out, visibility 0s; }
-.scroll-thumb { width: 6px; margin-inline: 2px; border-radius: 3px; background: var(--slate-7); transition: background var(--motion-fast) ease-out; }
+.scroll-thumb { position: relative; width: 6px; margin-inline: 2px; border-radius: 3px; background: var(--slate-7); transition: background var(--motion-fast) ease-out; }
+.scroll-surface[data-ready=true] > .main-content + .scroll-rail .scroll-thumb {
+  transition: height var(--motion-enter) cubic-bezier(.2,0,.2,1), background var(--motion-fast) ease-out;
+}
+.scroll-surface[data-ready=true] > .main-content + .scroll-rail:active .scroll-thumb { transition-duration: 0s, var(--motion-fast); }
 .scroll-rail:hover .scroll-thumb, .scroll-rail:active .scroll-thumb { background: var(--slate-9); }
 @media (forced-colors: active) { .scroll-thumb { background: CanvasText; forced-color-adjust: none; } }
 .upgrade-status { position: relative; display: flex; flex-direction: column; justify-content: center; overflow: clip; margin: 12px 0; padding: 12px 16px; min-height: 48px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
