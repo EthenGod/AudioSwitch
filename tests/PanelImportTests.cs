@@ -47,6 +47,16 @@ namespace AudioSwitch
             string backup; var result = PreferenceStore.Import(path, prepared.ConfigurationJson, current, out backup);
             check(Wire.Encode(PreferenceStore.Parse(File.ReadAllText(backup))) == Wire.Encode(PreferenceStore.Parse(before)), "confirmed import keeps complete recoverable backup");
             check(Wire.Encode(result) == Wire.Encode(incoming) && Wire.Encode(state) == originalState, "confirmed configuration import does not alter audio state");
+            current.RecentDeviceAliases.Add("本机词条");
+            incoming.RecentDeviceAliases.Add("外机词条");
+            incoming.DeviceAliases["online"] = "导入的设备名";
+            var oldBackup = Wire.Encode(new ConfigurationFile { Format = "AudioSwitch.Settings", Version = 1, Settings = incoming });
+            DeviceAliasCache.Save(folder, current.RecentDeviceAliases);
+            result = PreferenceStore.Import(path, oldBackup, current, out backup);
+            check(result.DeviceAliases["online"] == "导入的设备名" && result.RecentDeviceAliases.SequenceEqual(current.RecentDeviceAliases), "import transfers assigned names but keeps local suggestions");
+            check(!File.ReadAllText(backup).Contains("RecentDeviceAliases") && !File.ReadAllText(path).Contains("RecentDeviceAliases"), "settings and their backups exclude local history");
+            check(DeviceAliasCache.Load(folder, new Preferences().RecentDeviceAliases).SequenceEqual(current.RecentDeviceAliases)
+                && DeviceAliasCache.Load(Path.Combine(folder, "another-computer"), new Preferences().RecentDeviceAliases).Count == 0, "local cache survives restart and a fresh computer starts empty");
         }
         private static void Reject(Action action, Action<bool, string> check, string description)
         {

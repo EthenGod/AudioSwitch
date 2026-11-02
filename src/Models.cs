@@ -112,6 +112,8 @@ namespace AudioSwitch
     public sealed class Preferences
     {
         public Dictionary<string, string> DeviceAliases { get; set; }
+        public List<string> RecentDeviceAliases { get; set; }
+        internal const int AliasHistoryLimit = 20;
         internal string DisplayName(Endpoint device)
         {
             string alias;
@@ -132,7 +134,7 @@ namespace AudioSwitch
         public bool UseDevicePriority { get; set; }
         public List<Endpoint> DeviceOrder { get; set; }
         public Dictionary<string, DeviceRule> DeviceRules { get; set; }
-        public Preferences() { DeviceAliases = new Dictionary<string, string>(); UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
+        public Preferences() { RecentDeviceAliases = new List<string>(); DeviceAliases = new Dictionary<string, string>(); UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
     }
 
     public enum DeviceRule { Normal = 0, AcceptSystem = 1, SwitchOnConnect = 2 }

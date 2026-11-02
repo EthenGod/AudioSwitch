@@ -18,7 +18,7 @@ function initial(): Snapshot {
     Devices: structuredClone(devices),
     Defaults: { '0:0': 'demo-headphones', '0:1': 'demo-headphones', '0:2': 'demo-speakers', '1:0': 'demo-microphone', '1:1': 'demo-microphone', '1:2': 'demo-microphone' },
     Preferences: {
-      BrowserPort: 0,
+      BrowserPort: 0, RecentDeviceAliases: [],
       DarkMode: true, GameMode: false, AskOnConnect: true, IncludeCommunications: true,
       UseDevicePriority: true, AutoUpdateEnabled: true, IncludePrerelease: false, UpdateChannel: 'GitHub', OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
       DeviceProfiles: { 'demo-headphones': { Volume: 65, SpatialFormat: null }, 'demo-bluetooth': { Volume: 45, SpatialFormat: '' } },
@@ -31,8 +31,9 @@ function initial(): Snapshot {
 }
 
 /** All state lives in this closure. No network, filesystem, storage or native API. */
-export function createMockGateway(latency = 260): PreviewGateway {
+export function createMockGateway(latency = 260, previewNames: string[] = []): PreviewGateway {
   let state = initial()
+  state.Preferences.RecentDeviceAliases = [...previewNames]
   let application: DolbyOperation | null = null, applicationReady = 0
   let dolbyRead: DolbyRead | null = null, dolbySequence = 0, dolbyReady = 0
   let scenario: Scenario = 'normal'
@@ -119,7 +120,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
     async confirmImport(token) {
       if (!token || token !== importToken) throw new Error('示例预览已失效，请重新选择。')
       importToken = ''; await delay()
-      state.Preferences = initial().Preferences
+      state.Preferences = { ...initial().Preferences, RecentDeviceAliases: state.Preferences.RecentDeviceAliases }
       return { snapshot: copy(), BackupPath: '模拟预览：没有读写文件或系统配置' }
     },
     async readDevice(id) {
@@ -164,6 +165,7 @@ export function createMockGateway(latency = 260): PreviewGateway {
       if (rename) {
         const aliases = state.Preferences.DeviceAliases ??= {}
         if ((aliases[id] ?? '') !== rename.expected) throw new Error('设备名称已被其他窗口修改')
+        if (rename.name) state.Preferences.RecentDeviceAliases = [...new Set([rename.name, ...(state.Preferences.RecentDeviceAliases ?? [])])].slice(0, 20)
         if (rename.name) aliases[id] = rename.name
         else delete aliases[id]
       }

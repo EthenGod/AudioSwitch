@@ -21,6 +21,7 @@ export interface Preferences {
   BrowserPort: number
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
   IncludeCommunications: boolean; UseDevicePriority: boolean; AutoUpdateEnabled: boolean; IncludePrerelease: boolean; UpdateChannel: 'GitHub'; OpenPanelInBrowser: boolean; KeepBrowserPortOpen: boolean
+  RecentDeviceAliases?: string[]
   DeviceAliases?: Record<string, string>
   DeviceProfiles: Record<string, DeviceProfile>
   DeviceRules: Record<string, DeviceRule>

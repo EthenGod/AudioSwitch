@@ -33,6 +33,7 @@
 | `src/DolbyProfiles.cs` | Dolby 参数校验、捕获、事务与恢复 |
 | `src/DolbyWorker.cs`、`DolbyNative.cs` | 可取消任务队列、独立进程、固定版本的 DAX RPC 适配 |
 | `src/PreferenceStore.cs`、`Ipc.cs` | 统一配置／备份、当前用户与会话隔离的命名管道 |
+| `src/DeviceAliasCache.cs` | 本机设备名补全历史，独立于可导出的配置 |
 | `src/Dashboard.cs`、`DevicePrompt.cs`、`*Dialog.cs`、`DolbyEditor.cs` | 面板、提示、设备设置、排序及 Dolby 编辑器 |
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |

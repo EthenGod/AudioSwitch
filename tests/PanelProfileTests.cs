@@ -73,7 +73,8 @@ namespace AudioSwitch
             Reject(delegate { PanelProfile.SaveBasic(p, state, edit, delegate { throw new InvalidOperationException(); }); }, check, "alias persistence failure is reported");
             check(p.DisplayName(offline) == "卧室音箱", "failed alias save rolls back");
             PanelProfile.SaveBasic(p, state, edit, delegate { });
-            check(!PreferenceStore.Export(p).Contains("\"DeviceAliases\""), "clearing the last alias retains the older backup format");
+            check(!PreferenceStore.Export(p).Contains("\"DeviceAliases\""), "clearing the last alias omits the assignment dictionary");
+            check(p.RecentDeviceAliases.SequenceEqual(new[] { "卧室音箱" }) && !PreferenceStore.Export(p).Contains("卧室音箱"), "cleared alias stays local and is absent from exported settings");
             check(!p.DeviceAliases.ContainsKey("b") && p.DisplayName(offline) == "USB", "clearing alias restores OS name");
         }
         private static void FirstDolbySave(Action<bool, string> check)

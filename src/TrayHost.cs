@@ -40,7 +40,8 @@ namespace AudioSwitch
         internal TrayHost(bool show, string updateIssue = null, Preferences startupPreferences = null)
         {
             var handle = dispatcher.Handle;
-            preferences = startupPreferences ?? LoadPreferences();
+            preferences = startupPreferences ?? PreferenceStore.Load(PreferenceStore.SettingsPath);
+            preferences.RecentDeviceAliases = DeviceAliasCache.Load(Program.DataDirectory, preferences.RecentDeviceAliases);
             Palette.Apply(preferences.DarkMode);
             audio = new AudioService();
             tracker = new ArrivalTracker(audio.Read());
@@ -259,6 +260,7 @@ namespace AudioSwitch
                     case "saveBasicDeviceSettings":
                         PanelProfile.SaveBasic(preferences, tracker.Current, request, SavePreferences);
                         preferencesSaved = true;
+                        if (!String.IsNullOrEmpty(request.DeviceAlias)) DeviceAliasCache.Save(Program.DataDirectory, preferences.RecentDeviceAliases);
                         presetWarnings.Remove(request.DeviceId);
                         break;
                     case "saveDolbyProfile":
@@ -417,10 +419,6 @@ namespace AudioSwitch
         private void ShowFrontend(bool prompt)
         {
             frontends.Show(prompt);
-        }
-        private static Preferences LoadPreferences()
-        {
-            return PreferenceStore.Load(PreferenceStore.SettingsPath);
         }
         private void SavePreferences()
         {

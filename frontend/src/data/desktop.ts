@@ -88,7 +88,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     if (device) { device.SystemName = device.Name; device.Name = aliases[id] }
   }
   const preferences: Preferences = {
-    DeviceAliases: aliases,
+    DeviceAliases: aliases, RecentDeviceAliases: array(prefs.RecentDeviceAliases ?? []).map(string),
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
     DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),

@@ -65,7 +65,13 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "RecentDeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.ContainsKey("RecentDeviceAliases"))
+            {
+                var history = settings["RecentDeviceAliases"] as object[];
+                if (history == null || history.Length > Preferences.AliasHistoryLimit || history.Any(name => !(name is string)))
+                    throw new InvalidOperationException("最近使用的设备名称列表无效。");
+            }
             if (settings.ContainsKey("DeviceAliases"))
             {
                 var aliases = settings["DeviceAliases"] as Dictionary<string, object>;
@@ -121,6 +127,9 @@ namespace AudioSwitch
             if (preferences == null) throw new InvalidOperationException("缺少配置。");
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
             if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
+            var history = preferences.RecentDeviceAliases;
+            if (history == null || history.Count > Preferences.AliasHistoryLimit || history.Any(name => !ValidAlias(name)) || history.Distinct().Count() != history.Count)
+                throw new InvalidOperationException("最近使用的设备名称列表无效。");
             if (preferences.DeviceAliases == null || preferences.DeviceAliases.Any(pair =>
                 String.IsNullOrWhiteSpace(pair.Key) || !ValidAlias(pair.Value)))
                 throw new InvalidOperationException("自定义名称无效，最多可输入 64 个字符。");
@@ -142,8 +151,9 @@ namespace AudioSwitch
         internal static string Export(Preferences preferences)
         {
             var copy = Wire.Decode<Preferences>(Wire.Encode(preferences)); Validate(copy);
-            // Older releases reject unknown fields. Keep their format when no names are customized.
+            // Older releases reject unknown fields. Omit empty alias fields to keep older configurations compatible.
             var settings = Wire.Decode<Dictionary<string, object>>(Wire.Encode(copy));
+            settings.Remove("RecentDeviceAliases");
             if (copy.DeviceAliases.Count == 0) settings.Remove("DeviceAliases");
             string json = Pretty(Wire.Encode(new { Format = "AudioSwitch.Settings", Version = 1, Settings = settings }));
             if (Encoding.UTF8.GetByteCount(json) > MaxBytes) throw new InvalidOperationException("配置超过 1 MiB，无法保存。");
@@ -165,7 +175,9 @@ namespace AudioSwitch
         }
         internal static Preferences Import(string path, string json, Preferences current, out string backupPath)
         {
-            var imported = Parse(json); string prepared = Export(imported);
+            var imported = Parse(json);
+            imported.RecentDeviceAliases = current.RecentDeviceAliases;
+            string prepared = Export(imported);
             backupPath = Backup(path, current, "before-import");
             WriteAtomic(path, prepared);
             return imported;

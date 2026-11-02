@@ -54,12 +54,16 @@ namespace AudioSwitch
                 if (request.DeviceAlias.Length > 0 && !PreferenceStore.ValidAlias(request.DeviceAlias))
                     throw new InvalidOperationException("设备名称无效，最多可输入 64 个字符。");
             }
+            var originalHistory = preferences.RecentDeviceAliases;
             var originalRule = DeviceAutomation.Rule(preferences, request.DeviceId);
             try
             {
                 preferences.DeviceProfiles[request.DeviceId] = next;
                 if (request.DeviceAlias == "") preferences.DeviceAliases.Remove(request.DeviceId);
                 else if (request.DeviceAlias != null) preferences.DeviceAliases[request.DeviceId] = request.DeviceAlias;
+                if (!String.IsNullOrEmpty(request.DeviceAlias))
+                    preferences.RecentDeviceAliases = new[] { request.DeviceAlias }.Concat(originalHistory)
+                        .Distinct(StringComparer.Ordinal).Take(Preferences.AliasHistoryLimit).ToList();
                 if (request.DeviceRule.Value == DeviceRule.Normal) preferences.DeviceRules.Remove(request.DeviceId);
                 else preferences.DeviceRules[request.DeviceId] = request.DeviceRule.Value;
                 persist();
@@ -68,6 +72,7 @@ namespace AudioSwitch
             {
                 if (current == null) preferences.DeviceProfiles.Remove(request.DeviceId);
                 else preferences.DeviceProfiles[request.DeviceId] = current;
+                preferences.RecentDeviceAliases = originalHistory;
                 if (originalAlias == null) preferences.DeviceAliases.Remove(request.DeviceId);
                 else preferences.DeviceAliases[request.DeviceId] = originalAlias;
                 if (originalRule == DeviceRule.Normal) preferences.DeviceRules.Remove(request.DeviceId);

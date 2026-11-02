@@ -1,3 +1,4 @@
+import { AliasInput } from './AliasInput'
 import { UpgradeScroll } from './UpgradeScroll'
 import { useEffect, useRef, useState } from 'react'
 import { Headphones, Info, Volume2, Shield, Sparkles } from 'lucide-react'
@@ -26,6 +27,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
   const [baselineRule] = useState(() => snapshot.Preferences.DeviceRules[device.Id] ?? 0)
   const [originalAlias] = useState(() => snapshot.Preferences.DeviceAliases?.[device.Id] ?? '')
   const [alias, setAlias] = useState(originalAlias)
+  const names = snapshot.Preferences.RecentDeviceAliases ?? []
   const initial = baseline ?? { Volume: null, SpatialFormat: null }
   const [details, setDetails] = useState<DeviceDetails | null>(null)
   const [reading, setReading] = useState(desktop && !readOnly && device.Online)
@@ -62,7 +64,7 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
       <UpgradeScroll className="">
         <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">离线</span>}</div>
         {snapshot.CanRenameDevices && <section className="sheet-section device-alias"><h3><label htmlFor="device-alias">自定义名称</label></h3>
-          <input id="device-alias" type="text" maxLength={64} placeholder={device.SystemName ?? device.Name} value={alias} disabled={busy || readOnly} onChange={e => setAlias(e.target.value)} />
+          <AliasInput value={alias} onChange={setAlias} names={names} placeholder={device.SystemName ?? device.Name} disabled={busy || readOnly} />
         </section>}
         {reading && <p role="status">正在读取当前音量和支持的空间音效…</p>}
         {readError && <p role="alert" className="field-help">{readError} 未能读取的字段保留原值</p>}
