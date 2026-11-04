@@ -8,24 +8,23 @@ using System.Windows.Forms;
 
 namespace AudioSwitch
 {
-    internal sealed class NoticeDialog : Form
+    internal sealed class NoticeDialog : MessageForm
     {
-        internal NoticeDialog(string title, string message, bool error, bool confirm)
+        internal NoticeDialog(string title, string message, bool error, bool confirm, Func<bool> systemDark = null) : base(error, systemDark)
         {
             SuspendLayout(); AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
-            Font = new Font("Microsoft YaHei UI", 9F); BackColor = Palette.Background; ForeColor = Palette.Text;
-            Text = title + " · 声间"; FormBorderStyle = FormBorderStyle.FixedDialog;
+            Font = new Font("Microsoft YaHei UI", 9F);
+            Text = "声间 " + title; FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false; StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
-            var glyph = new NoticeGlyph(error); glyph.SetBounds(24, 24, 42, 42); Controls.Add(glyph);
-            var heading = Palette.Label(title, 14, Palette.Text, true); heading.SetBounds(80, 23, 446, 34); Controls.Add(heading);
-            var hint = Palette.Label(error ? "查看下方原因，处理后可重试。" : confirm ? "请确认以下变更。" : "操作结果", 9, Palette.Muted, false);
-            hint.SetBounds(80, 60, 446, 26); Controls.Add(hint);
-            var card = new Surface(); card.SetBounds(24, 104, 512, 220); Controls.Add(card);
+            var glyph = new NoticeGlyph(error); glyph.SetBounds(24, 24, 24, 24); Controls.Add(glyph);
+            var heading = Palette.Label(title, 15, Theme.Text, true); heading.SetBounds(60, 20, 474, 32); Controls.Add(heading);
+            var card = new Surface(); card.SetBounds(24, 68, 512, 220); Controls.Add(card);
             var body = new NoticeBody(message ?? ""); body.Dock = DockStyle.Fill; card.Padding = new Padding(14); card.Controls.Add(body);
-            int bodyHeight = Math.Max(92, Math.Min(280, body.MessageHeight + 8));
+            int bodyHeight = Math.Max(28, Math.Min(280, body.MessageHeight + 8));
             card.Height = bodyHeight + 28;
-            int footer = card.Bottom + 24; ClientSize = new Size(560, footer + 60);
-            var status = Palette.Label("", 8, Palette.Muted, false); status.SetBounds(24, footer - 20, 250, 20); Controls.Add(status);
+            int footer = card.Bottom + 16; ClientSize = new Size(560, footer + 56);
+            var status = Palette.Label("", 9, Theme.Muted, false); status.AccessibleRole = AccessibleRole.StatusBar;
+            status.SetBounds(142, footer, confirm ? 152 : 270, 36); Controls.Add(status);
             var copy = new FlatAction("复制详情", false) { Name = "copyDetails" }; copy.SetBounds(24, footer, 106, 36); Controls.Add(copy);
             copy.Click += delegate {
                 try { Clipboard.SetText(message ?? ""); status.Text = "详情已复制"; }
@@ -66,10 +65,15 @@ namespace AudioSwitch
             internal NoticeGlyph(bool error) { this.error = error; DoubleBuffered = true; }
             protected override void OnPaint(PaintEventArgs e)
             {
+                var theme = MessageForm.ColorsOf(this);
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var brush = new SolidBrush(error ? Palette.WarningBackground : Palette.Selected)) e.Graphics.FillEllipse(brush, 1, 1, Width - 2, Height - 2);
-                using (var font = new Font("Segoe UI", 19, FontStyle.Bold)) TextRenderer.DrawText(e.Graphics, error ? "!" : "i", font, ClientRectangle,
-                    error ? Palette.Warning : Palette.Accent, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                e.Graphics.ScaleTransform(Width / 24F, Height / 24F);
+                using (var pen = new Pen(error ? theme.Danger : theme.AccentText, 1.8F)) {
+                    pen.StartCap = pen.EndCap = LineCap.Round;
+                    e.Graphics.DrawEllipse(pen, 2, 2, 20, 20);
+                    e.Graphics.DrawLine(pen, 12, error ? 7 : 11, 12, error ? 13 : 17);
+                    using (var brush = new SolidBrush(pen.Color)) e.Graphics.FillEllipse(brush, 11, error ? 16 : 7, 2, 2);
+                }
             }
         }
     }

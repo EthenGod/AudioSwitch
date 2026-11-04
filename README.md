@@ -30,6 +30,8 @@
 
 配置文件位于 `%LOCALAPPDATA%\AudioSwitch\settings.json`。可在面板中导出备份，或导入已有配置。设备按 Windows 端点 ID 匹配，同名设备各自保留预设。[配置格式](CONFIGURATION.md)
 
+主面板默认深色，可在「应用设置 → 外观」切换。独立报错窗口跟随系统的应用颜色，无法读取时使用深色。
+
 声间切换的是 Windows 默认设备。已在应用内指定输出设备的软件可能继续使用原设备。Dolby 方案只适用于已适配的 DAX 组件和设备。[Dolby 均衡器说明](DOLBY-EQ.md)
 
 ## 开发与测试

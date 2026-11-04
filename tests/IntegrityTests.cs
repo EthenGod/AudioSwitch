@@ -90,7 +90,7 @@ namespace AudioSwitch
                 while (!process.HasExited && watch.ElapsedMilliseconds < 6000)
                 {
                     process.Refresh();
-                    if (process.MainWindowTitle == "文件检查与修复 · 声间") { blocked = true; process.CloseMainWindow(); break; }
+                    if (process.MainWindowTitle == "声间 文件检查与修复") { blocked = true; process.CloseMainWindow(); break; }
                     Thread.Sleep(30);
                 }
                 bool exited = process.WaitForExit(3000);
@@ -125,7 +125,7 @@ namespace AudioSwitch
                 while (!process.HasExited && watch.ElapsedMilliseconds < 6000)
                 {
                     process.Refresh();
-                    if (process.MainWindowTitle == "许可与第三方说明 · 声间") { visible = true; process.CloseMainWindow(); break; }
+                    if (process.MainWindowTitle == "声间 许可与第三方说明") { visible = true; process.CloseMainWindow(); break; }
                     Thread.Sleep(30);
                 }
                 bool exited = process.WaitForExit(3000);
@@ -138,7 +138,7 @@ namespace AudioSwitch
                 while (!process.HasExited && watch.ElapsedMilliseconds < 8000)
                 {
                     process.Refresh();
-                    if (FileIntegrity.Check(directory).Passed && process.MainWindowTitle == "文件检查与修复 · 声间") { restored = true; process.CloseMainWindow(); break; }
+                    if (FileIntegrity.Check(directory).Passed && process.MainWindowTitle == "声间 文件检查与修复") { restored = true; process.CloseMainWindow(); break; }
                     Thread.Sleep(30);
                 }
                 bool exited = process.WaitForExit(4000);
@@ -192,7 +192,7 @@ namespace AudioSwitch
                 while (!process.HasExited && watch.ElapsedMilliseconds < 8000)
                 {
                     process.Refresh();
-                    if (File.Exists(helper) && FileIntegrity.Check(directory).Passed && process.MainWindowTitle == "文件检查与修复 · 声间")
+                    if (File.Exists(helper) && FileIntegrity.Check(directory).Passed && process.MainWindowTitle == "声间 文件检查与修复")
                     { fixedFile = true; process.CloseMainWindow(); break; }
                     Thread.Sleep(30);
                 }
@@ -240,7 +240,7 @@ namespace AudioSwitch
                         result.Entries.Clear();
                         result.Entries.Add(good ? "通过：候选清单及全部 13 个内容文件（长度、摘要、面板版本和平台）" : "候选整包检查失败：文件校验失败：THIRD-PARTY-FRONTEND.txt");
                     }
-                    using (var form = new IntegrityDialog(false, true))
+                    using (var form = new IntegrityDialog(false, true, () => dark))
                     {
                         form.RenderResult(new RepairResult { Check = result, Notes = candidate ? (good ? "" : PanelLaunch.LegacyUpdateBlocked) : good ? "已自动恢复：vendor/svcl/svcl.exe。原文件已备份。" : "修复未完成：文件被其他程序占用，请关闭相关程序后重试。" });
                         form.Show(); Application.DoEvents();

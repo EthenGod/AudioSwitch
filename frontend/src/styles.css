@@ -284,10 +284,17 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .about-line p { font-size: var(--font-caption); color: var(--tertiary); margin: 4px 0 0; }
 .about-line button { margin-left: auto; }
 .about-author { margin-left: auto; font-size: var(--font-caption); color: var(--muted-foreground); }
-.empty-state, .loading-state, .error-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 11px; padding: 50px 24px; color: var(--muted-foreground); }
-.empty-state h3, .loading-state h2, .error-state h2 { color: var(--foreground); font-size: var(--font-body); font-weight: 500; margin: 0; }
-.empty-state p, .loading-state p, .error-state p { font-size: var(--font-caption); margin: 0 0 5px; line-height: 1.8; }
-.loading-state, .error-state { min-height: 340px; }
+.empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 11px; padding: 50px 24px; color: var(--muted-foreground); }
+.empty-state h3, .loading-state h2 { color: var(--foreground); font-size: var(--font-body); font-weight: 500; margin: 0; }
+.empty-state p, .loading-state p { font-size: var(--font-caption); margin: 0 0 5px; line-height: 1.8; }
+.loading-state { min-height: 340px; }
+.connection-page { min-height: 100dvh; padding: 24px; display: grid; place-items: center; background: var(--background); }
+.connection-error { width: min(100%, 480px); padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); animation: check-reveal var(--motion-enter) ease-out; }
+.connection-error > div { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.connection-error svg { color: var(--danger); }
+.connection-error p { grid-column: 2; margin: 0; overflow-wrap: anywhere; color: var(--muted-foreground); line-height: 1.65; }
+.connection-error button { margin: 16px 0 0 32px; }
+.connection-error button svg { color: inherit; }
 .skeleton-row { width: 90%; max-width: 480px; height: 45px; border-radius: var(--radius); background: var(--muted); }
 .toast { position: fixed; z-index: 40; right: 24px; bottom: 49px; max-width: min(480px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 15px; border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow-panel); border-radius: var(--radius-panel); color: var(--accent); }
 .toast { opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none; transition: opacity var(--motion-exit) ease-in, transform var(--motion-exit) ease-in, visibility 0s var(--motion-exit); }

@@ -15,6 +15,8 @@ import { APP_VERSION } from './version'
 import { PageTransition } from './components/PageTransition'
 import { ActionSlot } from './components/ActionSlot'
 import { PanelAlert } from './components/PanelAlert'
+import { ConnectionError } from './components/ConnectionError'
+import { useAppearance } from './useAppearance'
 import { ScrollSurface } from './components/ScrollSurface'
 import { Toast, type Notice } from './components/Toast'
 
@@ -24,7 +26,7 @@ const pages = {
   settings: { title: '应用设置', Icon: Settings2 },
 }
 
-export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark: boolean) => void }) {
+export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark: boolean, system?: boolean) => void }) {
   const desktop = gateway.mode === 'desktop'
   useEffect(() => {
     document.title = desktop ? '声间 设备面板' : '声间 界面预览'
@@ -44,7 +46,9 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
   const [backup, setBackup] = useState<'import' | 'export' | null>(null)
   const [maintenance, setMaintenance] = useState<'update' | 'files' | null>(null)
   const [scenario, setScenario] = useState<Scenario>('normal')
-  const [dark, setDark] = useState(true)
+  const [preferredDark, setDark] = useState(true)
+  const connectionFailed = !!error && !snapshot
+  const dark = useAppearance(connectionFailed ? undefined : preferredDark)
   const [uncertain, setUncertain] = useState(false)
   const readOnly = desktop && (!snapshot?.CanWrite || uncertain || !!error)
   const locked = useRef(false)
@@ -52,14 +56,12 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
   const main = useRef<HTMLElement>(null)
   const currentPage = pages[page]
 
-  useLayoutEffect(() => { document.documentElement.classList.toggle('dark', dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light' }, [dark])
-  const presented = useRef(false)
   useEffect(() => {
-    if (loading || !onReady || presented.current) return
+    if (loading || !onReady) return
     // Commit themed content before allowing the native window to appear.
-    const timer = setTimeout(() => { presented.current = true; onReady(dark) }, 0)
+    const timer = setTimeout(() => { if (connectionFailed) onReady(dark, true); else onReady(dark) }, 0)
     return () => clearTimeout(timer)
-  }, [loading, dark, onReady])
+  }, [loading, dark, connectionFailed, onReady])
   useLayoutEffect(() => { if (main.current) main.current.scrollTop = 0 }, [page])
   useEffect(() => {
     const ticket = ++revision.current
@@ -121,14 +123,15 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
       </div>
     </aside>
     <div className="workspace">
-      {(!desktop || readOnly) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? '连接中断，仅显示上次状态' : uncertain ? '操作结果尚未确认，请先刷新状态' : readOnly ? '只读连接，仅显示真实状态，不会改变系统设置' : '已连接设备' : '界面预览，操作不会改变系统设置'}</span></div>}
+      {(!desktop || (readOnly && snapshot)) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? '连接中断，仅显示上次状态' : uncertain ? '操作结果尚未确认，请先刷新状态' : '只读连接，仅显示真实状态，不会改变系统设置' : '界面预览，操作不会改变系统设置'}</span></div>}
       <ScrollSurface main viewportRef={main} id="main-content" className="main-content" bodyClassName="main-scroll-body">
-        <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">
+        {!connectionFailed && <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">
           <ActionSlot visible={page === 'devices'}><Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button></ActionSlot>
           <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />游戏模式</span></ActionSlot>
           <ActionSlot visible={page !== 'settings'}><Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></ActionSlot>
-        </div></div>
-        <PanelAlert message={error}><Button variant="outline" pending={refreshing || loading} onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw size={14} className={refreshing || loading ? 'spin' : ''} />重试</Button></PanelAlert>
+        </div></div>}
+        {connectionFailed && <ConnectionError title="无法读取设备状态" message={error} busy={refreshing || loading} retry={() => { void (desktop ? refresh() : loadScenario('normal')) }} />}
+        <PanelAlert message={snapshot ? error : ''}><Button variant="outline" pending={refreshing || loading} onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw size={14} className={refreshing || loading ? 'spin' : ''} />重试</Button></PanelAlert>
         <PanelAlert warning message={desktop && snapshot?.BackendWarning && snapshot.BackendWarning !== dismissedWarning ? snapshot.BackendWarning : ''}><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot?.BackendWarning ?? '')}><X /></Button></PanelAlert>
         <PageTransition page={page}>
         {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>

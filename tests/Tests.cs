@@ -644,11 +644,14 @@ namespace AudioSwitch
             foreach (bool dark in new[] { false, true })
             {
                 Palette.Apply(dark); string suffix = dark ? "dark" : "light";
-                using (var notice = new NoticeDialog("操作未完成", "无法连接到音频设备。\n\n请确认设备仍已连接，再重试刚才的操作。", true, false)) {
+                Palette.Apply(!dark);
+                using (var notice = new NoticeDialog("操作未完成", "无法连接到音频设备。\n\n请确认设备仍已连接，再重试刚才的操作。", true, false, () => dark)) {
                     notice.Show(); SaveUi(notice, "notice-error-" + suffix + ".png");
                     Check(notice.AcceptButton == notice.CancelButton && Descendants(notice).OfType<Button>().All(b => notice.ClientRectangle.Contains(b.Bounds)), "error notice keeps close and copy actions visible in " + suffix);
+                    Check(notice.Theme.Dark == dark && Palette.Dark != dark, "error follows system appearance independently of open panels");
                     notice.Close();
                 }
+                Palette.Apply(dark);
                 using (var notice = new NoticeDialog("导入设置", String.Join("\n", Enumerable.Repeat("设备预设和白名单将随备份恢复；导入前保留原配置。", 35)), false, true)) {
                     notice.Show(); Application.DoEvents();
                     var body = Descendants(notice).OfType<ScrollCanvas>().Single(); body.ScrollBy(10000);
@@ -787,7 +790,7 @@ namespace AudioSwitch
             }
             Palette.Apply(false);
             var speaker = Device("桌面扬声器", 0); var headset = Device("蓝牙耳机", 0); var mic = Device("USB 麦克风", 1);
-            var prefs = new Preferences { DeviceOrder = new List<Endpoint> { speaker, headset, mic } };
+            var prefs = new Preferences { DarkMode = false, DeviceOrder = new List<Endpoint> { speaker, headset, mic } };
             var reply = new Reply { Preferences = prefs, State = State(speaker.Id, mic.Id, speaker, headset, mic), Pending = new List<Arrival>() };
             var requests = new List<Request>(); bool fail = false;
             using (var dashboard = new Dashboard(false, false, request => {
@@ -1560,7 +1563,8 @@ namespace AudioSwitch
             Check(document.Settings.DarkMode && Wire.Decode<Preferences>(Wire.Encode(current)).DarkMode, "dark mode survives backup and IPC serialization");
             var legacy = PreferenceStore.Parse("{\"AskOnConnect\":false,\"IncludeCommunications\":true}");
             Check(!legacy.AskOnConnect && legacy.IncludeCommunications && legacy.UseDevicePriority && legacy.DeviceRules.Count == 0, "legacy import retains saved values and fills new defaults");
-            Check(!legacy.DarkMode && !new Preferences().DarkMode, "old configurations and new installations default to light mode");
+            Check(legacy.DarkMode && new Preferences().DarkMode && !PreferenceStore.Parse("{\"DarkMode\":false}").DarkMode, "missing appearance defaults dark and explicit light survives import");
+            Check(!MessageForm.SystemDark(1) && MessageForm.SystemDark(0) && MessageForm.SystemDark(null) && MessageForm.SystemDark("1"), "only a valid Windows light preference selects light for errors");
             var invalid = new[] { "", "{}", "[]", "{broken", "{\"hello\":true}", exported.Replace("\"Version\": 1", "\"Version\": 99"),
                 exported.Replace("AudioSwitch.Settings", "AnotherApp"), "{\"AskOnConnect\":\"false\"}", "{\"DarkMode\":\"true\"}", "{\"DarkMode\":1}", "{\"DarkMode\":null}", "{\"DeviceRules\":{\"a\":99}}",
                 "{\"DeviceProfiles\":{\"a\":{\"Volume\":101}}}", "{\"DeviceProfiles\":{\"a\":{\"Volume\":5.5}}}",

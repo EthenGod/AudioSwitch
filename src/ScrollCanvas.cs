@@ -121,8 +121,10 @@ namespace AudioSwitch
             {
                 if (Height < 2) return;
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                var theme = MessageForm.ColorsOf(this);
+                Color color = theme == null ? (dragging || hover ? Palette.Accent : Palette.SwitchOff) : (dragging || hover ? theme.AccentText : theme.Border);
                 using (var path = Palette.Round(Thumb, 4))
-                using (var brush = new SolidBrush(dragging || hover ? Palette.Accent : Palette.SwitchOff)) e.Graphics.FillPath(brush, path);
+                using (var brush = new SolidBrush(color)) e.Graphics.FillPath(brush, path);
             }
             protected override void OnMouseDown(MouseEventArgs e)
             {

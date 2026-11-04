@@ -15,7 +15,7 @@ export interface PromptGateway {
   respond(action: PromptAction): Promise<PromptState>
   close(): Promise<void>
   openPanel(): Promise<void>
-  ready?(dark: boolean): Promise<void>
+  ready?(dark: boolean, system?: boolean): Promise<void>
   resize?(expanded: boolean, reducedMotion: boolean, compact?: boolean): Promise<void>
 }
 export class PromptFailure extends Error {
@@ -65,7 +65,7 @@ export function createPromptGateway(call: Transport = invoke): PromptGateway {
   let busy = false, uncertain = false
   return {
     mode: 'desktop',
-    async ready(dark) { await call('panel_ready', { dark }) },
+    async ready(dark, system) { await call('panel_ready', system ? { dark, system } : { dark }) },
     async resize(expanded, reducedMotion, compact = false) { await call('resize_prompt', { expanded, reducedMotion, compact }) },
     async read() {
       if (busy) throw new Error('正在处理上一个操作。')

@@ -76,7 +76,9 @@ namespace AudioSwitch
                 check(created.Count == 1 && windows.PanelPid == first && created[0].Activations == 2, "repeated panel open reuses and activates one process");
                 windows.Show(true); windows.Show(true);
                 check(created.Count == 2 && windows.PromptPid != first && created[1].Activations == 0, "prompt separate and repeat notification never steals focus");
+                check(windows.OwnsProcess(first) && windows.OwnsProcess(windows.PromptPid) && !windows.OwnsProcess(0), "only live owned windows can request a startup notice");
                 created[0].Exited = true; windows.Show(false);
+                check(!windows.OwnsProcess(first), "closed panel cannot request a startup notice");
                 check(created.Count == 3 && created[0].Disposals == 1 && windows.PanelPid != first, "closed panel recreated and old handle released");
                 created[2].Exited = true; fail = true;
                 Reject(() => windows.Show(false), check, "invalid candidate cannot launch on reopen");
@@ -90,6 +92,7 @@ namespace AudioSwitch
                 var window = new Window { Id = 200 + created.Count }; created.Add(window); return window;
             }, () => new ProcessStartInfo("browser"))) {
                 windows.ShowBrowser(); windows.ShowBrowser(); windows.Show(false);
+                check(windows.OwnsProcess(created[0].Id) && !windows.OwnsProcess(999), "browser startup notices require its registered process");
                 check(created.Count == 2 && created[0].Activations == 1, "browser host is reused independently of native panel");
                 created[0].Exited = true; windows.ShowBrowser();
                 check(created.Count == 3 && created[0].Disposals == 1, "browser host recreates after last tab closes");

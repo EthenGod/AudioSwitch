@@ -126,6 +126,10 @@ namespace AudioSwitch
         internal FrontendWindows(Func<bool, ProcessStartInfo> select, Func<ProcessStartInfo, IFrontendWindow> start, Func<ProcessStartInfo> selectBrowser = null) { this.select = select; this.start = start; this.selectBrowser = selectBrowser; }
         internal int PanelPid { get { return panel != null && !panel.Exited ? panel.Id : 0; } }
         internal int PromptPid { get { return prompt != null && !prompt.Exited ? prompt.Id : 0; } }
+        internal bool OwnsProcess(int pid)
+        {
+            return pid > 0 && (pid == PanelPid || pid == PromptPid || (browser != null && !browser.Exited && pid == browser.Id));
+        }
         internal void ShowBrowser()
         {
             if (closing) return;

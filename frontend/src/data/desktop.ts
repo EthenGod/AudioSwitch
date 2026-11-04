@@ -90,7 +90,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   const preferences: Preferences = {
     DeviceAliases: aliases, RecentDeviceAliases: array(prefs.RecentDeviceAliases ?? []).map(string),
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
-    DarkMode: boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
+    DarkMode: prefs.DarkMode === undefined ? true : boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
     IncludeCommunications: boolean(prefs.IncludeCommunications), UseDevicePriority: boolean(prefs.UseDevicePriority),
     AutoUpdateEnabled: boolean(prefs.AutoUpdateEnabled), IncludePrerelease: prefs.IncludePrerelease === undefined ? false : boolean(prefs.IncludePrerelease), UpdateChannel: 'GitHub', OpenPanelInBrowser: prefs.OpenPanelInBrowser === undefined ? false : boolean(prefs.OpenPanelInBrowser), KeepBrowserPortOpen: prefs.KeepBrowserPortOpen === undefined ? false : boolean(prefs.KeepBrowserPortOpen), DeviceProfiles: profiles, DeviceRules: rules, DeviceOrder: orders,
   }

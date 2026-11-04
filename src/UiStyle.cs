@@ -26,7 +26,8 @@ namespace AudioSwitch
             Color.FromArgb(64,110,164), Color.FromArgb(85,96,113),
             Color.FromArgb(30,103,211), Color.FromArgb(40,118,230), Color.FromArgb(24,83,176)
         };
-        internal static bool Dark { get; private set; }
+        private static bool darkMode = true;
+        internal static bool Dark { get { return darkMode; } }
         private static Color At(int index) { return (Dark ? dark : light)[index]; }
         internal static Color Background { get { return At(0); } }
         internal static Color Sidebar { get { return At(1); } }
@@ -51,13 +52,15 @@ namespace AudioSwitch
         internal static void WindowChrome(Form form)
         {
             if (!form.IsHandleCreated) return;
-            try { int value = Dark ? 1 : 0; DwmSetWindowAttribute(form.Handle, 20, ref value, 4); }
+            var theme = MessageForm.ColorsOf(form);
+            try { int value = (theme == null ? Dark : theme.Dark) ? 1 : 0; DwmSetWindowAttribute(form.Handle, 20, ref value, 4); }
             catch (DllNotFoundException) { }
         }
         internal static void NativeChrome(Control control)
         {
             if (!control.IsHandleCreated) return;
-            try { SetWindowTheme(control.Handle, Dark ? "DarkMode_Explorer" : "Explorer", null); }
+            var theme = MessageForm.ColorsOf(control);
+            try { SetWindowTheme(control.Handle, (theme == null ? Dark : theme.Dark) ? "DarkMode_Explorer" : "Explorer", null); }
             catch (DllNotFoundException) { }
         }
         internal static void ChromeTree(Control control)
@@ -70,9 +73,11 @@ namespace AudioSwitch
         internal static void Apply(bool useDark)
         {
             if (Dark == useDark) return;
-            var before = Dark ? dark : light; Dark = useDark;
+            var before = Dark ? dark : light; darkMode = useDark;
             foreach (Form form in Application.OpenForms)
             {
+                var message = form as MessageForm;
+                if (message != null) { message.RefreshTheme(); continue; }
                 form.SuspendLayout(); Recolor(form, before); WindowChrome(form); form.ResumeLayout(true); form.Invalidate(true);
             }
         }
@@ -153,11 +158,21 @@ namespace AudioSwitch
                 : down ? Palette.Pressed : hover ? Palette.Hover : Selected ? Palette.Selected : Palette.Card;
             if (!Enabled) fill = Palette.Disabled;
             Color color = !Enabled ? Palette.Muted : Primary ? Color.White : Selected ? Palette.Accent : Palette.Text;
+            Color outline = Selected ? Palette.SelectedBorder : Primary && Enabled ? fill : hover && Enabled ? Palette.SelectedBorder : Palette.Border;
+            Color focusColor = Palette.Accent;
+            var theme = MessageForm.ColorsOf(this);
+            if (theme != null) {
+                fill = Primary ? (down ? ControlPaint.Dark(theme.Accent) : hover ? ControlPaint.Light(theme.Accent, .12F) : theme.Accent)
+                    : down ? theme.Pressed : hover ? theme.Hover : theme.Card;
+                if (!Enabled) fill = theme.Card;
+                color = !Enabled ? theme.Muted : Primary ? Color.White : theme.Text;
+                outline = Primary && Enabled ? fill : theme.Border; focusColor = theme.AccentText;
+            }
             float scale = e.Graphics.DpiX / 96F;
             bool focus = Focused && ShowFocusCues && Enabled;
             using (var path = Palette.Round(new RectangleF(1, 1, Width - 2, Height - 2), 8 * scale))
             using (var brush = new SolidBrush(fill))
-            using (var pen = new Pen(focus ? Palette.Accent : Selected ? Palette.SelectedBorder : Primary && Enabled ? fill : hover && Enabled ? Palette.SelectedBorder : Palette.Border, focus ? 2 * scale : 1))
+            using (var pen = new Pen(focus ? focusColor : outline, focus ? 2 * scale : 1))
             { e.Graphics.FillPath(brush, path); e.Graphics.DrawPath(pen, path); }
             int textPadding = Width < 40 * scale ? 0 : 4;
             var textBounds = new Rectangle(textPadding, down ? (int)scale : 0, Width - textPadding * 2, Height);

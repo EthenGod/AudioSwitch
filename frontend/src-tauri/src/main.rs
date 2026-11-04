@@ -28,11 +28,12 @@ async fn resize_prompt(window: tauri::WebviewWindow, motion: tauri::State<'_, pr
 }
 
 #[tauri::command]
-fn panel_ready(window: tauri::WebviewWindow, presentation: tauri::State<'_, PanelPresentation>, dark: bool) -> Result<(), String> {
+fn panel_ready(window: tauri::WebviewWindow, presentation: tauri::State<'_, PanelPresentation>, dark: bool, system: Option<bool>) -> Result<(), String> {
     if window.label() != "main" && window.label() != "prompt" { return Err("此窗口不能显示界面。".into()); }
     let color = if dark { tauri::window::Color(17, 17, 19, 255) } else { tauri::window::Color(252, 252, 253, 255) };
     window.set_background_color(Some(color)).map_err(|e| e.to_string())?;
-    window.set_theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light })).map_err(|e| e.to_string())?;
+    let theme = if system == Some(true) { None } else if dark { Some(tauri::Theme::Dark) } else { Some(tauri::Theme::Light) };
+    window.set_theme(theme).map_err(|e| e.to_string())?;
     if !presentation.shown.swap(true, Ordering::SeqCst) {
         window.show().map_err(|e| e.to_string())?;
         if window.label() == "main" { window.set_focus().map_err(|e| e.to_string())?; }
@@ -243,6 +244,25 @@ async fn cancel_dolby_apply(token: String, session: tauri::State<'_, dolby_apply
 fn dialog_owner(app: &tauri::AppHandle) -> isize {
     app.get_webview_window("main").and_then(|window| window.hwnd().ok()).map_or(0, |hwnd| hwnd.0 as isize)
 }
+fn show_launch_error(browser: bool, message: &str) {
+    let owner = std::env::args().find_map(|arg| arg.strip_prefix("--owner=")?.parse::<u32>().ok());
+    if let Some(pid) = owner {
+        let displayed = tauri::async_runtime::block_on(async {
+            let snapshot = pipe::read_snapshot().await.ok()?;
+            if snapshot["BackendPid"] != pid || snapshot["PanelApiVersion"].as_u64()? < 12 { return None; }
+            let reply = pipe::send(&json!({"Action":"panelLaunchError", "OwnerPid":std::process::id(),
+                "Value":browser, "Message":message}), false).await.ok()?;
+            (reply["BackendPid"] == pid && reply["Error"].is_null()).then_some(())
+        });
+        if displayed.is_some() { return; }
+    }
+    // Still report the failure when neither the WebView nor its owning tray can present it.
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
+    let title = if browser { "无法打开浏览器面板" } else { "无法打开声间面板" };
+    let title: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
+    let body: Vec<u16> = message.encode_utf16().chain(Some(0)).collect();
+    unsafe { MessageBoxW(std::ptr::null_mut(), body.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+}
 fn main() {
     let is_prompt = std::env::args().any(|arg| arg == "--prompt");
     let is_browser = std::env::args().any(|arg| arg == "--browser");
@@ -276,10 +296,7 @@ fn main() {
             if is_browser {
                 if let Err(error) = browser::start(app.handle().clone()) {
                     // A setup error otherwise becomes a panic before run() can return it.
-                    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
-                    let message: Vec<u16> = format!("无法打开浏览器面板。\n{error}\0").encode_utf16().collect();
-                    let title: Vec<u16> = "声间\0".encode_utf16().collect();
-                    unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+                    show_launch_error(true, &error.to_string());
                     app.handle().exit(1);
                 }
                 return Ok(());
@@ -313,10 +330,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![open_release_link, panel_ready, resize_prompt, start_upgrade, read_upgrade, upgrade_action, cancel_upgrade, read_snapshot, read_device_settings, panel_action, export_backup, choose_import, confirm_import, discard_import, start_maintenance, read_maintenance, cancel_maintenance, read_prompt_snapshot, prompt_action, close_prompt, open_prompt_panel, save_dolby, start_dolby_read, read_dolby, cancel_dolby_read, start_dolby_apply, read_dolby_apply, cancel_dolby_apply])
         .run(context);
     if result.is_err() {
-        // This native message also works when WebView2 cannot create any web UI.
-        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK, MB_ICONERROR};
-        let message: Vec<u16> = "声间面板无法启动。请确认完整程序包已解压，并已安装 Microsoft Edge WebView2 Runtime。可按包内 DESKTOP-README.txt（候选包为 CANDIDATE-README.txt）的说明修复后重试。Runtime 安装入口：https://developer.microsoft.com/microsoft-edge/webview2/ 。后台仍可从托盘退出。\0".encode_utf16().collect();
-        let title: Vec<u16> = "无法打开声间面板\0".encode_utf16().collect();
-        unsafe { MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR); }
+        show_launch_error(is_browser, "请确认已解压完整程序包，并已安装 Microsoft Edge WebView2 Runtime。\n\n安装或修复说明见包内 DESKTOP-README.txt，候选包请查看 CANDIDATE-README.txt。\nhttps://developer.microsoft.com/microsoft-edge/webview2/");
     }
 }

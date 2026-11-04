@@ -4,6 +4,7 @@ import { Button } from './components/ui/button'
 import { Select } from './components/ui/select'
 import { DeviceIcon } from './components/shared'
 import { ScrollSurface } from './components/ScrollSurface'
+import { useAppearance } from './useAppearance'
 import { canRestore, PromptFailure, type PromptAction, type PromptGateway, type PromptState } from './data/prompt'
 
 export function PromptApp({ gateway }: { gateway: PromptGateway }) {
@@ -98,23 +99,20 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     // The gateway is fixed for the lifetime of this window.
   }, [gateway, closed])
   useEffect(() => { if (closed) paused.current = true }, [closed])
-  useEffect(() => {
-    const dark = state?.snapshot.Preferences.DarkMode ?? true
-    document.documentElement.classList.toggle('dark', dark)
-    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-  }, [state?.snapshot.Preferences.DarkMode])
-  const loaded = !!state || !!error, dark = state?.snapshot.Preferences.DarkMode ?? true
+  const system = !state && !!error
+  const dark = useAppearance(system ? undefined : state?.snapshot.Preferences.DarkMode ?? true)
+  const loaded = !!state || !!error
   useEffect(() => {
     if (!loaded || leaving.current) return
     let active = true, frame = 0
     // The themed first frame is ready before the native window becomes visible.
-    void resizeTask.current.then(() => gateway.ready?.(dark)).catch(() => {}).then(() => {
+    void resizeTask.current.then(() => gateway.ready?.(dark, system)).catch(() => {}).then(() => {
       if (active && !leaving.current) frame = requestAnimationFrame(() => {
         if (active && !leaving.current) setPhase('open')
       })
     })
     return () => { active = false; cancelAnimationFrame(frame) }
-  }, [gateway, loaded, dark])
+  }, [gateway, loaded, dark, system])
   async function respond(action: PromptAction) {
     if (lock.current || paused.current || leaving.current) return
     lock.current = true; setBusy(true); setError('')

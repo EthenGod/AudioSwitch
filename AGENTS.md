@@ -55,6 +55,7 @@
 | `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |
 | `frontend/src/PromptApp.tsx`、`frontend/src-tauri/src/prompt_layout.rs` | 右下角设备提示、操作预览和固定底边的窗口缩放 |
 | `src/FrontendWindows.cs`、`frontend/src/data/browser.ts`、`frontend/src-tauri/src/browser.rs` | 托盘面板启动、本机浏览器连接及退出清理 |
+| `src/MessageForm.cs`、`src/NoticeDialog.cs`、`frontend/src/useAppearance.ts` | 独立报错窗口、系统应用颜色和面板外观 |
 | `src/TrayPopup.cs`、`src/TrayMenuModel.cs`、`src/TrayArt.cs`、`src/GameModeMenu.cs` | 托盘快捷窗口、独立界面线程、命令快照、图标和开关 |
 | `src/GameModeScheduling.cs`、`src/DeviceEventBatch.cs` | 游戏模式后台优先级、效率调度及有界设备事件合并 |
 | `frontend/src/preview.tsx`、`frontend/scripts/build-preview.mjs` | 仅用模拟数据的单文件 HTML 预览 |

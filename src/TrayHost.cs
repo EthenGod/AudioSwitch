@@ -187,6 +187,14 @@ namespace AudioSwitch
         private Reply Handle(Request request)
         {
             if (exiting) return new Reply { Error = "声间正在退出，请等待更新完成。" };
+            if (request.Action == "panelLaunchError") {
+                if (!frontends.OwnsProcess(request.OwnerPid) || String.IsNullOrWhiteSpace(request.Message) || request.Message.Length > 4096)
+                    return new Reply { Error = "无效的面板启动提示。" };
+                dispatcher.BeginInvoke((Action)(() => {
+                    if (!exiting) NoticeDialog.ShowNotice(null, request.Value ? "无法打开浏览器面板" : "无法打开声间面板", request.Message, true);
+                }));
+                return new Reply { BackendPid = Process.GetCurrentProcess().Id };
+            }
             if (request.Action == "exitForUpdate")
             {
                 if (String.IsNullOrEmpty(request.UpdatePath) || !UpdateInstaller.SamePath(request.UpdatePath, Application.ExecutablePath) || !UpdateInstaller.IsUpdating())
@@ -352,7 +360,7 @@ namespace AudioSwitch
             }
             // Detach the response on the owner thread before the pipe serializes it.
             if (request.Action != "snapshot") PublishTraySnapshot();
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 11, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
+            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 12, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
                 Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
                 Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
                 PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));

@@ -13,7 +13,7 @@ import { openBrowserPanel } from './BrowserPanel'
 function panel() {
   if (isTauri()) {
     if (getCurrentWindow().label === 'prompt') return <PromptApp gateway={createPromptGateway()} />
-    return <App gateway={createDesktopGateway()} onReady={dark => { void invoke('panel_ready', { dark }).catch(console.error) }} />
+    return <App gateway={createDesktopGateway()} onReady={(dark, system) => { void invoke('panel_ready', { dark, system }).catch(console.error) }} />
   }
   const query = new URLSearchParams(window.location.search)
   if (import.meta.env.MODE === 'desktop' || query.has('browser')) return openBrowserPanel()

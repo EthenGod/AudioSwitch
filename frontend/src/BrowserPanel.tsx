@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { App } from './App'
+import { ConnectionError } from './components/ConnectionError'
+import { useAppearance } from './useAppearance'
 import { browserToken, createBrowserConnection } from './data/browser'
 
 export function openBrowserPanel() {
@@ -13,7 +15,8 @@ export function openBrowserPanel() {
   } catch (error) { return <ConnectionEnded message={error instanceof Error ? error.message : '无法打开浏览器面板。'} /> }
 }
 function ConnectionEnded({ message }: { message: string }) {
-  return <main className="error-state" role="alert"><h1>连接已结束</h1><p>{message}</p></main>
+  useAppearance(undefined)
+  return <main className="connection-page"><ConnectionError title="连接已结束" message={message} /></main>
 }
 function BrowserPanel({ connection }: { connection: ReturnType<typeof createBrowserConnection> }) {
   const [ended, setEnded] = useState(false)

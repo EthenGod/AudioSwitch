@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace AudioSwitch
 {
-    internal sealed class IntegrityDialog : Form
+    internal sealed class IntegrityDialog : MessageForm
     {
         private readonly Label status;
         private readonly TextBox details;
@@ -19,20 +19,19 @@ namespace AudioSwitch
         private bool handingOff, closeRequested;
         internal bool Restarting { get; private set; }
         internal bool Passed { get; private set; }
-        internal IntegrityDialog(bool startup = false, bool preview = false)
+        internal IntegrityDialog(bool startup = false, bool preview = false, Func<bool> systemDark = null) : base(true, systemDark)
         {
             this.startup = startup;
             AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
-            Text = "文件检查与修复 · 声间"; Font = new Font("Microsoft YaHei UI", 9F);
-            BackColor = Palette.Background; ForeColor = Palette.Text;
+            Text = "声间 文件检查与修复"; Font = new Font("Microsoft YaHei UI", 9F);
             ClientSize = new Size(600, 470); FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false; StartPosition = startup ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent;
-            var title = Palette.Label("文件检查与修复", 18, Palette.Text, true); title.SetBounds(24, 22, 550, 40); Controls.Add(title);
+            var title = Palette.Label("文件检查与修复", 15, Theme.Text, true); title.SetBounds(26, 22, 548, 32); Controls.Add(title);
             status = Palette.Label("正在检查运行必需文件…", 9, Palette.Text, false); status.SetBounds(26, 76, 548, 48); Controls.Add(status);
             var card = new Surface { Padding = new Padding(14, 12, 10, 12) }; card.SetBounds(26, 130, 548, 245); Controls.Add(card);
             details = new DetailsBox { Name = "integrityDetails", Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
                 BackColor = Palette.Card, ForeColor = Palette.Text, BorderStyle = BorderStyle.None, Dock = DockStyle.Fill,
-                Text = "正在核对文件。旧格式目录会尝试修复必要文件；新界面候选包只做整包检查。用户配置和开机自启设置会保留。" };
+                Text = "旧格式程序会尝试修复缺失文件。桌面包和候选包只检查完整性。" };
             card.Controls.Add(details);
             var website = new FlatAction("打开发布页", false); website.SetBounds(26, 405, 112, 38); Controls.Add(website);
             website.Click += delegate { try { Process.Start(new ProcessStartInfo(AppUpdate.ReleasesUrl) { UseShellExecute = true }); } catch (Exception ex) { status.Text = ex.Message; } };

@@ -179,7 +179,7 @@ namespace AudioSwitch
                 popup.Show(); popup.Navigate(popup.Rows.Single(r => r.Command.Key == "flow:0").Command); Pump(320);
                 var row = popup.Rows.Single(r => r.Command.Key == "device:output-1");
                 Raise(row, "OnMouseLeave", EventArgs.Empty); Pump(180);
-                var theme = new TrayPopup.PopupTheme(true);
+                var theme = new PopupTheme(true);
                 state.Defaults["0:1"] = "output-1"; popup.UpdateSnapshot(snapshot()); Pump(35);
                 var intermediate = Pixel(row, row.Width / 2, row.Height - 5);
                 check(row.Command.Checked && intermediate.ToArgb() != theme.Card.ToArgb() && intermediate.ToArgb() != theme.Selected.ToArgb(), "confirmed device highlight passes through an intermediate color");
@@ -208,7 +208,7 @@ namespace AudioSwitch
                     check(!popup.ShowInTaskbar && !popup.Animating && commands == 0, "popup is transient and reduced motion has no timer " + suffix);
                     check(popup.Rows.All(r => r.Parent.ClientRectangle.Contains(r.Bounds)), "home rows remain inside popup " + suffix);
                     check(popup.Rows[0].PointToScreen(Point.Empty).Y - popup.Top <= 8 * scale + 1, "home starts with actions instead of an empty title band " + suffix);
-                    var first = popup.Rows[0]; var palette = new TrayPopup.PopupTheme(dark);
+                    var first = popup.Rows[0]; var palette = new PopupTheme(dark);
                     first.Focus(); Raise(first, "OnMouseLeave", EventArgs.Empty);
                     check(Pixel(first, first.Width / 2, first.Height - (int)(5 * scale)).ToArgb() == palette.Card.ToArgb(), "automatic focus does not paint a stuck hover " + suffix);
                     Raise(first, "OnMouseEnter", EventArgs.Empty);
@@ -327,7 +327,7 @@ namespace AudioSwitch
                 Raise(row, "OnMouseEnter", EventArgs.Empty); Pump(60);
                 Raise(row, "OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, 12, 12, 0));
                 Raise(row, "OnMouseCaptureChanged", EventArgs.Empty); Raise(row, "OnMouseLeave", EventArgs.Empty); Pump(180);
-                check(!popup.Animating && Pixel(row, row.Width / 2, row.Height - 5).ToArgb() == new TrayPopup.PopupTheme(true).Card.ToArgb(), "press cancellation and hover release settle without stuck color or timer");
+                check(!popup.Animating && Pixel(row, row.Width / 2, row.Height - 5).ToArgb() == new PopupTheme(true).Card.ToArgb(), "press cancellation and hover release settle without stuck color or timer");
                 popup.Dismiss(); Pump(60); double fading = popup.PresentationOpacity; popup.Reopen();
                 check(popup.Handle == handle && popup.PresentationOpacity == fading, "reopening during dismissal continues from current opacity on the same window");
                 Pump(300); popup.Dismiss(); Pump(240); check(!popup.Visible && !popup.Animating, "dismissal completes and stops timer");
@@ -357,7 +357,7 @@ namespace AudioSwitch
                     if (GetForegroundWindow() == popup.Handle) using (var capture = new Bitmap(popup.Width, popup.Height)) {
                         using (var graphics = Graphics.FromImage(capture)) graphics.CopyFromScreen(popup.Location, Point.Empty, capture.Size);
                         var point = popup.PointToClient(exit.PointToScreen(new Point(exit.Width / 2, exit.Height / 2)));
-                        check(capture.GetPixel(point.X, point.Y).ToArgb() == new TrayPopup.PopupTheme(true).Card.ToArgb(), "composited exit row has its theme background after repeated short submenu returns");
+                        check(capture.GetPixel(point.X, point.Y).ToArgb() == new PopupTheme(true).Card.ToArgb(), "composited exit row has its theme background after repeated short submenu returns");
                         capture.Save(Path.Combine(directory, "tray-popup-return-native.png"));
                     } else check(false, "native return capture requires the popup to retain foreground");
                     cover.Activate(); Pump(240);
