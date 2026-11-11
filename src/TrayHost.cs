@@ -71,10 +71,10 @@ namespace AudioSwitch
             audio.Listen(delegate {
                 if (exiting) return;
                 // Bound the wait from the first event; later callbacks must not postpone it.
-                try { dispatcher.BeginInvoke((Action)delegate { if (!exiting) { updateBusyUntil = DateTime.UtcNow.AddSeconds(15); debounce.Signal(); } }); }
+                try { debounce.Post(action => dispatcher.BeginInvoke(action), () => updateBusyUntil = DateTime.UtcNow.AddSeconds(15)); }
                 catch (InvalidOperationException) { }
             });
-            server = new PipeServer(request => (Reply)dispatcher.Invoke((Func<Reply>)(() => Handle(request))), request => {
+            server = new PipeServer(request => (string)dispatcher.Invoke((Func<string>)(() => Wire.Encode(Handle(request)))), request => {
                 if (request.Action == "exitForUpdate") dispatcher.BeginInvoke((Action)(() => { if (exiting) ExitThread(); }));
             });
             try
@@ -202,6 +202,8 @@ namespace AudioSwitch
                 exiting = true; dolby.Stop(); debounce.Stop(); updates.Dispose(); updateIdleTimer.Stop(); ReleaseUpdateActivity();
                 return new Reply();
             }
+            // Snapshot reads never need a rollback copy of the entire configuration.
+            if (request.Action == "snapshot") return CreateReply();
             string error = null;
             DeviceSettingsInfo settings = null;
             string backupPath = null;
@@ -212,7 +214,6 @@ namespace AudioSwitch
             {
                 switch (request.Action)
                 {
-                    case "snapshot": break;
                     case "readDolbyApply": return new Reply { DolbyOperation = panelDolby.Read(request.Token) };
                     case "cancelDolbyApply": return new Reply { DolbyOperation = panelDolby.Cancel(request.Token) };
                     case "saveAndApplyDolby":
@@ -358,12 +359,29 @@ namespace AudioSwitch
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
                 if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
-            // Detach the response on the owner thread before the pipe serializes it.
-            if (request.Action != "snapshot") PublishTraySnapshot();
-            return Wire.Decode<Reply>(Wire.Encode(new Reply { PanelApiVersion = 12, DolbyOperation = dolbyOperation, OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null), PreferencesSaved = preferencesSaved,
-                Error = error ?? audioError ?? priorityError, Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values), State = tracker.Current, Pending = tracker.Pending, DeviceSettings = settings,
-                Update = updates == null ? null : updates.Snapshot(), Preferences = preferences, Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()), BackendExecutablePath = Application.ExecutablePath, BackupPath = backupPath, BackendPid = Process.GetCurrentProcess().Id, DolbyApplying = dolby.Applying,
-                PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid }));
+            PublishTraySnapshot();
+            var reply = CreateReply();
+            reply.DolbyOperation = dolbyOperation;
+            reply.OperationError = error ?? ((request.Action == "priority" || request.Action == "deviceOrder") ? priorityError : null);
+            reply.PreferencesSaved = preferencesSaved;
+            reply.Error = error ?? reply.Error;
+            reply.DeviceSettings = settings;
+            reply.BackupPath = backupPath;
+            return reply;
+        }
+        // Owner-thread only. IPC serializes once before leaving this thread; menu
+        // commands inspect the reply synchronously. Never pass these live lists out.
+        private Reply CreateReply()
+        {
+            return new Reply {
+                PanelApiVersion = 12, Error = audioError ?? priorityError,
+                Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values),
+                State = tracker.Current, Pending = tracker.Pending, Preferences = preferences,
+                Update = updates == null ? null : updates.Snapshot(),
+                Startup = StartupRegistration.Read(Application.ExecutablePath, new RegistryStartupStore()),
+                BackendExecutablePath = Application.ExecutablePath, BackendPid = Process.GetCurrentProcess().Id,
+                DolbyApplying = dolby.Applying, PromptPid = frontends.PromptPid, FrontendPid = frontends.PanelPid
+            };
         }
         private void SwitchTo(string id, bool quietAutomatic = false)
         {

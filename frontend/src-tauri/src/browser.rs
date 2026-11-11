@@ -1,6 +1,6 @@
 //! Short-lived, loopback-only transport for the existing panel commands.
 use super::*;
-use std::{collections::HashMap, io::{BufRead, Read, Write}, net::{TcpListener, TcpStream}, sync::{Arc, Mutex, atomic::AtomicUsize}, time::{Duration, Instant}};
+use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::{TcpListener, TcpStream}, sync::{Arc, Mutex, atomic::AtomicUsize}, time::{Duration, Instant}};
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
 const SECURITY: &str = "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'\r\n";
@@ -123,12 +123,16 @@ fn open(host: &Host) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct Request { method: String, path: String, headers: HashMap<String, String>, body: Vec<u8> }
-fn read_request(stream: &mut TcpStream) -> std::io::Result<Request> {
+fn read_request(stream: impl Read) -> std::io::Result<Request> {
     let invalid = || std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid request");
+    // Buffer socket reads while retaining any body bytes received with the header.
+    // The limit also applies to a single unterminated header line.
+    let mut reader = BufReader::new(stream);
     let mut head = Vec::new();
     while !head.ends_with(b"\r\n\r\n") {
         if head.len() >= 8192 { return Err(invalid()); }
-        let mut byte = [0]; stream.read_exact(&mut byte)?; head.push(byte[0]);
+        let remaining = 8192 - head.len();
+        if reader.by_ref().take(remaining as u64).read_until(b'\n', &mut head)? == 0 { return Err(invalid()); }
     }
     let head = std::str::from_utf8(&head).map_err(|_| invalid())?;
     let mut lines = head.split("\r\n");
@@ -145,7 +149,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request> {
     if headers.contains_key("transfer-encoding") || headers.contains_key("expect") { return Err(invalid()); }
     let length = match headers.get("content-length") { Some(v) if !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()) => v.parse::<usize>().map_err(|_| invalid())?, Some(_) => return Err(invalid()), None => 0 };
     if length > MAX_BODY || (method != "POST" && length != 0) { return Err(invalid()); }
-    let mut body = vec![0; length]; stream.read_exact(&mut body)?;
+    let mut body = vec![0; length]; reader.read_exact(&mut body)?;
     Ok(Request { method, path, headers, body })
 }
 fn authorized(request: &Request, host: &Host) -> bool {
@@ -335,6 +339,26 @@ mod tests {
         for extra in ["Content-Length: 1\r\nContent-Length: 1", "Content-Length: 3000000", "Content-Length: -1", "Transfer-Encoding: chunked", "Host: duplicate", "Content-Length: 3"] {
             assert!(parse(format!("POST /rpc HTTP/1.1\r\nHost: localhost\r\n{extra}\r\n\r\n{{}}").as_bytes()).is_err());
         }
+    }
+    #[test] fn buffered_headers_preserve_body_and_bound_reads() {
+        struct Counted<'a> { bytes: &'a [u8], reads: usize }
+        impl Read for Counted<'_> {
+            fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+                self.reads += 1;
+                self.bytes.read(output)
+            }
+        }
+        let bytes = b"POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{}";
+        let mut stream = Counted { bytes, reads: 0 };
+        assert_eq!(read_request(&mut stream).unwrap().body, b"{}");
+        assert_eq!(stream.reads, 1, "one buffered read instead of one socket read per header byte");
+        assert!(read_request(&b"GET / HTTP/1.1\r\n"[..]).is_err());
+        assert!(read_request(&vec![b'x'; 8193][..]).is_err());
+        let prefix = "GET / HTTP/1.1\r\nX-Padding: ";
+        let exact = format!("{prefix}{}\r\n\r\n", "a".repeat(8192 - prefix.len() - 4));
+        assert!(read_request(exact.as_bytes()).is_ok());
+        let over = exact.replacen("X-Padding:", "X-Paddings:", 1);
+        assert!(read_request(over.as_bytes()).is_err());
     }
     fn host() -> Host { Host { authority: "127.0.0.1:1234".into(), token: "secret".into(), lifetime: Mutex::new(Lifetime::new()), sessions: Mutex::new(HashMap::new()), connections: AtomicUsize::new(0), stop: AtomicBool::new(false) } }
     #[test] fn rejects_foreign_origins_hosts_missing_or_wrong_tokens() {

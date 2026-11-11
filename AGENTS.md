@@ -49,6 +49,7 @@
 | `src/DeviceAliasCache.cs` | 本机设备名补全历史，独立于可导出的配置 |
 | `src/Dashboard.cs`、`DevicePrompt.cs`、`*Dialog.cs`、`DolbyEditor.cs` | 面板、提示、设备设置、排序及 Dolby 编辑器 |
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
+| `tests/RuntimeEfficiencyTests.cs` | 通信大小边界、设备事件合并及只读性能对照 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
 | `frontend/src/components/ScrollSurface.tsx`、`UpgradeScroll.tsx` | 主面板及抽屉滚动、滚动条动画和内容居中 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |

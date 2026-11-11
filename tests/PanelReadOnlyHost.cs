@@ -52,7 +52,7 @@ namespace AudioSwitch
                         else if (request.Action != "snapshot") reply.OperationError = "只读联调禁止保存、设备切换、音效应用及其他写入。";
                         return reply;
                     };
-                    using (var server = new PipeServer(request => (Reply)dispatcher.Invoke((Func<Reply>)(() => read(request)))))
+                    using (var server = new PipeServer(request => (string)dispatcher.Invoke((Func<string>)(() => Wire.Encode(read(request))))))
                     {
                         var lifetime = Stopwatch.StartNew();
                         timer.Tick += delegate { if (stop.WaitOne(0) || lifetime.Elapsed > TimeSpan.FromMinutes(10)) Application.ExitThread(); };

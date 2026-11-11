@@ -37,6 +37,7 @@ namespace AudioSwitch
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
+                if (args.Contains("--runtime-benchmark")) { RuntimeEfficiencyTests.Benchmark(); return 0; }
                 if (args.Contains("--tray-popup-render")) { TrayPopupTests.Run(Check); TrayPopupTests.Render(Check); Console.WriteLine("PASS: " + passed + " tray checks"); return 0; }
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
                 if (args.Contains("--update-activity")) { BackgroundUpdateTests.NativeActivity(Check); return 0; }
@@ -49,6 +50,7 @@ namespace AudioSwitch
                     { existing.Dispose(); throw new InvalidOperationException("请先退出当前声间，再运行生命周期或 Dolby 实机测试；不会启动第二个后台。"); }
                 }
                 RunStateTests();
+                RuntimeEfficiencyTests.Run(Check);
                 RunDisconnectionTests();
                 RunSelectionTests();
                 RunProfileTests();
@@ -79,6 +81,9 @@ namespace AudioSwitch
                 {
                     audio.Listen(delegate { });
                     var actual = audio.Read();
+                    for (int flow = 0; flow < 2; flow++)
+                        for (int role = 0; role < 3; role++)
+                            Check(actual.Default(flow, role) == audio.ReadDefault(flow, role), "single-role lookup matches full read: " + flow + ":" + role);
                     Check(actual.Devices.All(d => !String.IsNullOrEmpty(d.Id) && !String.IsNullOrEmpty(d.Name)), "live Core Audio enumeration + notification registration");
                     Console.WriteLine("Live endpoints: " + actual.Devices.Count);
                     foreach (var d in actual.Devices) Console.WriteLine((d.Flow == 0 ? "OUT " : "IN  ") + d.Name);
@@ -784,7 +789,8 @@ namespace AudioSwitch
                     graphics.Clear(Color.Magenta);
                     control.GetType().GetMethod("OnPaint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                         .Invoke(control, new object[] { new PaintEventArgs(graphics, control.ClientRectangle) });
-                    Check(bitmap.GetPixel(0, 0).ToArgb() == parent.Fill.ToArgb() && bitmap.GetPixel(219, 35).ToArgb() == parent.Fill.ToArgb(),
+                    Color background = parent.Fill;
+                    Check(bitmap.GetPixel(0, 0).ToArgb() == background.ToArgb() && bitmap.GetPixel(219, 35).ToArgb() == background.ToArgb(),
                         control.GetType().Name + " clears stale pixels across its background in " + (dark ? "dark" : "light") + " mode");
                 }
             }
@@ -1107,7 +1113,7 @@ namespace AudioSwitch
             var reply = new Reply { State = tracker.Current, Pending = tracker.Pending.ToList(), Preferences = new Preferences() };
             var startup = Stopwatch.StartNew();
             using (var connected = new ManualResetEventSlim())
-            using (var pipe = new PipeServer(request => { connected.Set(); return Interlocked.CompareExchange(ref reply, null, null); }))
+            using (var pipe = new PipeServer(request => { connected.Set(); return Wire.Encode(Interlocked.CompareExchange(ref reply, null, null)); }))
             using (var prompt = Process.Start(new ProcessStartInfo(exe, "--prompt --owner=" + Process.GetCurrentProcess().Id) { UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden }))
             {
                 try

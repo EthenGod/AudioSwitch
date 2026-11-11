@@ -38,7 +38,7 @@ namespace AudioSwitch
                             Warning="隔离启动验证：模拟设备，禁止音频及配置写入。",
                             Pending=new List<Arrival> { new Arrival { Token="launch-test",Flow=0,NewDevices=new List<Endpoint> {device},PreviousDefaults=new Dictionary<string,string>(),PreviousName="" } } };
                     };
-                    using (var server = new PipeServer(r => (Reply)dispatcher.Invoke((Func<Reply>)(() => action(r))))) {
+                    using (var server = new PipeServer(r => (string)dispatcher.Invoke((Func<string>)(() => Wire.Encode(action(r)))))) {
                         var lifetime = Stopwatch.StartNew(); timer.Tick += delegate { if (stop.WaitOne(0) || lifetime.Elapsed > TimeSpan.FromMinutes(10)) Application.ExitThread(); };
                         timer.Start(); Console.WriteLine("Launch fixture ready"); Application.Run(); timer.Stop();
                     }

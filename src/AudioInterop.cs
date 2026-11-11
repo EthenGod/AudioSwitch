@@ -140,19 +140,25 @@ namespace AudioSwitch
                 finally { Release(collection); }
                 for (int role = 0; role < 3; role++)
                 {
-                    IMMDevice device = null;
-                    try
-                    {
-                        int hr = enumerator.GetDefaultAudioEndpoint(flow, role, out device);
-                        if (hr == unchecked((int)0x80070490)) continue; // No endpoint available.
-                        Marshal.ThrowExceptionForHR(hr);
-                        string id; Marshal.ThrowExceptionForHR(device.GetId(out id));
-                        result.Defaults[flow + ":" + role] = id;
-                    }
-                    finally { Release(device); }
+                    string id = ReadDefault(flow, role);
+                    if (id != null) result.Defaults[flow + ":" + role] = id;
                 }
             }
             return result;
+        }
+        // Guards need a fresh default endpoint, not names/properties of every device.
+        internal string ReadDefault(int flow, int role)
+        {
+            IMMDevice device = null;
+            try
+            {
+                int hr = enumerator.GetDefaultAudioEndpoint(flow, role, out device);
+                if (hr == unchecked((int)0x80070490)) return null;
+                Marshal.ThrowExceptionForHR(hr);
+                string id; Marshal.ThrowExceptionForHR(device.GetId(out id));
+                return id;
+            }
+            finally { Release(device); }
         }
         private static string ReadName(IMMDevice device)
         {

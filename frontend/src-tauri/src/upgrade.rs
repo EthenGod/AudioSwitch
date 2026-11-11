@@ -13,7 +13,7 @@ pub enum Action { Download, Install }
 #[derive(Clone)]
 struct Job {
     token: String, view: Arc<Mutex<Value>>, commands: mpsc::Sender<Action>, cancel: Arc<Notify>,
-    running: Arc<AtomicBool>, committed: Arc<AtomicBool>,
+    running: Arc<AtomicBool>, committed: Arc<AtomicBool>, cancelling: Arc<AtomicBool>,
 }
 #[derive(Default)]
 pub struct Upgrade { job: Mutex<Option<Job>>, next: AtomicU64, closed: AtomicBool }
@@ -38,7 +38,7 @@ impl Upgrade {
         let token = self.next.fetch_add(1, Ordering::SeqCst).to_string();
         let initial = json!({"Token":token,"Kind":kind,"Status":"checking","Message":"正在检查…","CanDownload":false,"Bytes":0,"Total":0});
         let (tx, mut rx) = mpsc::channel(1);
-        let job = Job { token, view:Arc::new(Mutex::new(initial.clone())), commands:tx, cancel:Arc::new(Notify::new()), running:Arc::new(AtomicBool::new(true)), committed:Arc::new(AtomicBool::new(false)) };
+        let job = Job { token, view:Arc::new(Mutex::new(initial.clone())), commands:tx, cancel:Arc::new(Notify::new()), running:Arc::new(AtomicBool::new(true)), committed:Arc::new(AtomicBool::new(false)), cancelling:Arc::new(AtomicBool::new(false)) };
         *self.job.lock().unwrap() = Some(job.clone());
         if self.closed.load(Ordering::SeqCst) { job.cancel.notify_one(); }
         tauri::async_runtime::spawn(async move {
@@ -100,27 +100,43 @@ impl Upgrade {
     pub fn action(&self, token: &str, action: Action) -> Result<Value, String> {
         let job = self.find(token)?;
         let mut view = job.view.lock().unwrap();
-        if !job.running.load(Ordering::SeqCst) || job.committed.load(Ordering::SeqCst) || self.closed.load(Ordering::SeqCst) { return Err("任务已结束或已提交，请勿重复操作。".into()); }
+        if !job.running.load(Ordering::SeqCst) || job.committed.load(Ordering::SeqCst) || job.cancelling.load(Ordering::SeqCst) || self.closed.load(Ordering::SeqCst) { return Err("任务已结束或已提交，请勿重复操作。".into()); }
         let status = view["Status"].as_str().unwrap_or("");
         let next = match action {
             Action::Download if matches!(status, "available" | "repairable") && view["CanDownload"] == true => "downloading",
             Action::Install if status == "ready" => "installing",
             _ => return Err("当前步骤不能执行此操作。".into()),
         };
+        // Reserve delivery before marking installation irreversible. A closed/full
+        // worker channel must leave the task cancellable, without sending twice.
+        let permit = job.commands.try_reserve().map_err(|_| "操作尚未确认，请勿重复提交。")?;
         if matches!(action, Action::Install) { job.committed.store(true, Ordering::SeqCst); }
-        job.commands.try_send(action).map_err(|_| "操作尚未确认，请勿重复提交。")?;
+        permit.send(action);
         view["Status"] = json!(next); view["CanDownload"] = json!(false);
         view["Message"] = json!(if next == "installing" { "正在交给安装助手，请等待。" } else { "正在下载并校验…" });
         Ok(view.clone())
     }
     pub async fn cancel(&self, token: &str) -> Result<Value, String> {
         let job = self.find(token)?;
-        if job.committed.load(Ordering::SeqCst) { return Err("安装已经提交，不能取消或重复提交。".into()); }
-        job.cancel.notify_one();
+        {
+            // Share action's lock: either installation commits first or cancellation
+            // closes admission first. Never accept a command while stopping.
+            let _view = job.view.lock().unwrap();
+            if job.committed.load(Ordering::SeqCst) { return Err("安装已经提交，不能取消或重复提交。".into()); }
+            job.cancelling.store(true, Ordering::SeqCst);
+            job.cancel.notify_one();
+        }
         timeout(Duration::from_secs(8), async { while job.running.load(Ordering::SeqCst) { sleep(Duration::from_millis(25)).await; } }).await.map_err(|_| "尚未确认任务停止，请稍后重试。")?;
         self.read(token)
     }
-    pub fn close(&self) { self.closed.store(true, Ordering::SeqCst); if let Some(j) = self.job.lock().unwrap().as_ref() { j.cancel.notify_one(); } }
+    pub fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+        if let Some(job) = self.job.lock().unwrap().as_ref() {
+            let _view = job.view.lock().unwrap();
+            job.cancelling.store(true, Ordering::SeqCst);
+            job.cancel.notify_one();
+        }
+    }
 }
 impl Drop for Upgrade { fn drop(&mut self) { self.close(); } }
 async fn stop(child: &mut Child) -> Result<(), String> {
@@ -143,6 +159,69 @@ fn decode(bytes: &[u8], kind: Kind) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn unsent_install_remains_cancellable() {
+        for full in [false, true] {
+            let manager = Upgrade::default();
+            let (tx, mut rx) = mpsc::channel(1);
+            if full { tx.try_send(Action::Download).unwrap(); } else { rx.close(); }
+            let job = Job {
+                token: "pending".into(), view: Arc::new(Mutex::new(json!({"Status":"ready"}))),
+                commands: tx, cancel: Arc::new(Notify::new()),
+                running: Arc::new(AtomicBool::new(true)), committed: Arc::new(AtomicBool::new(false)),
+                cancelling: Arc::new(AtomicBool::new(false)),
+            };
+            *manager.job.lock().unwrap() = Some(job.clone());
+            assert!(manager.action("pending", Action::Install).is_err());
+            assert!(!job.committed.load(Ordering::SeqCst), "an unsent install must not prevent cancellation");
+            assert_eq!(manager.read("pending").unwrap()["Status"], "ready");
+            job.running.store(false, Ordering::SeqCst);
+            assert!(manager.cancel("pending").await.is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn accepted_install_is_committed_once() {
+        let manager = Upgrade::default();
+        let (tx, mut rx) = mpsc::channel(1);
+        let job = Job {
+            token: "accepted".into(), view: Arc::new(Mutex::new(json!({"Status":"ready"}))),
+            commands: tx, cancel: Arc::new(Notify::new()),
+            running: Arc::new(AtomicBool::new(true)), committed: Arc::new(AtomicBool::new(false)),
+            cancelling: Arc::new(AtomicBool::new(false)),
+        };
+        *manager.job.lock().unwrap() = Some(job.clone());
+        assert_eq!(manager.action("accepted", Action::Install).unwrap()["Status"], "installing");
+        assert!(job.committed.load(Ordering::SeqCst));
+        assert!(matches!(rx.try_recv().unwrap(), Action::Install));
+        assert!(manager.action("accepted", Action::Install).is_err());
+        assert!(manager.cancel("accepted").await.is_err());
+    }
+    #[tokio::test]
+    async fn pending_cancellation_rejects_new_actions() {
+        for (status, action) in [("available", Action::Download), ("ready", Action::Install)] {
+            let manager = Upgrade::default();
+            let (tx, mut rx) = mpsc::channel(1);
+            let job = Job {
+                token: "cancelling".into(), view: Arc::new(Mutex::new(json!({"Status":status,"CanDownload":true}))),
+                commands: tx, cancel: Arc::new(Notify::new()),
+                running: Arc::new(AtomicBool::new(true)), committed: Arc::new(AtomicBool::new(false)),
+                cancelling: Arc::new(AtomicBool::new(false)),
+            };
+            *manager.job.lock().unwrap() = Some(job.clone());
+            let cancellation = manager.cancel("cancelling");
+            tokio::pin!(cancellation);
+            tokio::select! {
+                _ = job.cancel.notified() => {},
+                _ = &mut cancellation => panic!("cancellation must wait for the worker to exit"),
+            }
+            assert!(manager.action("cancelling", action).is_err(), "no new command may overtake a pending cancellation");
+            assert!(rx.try_recv().is_err());
+            assert!(!job.committed.load(Ordering::SeqCst));
+            job.running.store(false, Ordering::SeqCst);
+            cancellation.await.unwrap();
+        }
+    }
     #[test]
     fn rejects_malformed_or_mismatched_status() {
         let base = json!({"Kind":"update","Status":"ready","Message":"中文结果","CanDownload":false,"Bytes":5,"Total":10});

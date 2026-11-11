@@ -71,7 +71,7 @@ namespace AudioSwitch
                         using (var signal = request.CancellationEvent == null ? null : EventWaitHandle.OpenExisting(request.CancellationEvent))
                         using (var owner = request.OwnerPid == 0 ? null : Process.GetProcessById(request.OwnerPid))
                         {
-                            Action outputGuard = () => { if (!String.Equals(audio.Read().Default(0, 1), request.DeviceId, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("此设备已不是当前输出，请先选择此设备再读取或应用 Dolby。"); };
+                            Action outputGuard = () => { if (!String.Equals(audio.ReadDefault(0, 1), request.DeviceId, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("此设备已不是当前输出，请先选择此设备再读取或应用 Dolby。"); };
                             Action guard = () => { if ((signal != null && signal.WaitOne(0)) || (owner != null && owner.HasExited)) throw new OperationCanceledException("Dolby 任务已取消。"); outputGuard(); };
                             guard();
                             using (var native = new DolbyNative(request.DeviceId))
