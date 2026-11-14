@@ -51,6 +51,8 @@
 | `tests/Tests.cs` | 无外部测试框架的回归测试、界面渲染和可选实机验证 |
 | `tests/RuntimeEfficiencyTests.cs` | 通信大小边界、设备事件合并及只读性能对照 |
 | `frontend/src/App.tsx`、`components/`、`styles.css` | React 页面、共用控件、主题及动画 |
+| `frontend/src/appearance/`、`useAppearance.ts` | 风格注册表、语义变量和可中断的外观过渡；风格独立于深浅色 |
+| `src/PopupTheme.cs` | 原生托盘与报错窗口配色；未适配的风格回退经典 |
 | `frontend/src/components/ScrollSurface.tsx`、`UpgradeScroll.tsx` | 主面板及抽屉滚动、滚动条动画和内容居中 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
 | `frontend/src-tauri/build.rs`、`capabilities/`、`permissions/` | 原生命令与窗口权限；新增命令需同步注册和授权 |

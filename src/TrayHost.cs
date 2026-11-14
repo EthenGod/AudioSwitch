@@ -65,7 +65,7 @@ namespace AudioSwitch
                 }));
             }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, "菜单未能打开", ex.Message, ToolTipIcon.Warning); }, CreateTrayCommands);
             tray.MouseUp += delegate(object sender, MouseEventArgs e) {
-                if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, CreateTrayCommands(), preferences.DarkMode);
+                if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, CreateTrayCommands(), preferences.DarkMode, preferences.UiStyle);
             };
             debounce = new DeviceEventBatch(() => RefreshAudio(true, true));
             audio.Listen(delegate {
@@ -182,7 +182,7 @@ namespace AudioSwitch
         }
         private void PublishTraySnapshot()
         {
-            if (!exiting && trayPopup != null && trayPopup.Running) trayPopup.Update(CreateTrayCommands());
+            if (!exiting && trayPopup != null && trayPopup.Running) trayPopup.Update(CreateTrayCommands(), preferences.DarkMode, preferences.UiStyle);
         }
         private Reply Handle(Request request)
         {
@@ -234,6 +234,9 @@ namespace AudioSwitch
                         preferences.BrowserPort = request.BrowserPort.Value; SavePreferences(); preferencesSaved = true;
                         frontends.SetBrowserPort(preferences.BrowserPort); break;
                     case "darkMode": preferences.DarkMode = request.Value; SavePreferences(); preferencesSaved = true; break;
+                    case "uiStyle":
+                        PreferenceStore.ValidateUiStyle(request.UiStyle);
+                        preferences.UiStyle = request.UiStyle; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
                         UpdateGameMode();
@@ -357,7 +360,7 @@ namespace AudioSwitch
             {
                 if (!preferencesSaved) preferences = beforePreferences;
                 Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "uiStyle" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
             PublishTraySnapshot();
             var reply = CreateReply();
@@ -374,7 +377,7 @@ namespace AudioSwitch
         private Reply CreateReply()
         {
             return new Reply {
-                PanelApiVersion = 12, Error = audioError ?? priorityError,
+                PanelApiVersion = 13, Error = audioError ?? priorityError,
                 Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values),
                 State = tracker.Current, Pending = tracker.Pending, Preferences = preferences,
                 Update = updates == null ? null : updates.Snapshot(),

@@ -193,6 +193,7 @@ namespace AudioSwitch
         internal static void Render(Action<bool, string> check)
         {
             string directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "artifacts"); Directory.CreateDirectory(directory);
+            AppearanceUpdates(check, directory);
             ContinuousInteraction(check, directory);
             SelectionMotion(check);
             foreach (bool dark in new[] { false, true }) foreach (float scale in new[] { 1F, 1.5F, 2F }) {
@@ -394,11 +395,54 @@ namespace AudioSwitch
                 Exception failure = null;
                 var host = new TrayPopupHost(action => action(), ex => failure = ex);
                 host.Show(new Point(400, 500), entries, true);
-                if (i == 0) Thread.Sleep(200); // The backend thread deliberately does not pump messages.
+                if (i == 0) {
+                    // The preference can change before the separate STA has created its handle.
+                    host.Update(entries, false, "future-style");
+                    var popupField = typeof(TrayPopupHost).GetField("popup", BindingFlags.NonPublic | BindingFlags.Instance);
+                    TrayPopup current = null; var ready = Stopwatch.StartNew();
+                    while (host.Running && ready.ElapsedMilliseconds < 2000) {
+                        current = (TrayPopup)popupField.GetValue(host);
+                        if (current != null && current.IsHandleCreated) break;
+                        Thread.Sleep(10);
+                    }
+                    check(current != null && current.IsHandleCreated && (bool)current.Invoke((Func<bool>)(() => current.BackColor == new PopupTheme(false).Card)),
+                        "appearance updates during STA startup reach the first popup");
+                    var same = current;
+                    host.Show(new Point(400, 500), entries, true, "classic");
+                    check((bool)current.Invoke((Func<bool>)(() => Object.ReferenceEquals(same, popupField.GetValue(host)) && current.BackColor == new PopupTheme(true).Card)),
+                        "reopening an existing popup applies the latest appearance without replacing it");
+                }
                 host.Dispose();
                 var watch = Stopwatch.StartNew();
                 while (host.Running && watch.ElapsedMilliseconds < 2000) Thread.Sleep(10);
                 check(!host.Running && failure == null, "separate popup UI exits after normal or immediate disposal " + i);
+            }
+        }
+        private static void AppearanceUpdates(Action<bool, string> check, string directory)
+        {
+            var state = State(20); var preferences = new Preferences { UiStyle = "future-style", DeviceOrder = State(20).Devices };
+            var commands = TrayMenuModel.Create(state, preferences, true, () => { }, () => { }, r => { }, () => { });
+            using (var popup = new TrayPopup(commands, new Point(700, 700), true, 1, false, style: preferences.UiStyle)) {
+                popup.Show(); popup.Navigate(commands.Single(c => c.Key == "flow:0")); popup.HandleNavigation(Keys.End);
+                var row = popup.Rows.Last(); var handle = popup.Handle; var bounds = popup.Bounds; int offset = row.Parent.Top;
+                int repaints = 0; popup.Invalidated += delegate { repaints++; };
+                for (int i = 0; i < 100; i++) popup.UpdateAppearance(true, "another-unknown-style");
+                check(repaints == 0 && !popup.Animating, "equivalent native style fallbacks do not repaint or start timers");
+                foreach (bool dark in new[] { false, true }) {
+                    popup.UpdateAppearance(dark, "classic");
+                    check(popup.Handle == handle && popup.Bounds == bounds && Object.ReferenceEquals(popup.Rows.Last(), row)
+                        && row.Focused && row.Parent.Top == offset, "native appearance preserves the submenu, focus, scroll and window " + dark);
+                    check(popup.BackColor == new PopupTheme(dark).Card && row.BackColor == popup.BackColor && row.Parent.BackColor == popup.BackColor,
+                        "native appearance updates existing surfaces together " + dark);
+                    using (var bitmap = new Bitmap(popup.Width, popup.Height)) {
+                        popup.DrawToBitmap(bitmap, popup.ClientRectangle);
+                        bitmap.Save(Path.Combine(directory, "tray-popup-appearance-" + (dark ? "dark" : "light") + ".png"));
+                    }
+                }
+                check(preferences.UiStyle == "future-style" && new PopupTheme(true, preferences.UiStyle).StyleId == "classic",
+                    "native fallback does not rewrite the saved style or touch audio");
+                check(!popup.Animating, "native palette changes leave no idle timer");
+                popup.Close();
             }
         }
     }

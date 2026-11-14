@@ -2,6 +2,7 @@ import type { Device, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scena
 import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
 import { mockUpgrade } from './upgrade'
 import { APP_VERSION } from '../version'
+import { DEFAULT_UI_STYLE, isUiStyle } from '../appearance/styles'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -18,6 +19,7 @@ function initial(): Snapshot {
     Devices: structuredClone(devices),
     Defaults: { '0:0': 'demo-headphones', '0:1': 'demo-headphones', '0:2': 'demo-speakers', '1:0': 'demo-microphone', '1:1': 'demo-microphone', '1:2': 'demo-microphone' },
     Preferences: {
+      UiStyle: DEFAULT_UI_STYLE,
       BrowserPort: 0, RecentDeviceAliases: [],
       DarkMode: true, GameMode: false, AskOnConnect: true, IncludeCommunications: true,
       UseDevicePriority: true, AutoUpdateEnabled: true, IncludePrerelease: false, UpdateChannel: 'GitHub', OpenPanelInBrowser: false, KeepBrowserPortOpen: false,
@@ -136,9 +138,10 @@ export function createMockGateway(latency = 260, previewNames: string[] = []): P
     },
     async setScenario(value) {
       scenario = value
-      const dark = state.Preferences.DarkMode
+      const dark = state.Preferences.DarkMode, style = state.Preferences.UiStyle
       state = initial()
       state.Preferences.DarkMode = dark
+      state.Preferences.UiStyle = style
       if (value === 'empty') {
         state.Devices = []; state.Defaults = {}; state.Preferences.DeviceOrder = { 0: [], 1: [] }
       }
@@ -183,6 +186,10 @@ export function createMockGateway(latency = 260, previewNames: string[] = []): P
     async setBrowserPort(port) {
       if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('端口应为 1–65535，留空则自动分配。')
       await delay(); state.Preferences.BrowserPort = port; return copy()
+    },
+    async setUiStyle(style) {
+      if (!isUiStyle(style)) throw new Error('不支持此界面风格')
+      await delay(); state.Preferences.UiStyle = style; return copy()
     },
     async setStartup(value) { await delay(); state.StartupEnabled = value; return copy() },
     async reorder(flow: Flow, ids: string[]) {

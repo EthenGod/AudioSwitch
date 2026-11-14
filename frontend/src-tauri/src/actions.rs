@@ -20,6 +20,7 @@ pub enum Action {
     SaveBasic { id: String, profile: BasicProfile, expected_profile: Option<BasicProfile>, rule: u8, expected_rule: u8, rename: Option<AliasEdit> },
     Preference { key: Preference, value: bool },
     BrowserPort { port: u16 },
+    UiStyle { style: String },
     Reorder { flow: u8, ids: Vec<String> },
     Startup { value: bool, expected_command: Option<String> },
 }
@@ -43,6 +44,14 @@ impl Action {
             Self::BrowserPort { port } => {
                 if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 9 { return Err("自定义端口需要新版后台。".into()); }
                 json!({"Action":"browserPort", "BrowserPort":port})
+            },
+            Self::UiStyle { style } => {
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 13 { return Err("切换界面风格需要新版后台。".into()); }
+                if style.is_empty() || style.len() > 32 || !style.as_bytes()[0].is_ascii_lowercase()
+                    || !style.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-') {
+                    return Err("界面风格标识无效。".into());
+                }
+                json!({"Action":"uiStyle", "UiStyle":style})
             },
             Self::SaveBasic { id: device, profile: next, expected_profile, rule, expected_rule, rename } => {
                 id(device)?;
@@ -87,6 +96,19 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn style_ids_are_bounded_save_only_and_require_capability() {
+        for style in ["classic", "future-style-2", &"a".repeat(32)] {
+            let action = Action::UiStyle { style: style.into() };
+            assert!(action.request(&json!({"PanelApiVersion":12})).is_err());
+            assert_eq!(action.request(&json!({"PanelApiVersion":13})).unwrap(), json!({"Action":"uiStyle", "UiStyle":style}));
+        }
+        for style in ["", "Classic", "-style", "../style", "a b", "a\n", "深色", &"a".repeat(33)] {
+            assert!(Action::UiStyle { style: style.into() }.request(&json!({"PanelApiVersion":13})).is_err());
+        }
+        for style in [json!(null), json!(true), json!(42), json!([]), json!({})] {
+            assert!(serde_json::from_value::<Action>(json!({"kind":"uiStyle", "style":style})).is_err());
+        }
+    }
     #[test] fn browser_port_has_strict_range_capability_and_no_audio_action() {
         for port in [0, 1, 43210, 65535] {
             let action: Action = serde_json::from_value(json!({"kind":"browserPort", "port":port})).unwrap();

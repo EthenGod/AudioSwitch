@@ -100,8 +100,8 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   }, [gateway, closed])
   useEffect(() => { if (closed) paused.current = true }, [closed])
   const system = !state && !!error
-  const dark = useAppearance(system ? undefined : state?.snapshot.Preferences.DarkMode ?? true)
   const loaded = !!state || !!error
+  const dark = useAppearance(system ? undefined : state?.snapshot.Preferences.DarkMode ?? true, state?.snapshot.Preferences.UiStyle, loaded)
   useEffect(() => {
     if (!loaded || leaving.current) return
     let active = true, frame = 0
@@ -135,7 +135,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   const action = hoverAction ?? focusAction
   const feedback = action === 'close' ? 'close' : action === 'selected' && canSelect ? 'selected' : action === 'previous' && canPrevious ? 'previous' : 'current'
   const targetName = devices.find(d => d.Id === selected)?.Name ?? '没有可用设备'
-  return <main className={`prompt-shell ${dark ? 'dark' : ''}`} data-phase={phase} data-choosing={choosing} data-compact={compact} data-closed={closed || undefined} onKeyDown={event => {
+  return <main className="prompt-shell" data-phase={phase} data-choosing={choosing} data-compact={compact} data-closed={closed || undefined} onKeyDown={event => {
     if (event.key === 'Escape' && !event.defaultPrevented && !busy) { event.preventDefault(); void close() }
   }}>
     <header className="prompt-header">

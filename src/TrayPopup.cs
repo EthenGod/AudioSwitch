@@ -35,18 +35,20 @@ namespace AudioSwitch
         private bool disposed, commandPending;
         private Action pendingShow;
         private IList<TrayCommand> latestCommands;
+        private bool latestDark;
+        private string latestStyle;
         internal bool Running { get { lock (sync) return thread != null; } }
         internal TrayPopupHost(Action<Action> post, Action<Exception> error, Func<IList<TrayCommand>> snapshot = null) { this.post = post; this.error = error; this.snapshot = snapshot; }
-        internal void Show(Point anchor, IList<TrayCommand> commands, bool dark)
+        internal void Show(Point anchor, IList<TrayCommand> commands, bool dark, string style = "classic")
         {
             lock (sync) {
                 if (disposed) return;
-                latestCommands = commands;
+                latestCommands = commands; latestDark = dark; latestStyle = style;
                 if (thread != null) {
-                    pendingShow = () => Show(anchor, commands, dark);
+                    pendingShow = () => Show(anchor, latestCommands, latestDark, latestStyle);
                     var existing = popup;
                     if (existing != null && existing.IsHandleCreated && !existing.IsDisposed) {
-                        try { existing.BeginInvoke((Action)(() => { if (!existing.IsDisposed) { lock (sync) pendingShow = null; existing.UpdateSnapshot(commands); existing.Reopen(); } })); return; }
+                        try { existing.BeginInvoke((Action)(() => ApplyLatest(existing, true))); return; }
                         catch (InvalidOperationException) { }
                     }
                     return;
@@ -54,12 +56,12 @@ namespace AudioSwitch
                 thread = new Thread(delegate() {
                     Action chosen = null;
                     try {
-                        using (var window = new TrayPopup(commands, anchor, dark, dispatch: Dispatch)) {
+                        using (var window = new TrayPopup(commands, anchor, dark, dispatch: Dispatch, style: style)) {
                             window.HandleCreated += delegate { lock (sync) {
                                 if (disposed) window.BeginInvoke((Action)(() => window.Close()));
-                                else if (pendingShow != null) window.BeginInvoke((Action)(() => {
-                                    IList<TrayCommand> next; lock (sync) { next = latestCommands; pendingShow = null; }
-                                    if (!window.IsDisposed) { window.UpdateSnapshot(next); window.Reopen(); }
+                                else window.BeginInvoke((Action)(() => {
+                                    bool reopen; lock (sync) reopen = pendingShow != null;
+                                    ApplyLatest(window, reopen);
                                 }));
                             } };
                             lock (sync) { popup = window; if (disposed) return; }
@@ -80,12 +82,25 @@ namespace AudioSwitch
                 thread.SetApartmentState(ApartmentState.STA); thread.Start();
             }
         }
-        internal void Update(IList<TrayCommand> commands)
+        private void ApplyLatest(TrayPopup window, bool reopen)
+        {
+            IList<TrayCommand> commands; bool dark; string style;
+            lock (sync) {
+                if (disposed) return;
+                commands = latestCommands; dark = latestDark; style = latestStyle;
+                if (reopen) pendingShow = null;
+            }
+            if (window.IsDisposed) return;
+            window.UpdateAppearance(dark, style); window.UpdateSnapshot(commands);
+            if (reopen) window.Reopen();
+        }
+        internal void Update(IList<TrayCommand> commands, bool dark, string style)
         {
             lock (sync) {
+                latestCommands = commands; latestDark = dark; latestStyle = style;
                 var current = popup;
                 if (disposed || current == null || !current.IsHandleCreated || current.IsDisposed) return;
-                try { current.BeginInvoke((Action)(() => { if (!current.IsDisposed) current.UpdateSnapshot(commands); })); } catch (InvalidOperationException) { }
+                try { current.BeginInvoke((Action)(() => ApplyLatest(current, false))); } catch (InvalidOperationException) { }
             }
         }
         private void Dispatch(TrayCommand command, Action<IList<TrayCommand>, string> complete)
@@ -125,7 +140,7 @@ namespace AudioSwitch
         private readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 15 };
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private readonly Font regular, strong, caption;
-        private readonly PopupTheme theme;
+        private PopupTheme theme;
         private readonly float scale;
         private readonly bool motion;
         private readonly bool preferSystemCorners;
@@ -154,9 +169,9 @@ namespace AudioSwitch
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool SetLayeredWindowAttributes(IntPtr window, uint key, byte alpha, uint flags);
         [DllImport("user32.dll")] private static extern bool RedrawWindow(IntPtr window, IntPtr rect, IntPtr region, uint flags);
-        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null, Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch = null, bool systemCorners = true)
+        internal TrayPopup(IList<TrayCommand> commands, Point anchor, bool dark, float textScale = 1, bool? animations = null, Action<TrayCommand, Action<IList<TrayCommand>, string>> dispatch = null, bool systemCorners = true, string style = "classic")
         {
-            home = commands; this.anchor = anchor; this.dispatch = dispatch; theme = new PopupTheme(dark); preferSystemCorners = systemCorners;
+            home = commands; this.anchor = anchor; this.dispatch = dispatch; theme = new PopupTheme(dark, style); preferSystemCorners = systemCorners;
             // Do not create a Form handle before its styles, controls and lifecycle hooks exist.
             using (var g = Graphics.FromHwnd(IntPtr.Zero)) scale = textScale * g.DpiX / 96F;
             regular = new Font("Microsoft YaHei UI", 10.5F * textScale);
@@ -174,7 +189,7 @@ namespace AudioSwitch
             back = new PopupRow(this, new TrayCommand("返回快捷菜单", TrayGlyph.Back), theme, regular, caption, scale, false, true);
             back.TabIndex = 0; Controls.Add(back); tooltips.SetToolTip(back, "返回");
             Controls.Add(list);
-            status.Font = caption; status.ForeColor = ColorTranslator.FromHtml(dark ? "#ff9592" : "#ce2c31"); status.AccessibleRole = AccessibleRole.Alert;
+            status.Font = caption; status.ForeColor = theme.Danger; status.AccessibleRole = AccessibleRole.Alert;
             status.Visible = false; Controls.Add(status);
             timer.Tick += TickAnimation;
             BuildPage();
@@ -213,6 +228,17 @@ namespace AudioSwitch
                 if (restored != null && !closing) restored.Focus();
                 list.ScrollTo(offset);
             }
+        }
+        internal void UpdateAppearance(bool dark, string style)
+        {
+            if (IsDisposed || (theme.Dark == dark && theme.StyleId == PopupTheme.ResolveStyle(style))) return;
+            theme = new PopupTheme(dark, style);
+            BackColor = theme.Card; ForeColor = theme.Text; status.ForeColor = theme.Danger;
+            list.UpdateTheme(theme); back.UpdateTheme(theme);
+            foreach (var row in rows) row.UpdateTheme(theme);
+            if (IsHandleCreated && SystemCorners) PopupChrome.TrySystemCorners(Handle, theme.Border);
+            // Keep the same controls, focus, scroll position and in-flight command.
+            RepaintSurface();
         }
         private void SetStatus(string message)
         {
@@ -503,6 +529,10 @@ namespace AudioSwitch
                 DoubleBuffered = true; ResizeRedraw = true; BackColor = Content.BackColor = theme.Card; railWidth = (int)Math.Round(14 * scale);
                 rail = new ScrollThumb(this, theme, scale); Controls.Add(Content); Controls.Add(rail);
             }
+            internal void UpdateTheme(PopupTheme theme)
+            {
+                BackColor = Content.BackColor = theme.Card; rail.UpdateTheme(theme);
+            }
             internal void Configure(int height, bool scrollable)
             {
                 total = height; rail.Visible = scrollable;
@@ -529,7 +559,7 @@ namespace AudioSwitch
             private sealed class ScrollThumb : Control
             {
                 private readonly PopupViewport viewport;
-                private readonly PopupTheme theme;
+                private PopupTheme theme;
                 private readonly float scale;
                 private bool dragging, hover;
                 private float grab;
@@ -539,6 +569,7 @@ namespace AudioSwitch
                     SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
                     AccessibleRole = AccessibleRole.ScrollBar; AccessibleName = "设备列表滚动条"; TabStop = false;
                 }
+                internal void UpdateTheme(PopupTheme value) { theme = value; BackColor = theme.Card; Invalidate(); }
                 private RectangleF Thumb()
                 {
                     float height = Math.Min(Height, Math.Max(24 * scale, Height * (float)Height / Math.Max(1, viewport.total)));
@@ -572,7 +603,7 @@ namespace AudioSwitch
         {
             internal TrayCommand Command { get; private set; }
             private readonly TrayPopup owner;
-            private readonly PopupTheme theme;
+            private PopupTheme theme;
             private readonly Font caption;
             private readonly float scale;
             private readonly bool tile, iconOnly;
@@ -588,7 +619,7 @@ namespace AudioSwitch
                 Enabled = command.Enabled; BackColor = theme.Card; FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
                 selectionFrom = selectionAmount = selectionTarget = command.Checked ? 1 : 0;
                 SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-                icon = new Bitmap(S(42), S(42)); using (var g = Graphics.FromImage(icon)) TrayArt.DrawGlyph(g, command.Glyph, scale, icon.Height, command.Checked ? theme.AccentText : theme.Muted);
+                RefreshIcon();
                 Click += delegate { if (iconOnly) owner.GoBack(); else owner.ActivateCommand(Command); };
             }
             internal void UpdateCommand(TrayCommand command)
@@ -601,11 +632,15 @@ namespace AudioSwitch
                 }
                 Command = command; Text = command.Text; AccessibleName = command.Text; AccessibleDescription = command.Detail;
                 Enabled = command.Enabled;
-                if (changed) {
-                    icon.Dispose(); icon = new Bitmap(S(42), S(42));
-                    using (var g = Graphics.FromImage(icon)) TrayArt.DrawGlyph(g, command.Glyph, scale, icon.Height, command.Checked ? theme.AccentText : theme.Muted);
-                }
+                if (changed) RefreshIcon();
                 Invalidate();
+            }
+            internal void UpdateTheme(PopupTheme value) { theme = value; BackColor = theme.Card; RefreshIcon(); Invalidate(); }
+            private void RefreshIcon()
+            {
+                if (icon != null) icon.Dispose();
+                icon = new Bitmap(S(42), S(42));
+                using (var g = Graphics.FromImage(icon)) TrayArt.DrawGlyph(g, Command.Glyph, scale, icon.Height, Command.Checked ? theme.AccentText : theme.Muted);
             }
             private int S(float value) { return (int)Math.Round(value * scale); }
             private double At(double now) { double t = Math.Max(0, Math.Min(1, (now - started) / 150)); return from + (target - from) * (1 - Math.Pow(1 - t, 3)); }

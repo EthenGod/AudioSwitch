@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { DEFAULT_UI_STYLE, isUiStyle, isUiStyleId } from '../appearance/styles'
 import { mapUpgrade, upgradeActive } from './upgrade'
 import { dolbyProfile, mapDolbyRead, mapDolbyOperation, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
@@ -13,6 +14,11 @@ function string(value: unknown): string { if (typeof value !== 'string') throw i
 function boolean(value: unknown): boolean { if (typeof value !== 'boolean') throw invalid(); return value }
 function browserPort(value: unknown): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 65535) throw invalid()
+  return value
+}
+function uiStyle(value: unknown): string {
+  if (value === undefined) return DEFAULT_UI_STYLE
+  if (!isUiStyleId(value)) throw invalid()
   return value
 }
 function array(value: unknown): unknown[] { if (!Array.isArray(value)) throw invalid(); return value }
@@ -88,6 +94,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     if (device) { device.SystemName = device.Name; device.Name = aliases[id] }
   }
   const preferences: Preferences = {
+    UiStyle: uiStyle(prefs.UiStyle),
     DeviceAliases: aliases, RecentDeviceAliases: array(prefs.RecentDeviceAliases ?? []).map(string),
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
     DarkMode: prefs.DarkMode === undefined ? true : boolean(prefs.DarkMode), GameMode: boolean(prefs.GameMode), AskOnConnect: boolean(prefs.AskOnConnect),
@@ -108,6 +115,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     CanManageUpdates: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 6,
     CanKeepBrowserPortOpen: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 8 && typeof prefs.KeepBrowserPortOpen === 'boolean',
     CanSetBrowserPort: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 9 && typeof prefs.BrowserPort === 'number',
+    CanSetUiStyle: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 13 && isUiStyleId(prefs.UiStyle),
     CanSetTrayBehavior: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 7 && typeof prefs.OpenPanelInBrowser === 'boolean',
     DolbyApplying: reply.DolbyApplying === true,
     BackendWarning: [error, optionalText(reply.Warning)].filter(Boolean).join('；') }
@@ -179,6 +187,7 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       let matched = true
       if (action.kind === 'preference') matched = actual.Preferences[action.key as keyof Preferences] === action.value
       if (action.kind === 'browserPort') matched = actual.Preferences.BrowserPort === action.port && raw.PreferencesSaved === true
+      if (action.kind === 'uiStyle') matched = actual.Preferences.UiStyle === action.style && raw.PreferencesSaved === true
       if (action.kind === 'startup') matched = actual.StartupEnabled === action.value
       if (action.kind === 'switch') {
         const device = actual.Devices.find(d => d.Id === action.id)
@@ -325,6 +334,11 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule, ...(rename && { rename }) })
     },
     setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
+    setUiStyle: style => {
+      if (!snapshot?.CanSetUiStyle) return Promise.reject(new OperationFailure('切换界面风格需要新版后台'))
+      if (!isUiStyle(style)) return Promise.reject(new OperationFailure('不支持此界面风格'))
+      return mutate({ kind: 'uiStyle', style })
+    },
     setBrowserPort: port => {
       if (!snapshot?.CanSetBrowserPort) return Promise.reject(new OperationFailure('自定义端口需要新版后台。'))
       if (!Number.isInteger(port) || port < 0 || port > 65535) return Promise.reject(new OperationFailure('端口应为 1–65535，留空则自动分配。'))

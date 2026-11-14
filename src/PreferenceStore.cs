@@ -73,7 +73,8 @@ namespace AudioSwitch
         private static void Shape(Dictionary<string, object> settings)
         {
             if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "UiStyle", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.ContainsKey("UiStyle")) ValidateUiStyle(settings["UiStyle"] as string);
             if (settings.ContainsKey("DeviceAliases"))
             {
                 var aliases = settings["DeviceAliases"] as Dictionary<string, object>;
@@ -124,9 +125,18 @@ namespace AudioSwitch
         {
             return !String.IsNullOrWhiteSpace(value) && value.Length <= 64 && value == value.Trim() && !value.Any(Char.IsControl);
         }
+        // The frontend owns the style catalogue. Keep future IDs on import, but
+        // bound their size and alphabet; these values are never paths or CSS.
+        internal static void ValidateUiStyle(string value)
+        {
+            if (String.IsNullOrEmpty(value) || value.Length > 32 || value[0] < 'a' || value[0] > 'z'
+                || value.Any(c => !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')))
+                throw new InvalidOperationException("界面风格标识无效。");
+        }
         private static void Validate(Preferences preferences)
         {
             if (preferences == null) throw new InvalidOperationException("缺少配置。");
+            ValidateUiStyle(preferences.UiStyle);
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
             if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
             var history = preferences.RecentDeviceAliases;
@@ -153,10 +163,11 @@ namespace AudioSwitch
         internal static string Export(Preferences preferences)
         {
             var copy = Wire.Decode<Preferences>(Wire.Encode(preferences)); Validate(copy);
-            // Older releases reject unknown fields. Omit empty alias fields to keep older configurations compatible.
+            // Older releases reject unknown fields. Omit optional defaults.
             var settings = Wire.Decode<Dictionary<string, object>>(Wire.Encode(copy));
             settings.Remove("RecentDeviceAliases");
             if (copy.DeviceAliases.Count == 0) settings.Remove("DeviceAliases");
+            if (copy.UiStyle == "classic") settings.Remove("UiStyle");
             string json = Pretty(Wire.Encode(new { Format = "AudioSwitch.Settings", Version = 1, Settings = settings }));
             if (Encoding.UTF8.GetByteCount(json) > MaxBytes) throw new InvalidOperationException("配置超过 1 MiB，无法保存。");
             return json;

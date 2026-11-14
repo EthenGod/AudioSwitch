@@ -48,7 +48,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
   const [scenario, setScenario] = useState<Scenario>('normal')
   const [preferredDark, setDark] = useState(true)
   const connectionFailed = !!error && !snapshot
-  const dark = useAppearance(connectionFailed ? undefined : preferredDark)
+  const dark = useAppearance(connectionFailed ? undefined : preferredDark, snapshot?.Preferences.UiStyle, !loading)
   const [uncertain, setUncertain] = useState(false)
   const readOnly = desktop && (!snapshot?.CanWrite || uncertain || !!error)
   const locked = useRef(false)
@@ -137,7 +137,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
         {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>
           {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」` : `已在预览中切换到「${device.Name}」`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
           {page === 'automation' && <Automation desktop={desktop} snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => run(() => gateway.reorder(flow, ids), null)} />}
-          {page === 'settings' && <Settings onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
+          {page === 'settings' && <Settings onUiStyle={style => { void run(() => gateway.setUiStyle(style), null) }} onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
         </>}
         </PageTransition>
       </ScrollSurface>

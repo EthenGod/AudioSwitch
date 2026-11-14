@@ -128,13 +128,14 @@ namespace AudioSwitch
         public int BrowserPort { get; set; }
         internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
+        public string UiStyle { get; set; }
         public bool AskOnConnect { get; set; }
         public bool IncludeCommunications { get; set; }
         public Dictionary<string, DeviceProfile> DeviceProfiles { get; set; }
         public bool UseDevicePriority { get; set; }
         public List<Endpoint> DeviceOrder { get; set; }
         public Dictionary<string, DeviceRule> DeviceRules { get; set; }
-        public Preferences() { DarkMode = true; RecentDeviceAliases = new List<string>(); DeviceAliases = new Dictionary<string, string>(); UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
+        public Preferences() { DarkMode = true; UiStyle = "classic"; RecentDeviceAliases = new List<string>(); DeviceAliases = new Dictionary<string, string>(); UpdateChannel = "GitHub"; AutoUpdateEnabled = true; AskOnConnect = true; IncludeCommunications = true; UseDevicePriority = true; DeviceProfiles = new Dictionary<string, DeviceProfile>(); DeviceOrder = new List<Endpoint>(); DeviceRules = new Dictionary<string, DeviceRule>(); }
     }
 
     public enum DeviceRule { Normal = 0, AcceptSystem = 1, SwitchOnConnect = 2 }
@@ -150,6 +151,7 @@ namespace AudioSwitch
         public string Token { get; set; }
         public bool Value { get; set; }
         public int? BrowserPort { get; set; }
+        public string UiStyle { get; set; }
         public DeviceProfile Profile { get; set; }
         // Optimistic check for the basic editor; Dolby remains owned by the backend.
         public string DeviceAlias { get; set; }

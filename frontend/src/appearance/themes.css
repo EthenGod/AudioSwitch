@@ -1,0 +1,33 @@
+/* Semantic tokens. Components never select a style themselves.
+   Radix light/dark palettes remain independent from the chosen style. */
+:root, [data-ui-style='classic'] {
+  --background: var(--slate-1); --foreground: var(--slate-12); --card: var(--slate-2);
+  --sidebar: var(--slate-2); --muted: var(--slate-3); --muted-foreground: var(--slate-11);
+  --border: var(--slate-6); --control-border: var(--slate-7); --hover-border: var(--slate-8);
+  --primary: var(--indigo-9); --primary-foreground: var(--white-a12);
+  --selected: var(--indigo-3); --accent: var(--indigo-11); --tertiary: var(--slate-11);
+  --selected-hover: var(--indigo-4); --selected-strong: var(--indigo-5);
+  --selected-border: var(--indigo-6); --selected-border-strong: var(--indigo-7);
+  --primary-hover: var(--indigo-10); --accent-fill: var(--indigo-8);
+  --control-hover: var(--slate-4); --control-pressed: var(--slate-5);
+  --control-track: var(--slate-7); --switch-off: var(--slate-8); --control-thumb: var(--white-a12);
+  --scroll-thumb: var(--slate-7); --scroll-thumb-hover: var(--slate-9); --hint: var(--slate-9);
+  --overlay: var(--black-a7);
+  --shell: var(--slate-2); --danger: var(--red-11); --status-online: var(--green-9);
+  --radius: 8px; --radius-panel: 12px; --radius-small: 4px;
+  --shadow-small: 0 1px 3px var(--black-a1);
+  --shadow-panel: 0 8px 32px var(--black-a3);
+}
+
+/* Capture only an actual appearance change. Ordinary page/list animations stay independent. */
+:root[data-appearance-transition]::view-transition { pointer-events: none; }
+:root[data-appearance-transition]::view-transition-group(root) { animation-duration: 250ms; animation-timing-function: ease-out; }
+:root[data-appearance-transition]::view-transition-old(root) { animation: appearance-out 200ms ease-in both; }
+:root[data-appearance-transition]::view-transition-new(root) { animation: appearance-in 250ms ease-out both; }
+@keyframes appearance-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes appearance-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-appearance-transition]::view-transition-group(root),
+  :root[data-appearance-transition]::view-transition-old(root),
+  :root[data-appearance-transition]::view-transition-new(root) { animation: none !important; }
+}
