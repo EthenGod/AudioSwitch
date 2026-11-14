@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
+> この文書には機械翻訳が含まれる場合があります。内容に相違がある場合は、[中国語の原文](README.md)を優先してください。
+
 AudioSwitch は、Windows の既定のスピーカー、ヘッドホン、マイクを切り替えるトレイアプリです。手動で選ぶほか、デバイスの接続・切断時に、設定した優先順位に従って自動で切り替えることもできます。
 
 [![GitHub Releases からダウンロード](https://img.shields.io/badge/GitHub_Releases-2563EB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EthenGod/AudioSwitch/releases)

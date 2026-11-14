@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
 
+> This document may contain machine-translated content. The [Chinese original](README.md) is authoritative.
+
 AudioSwitch is a Windows tray app for switching your default speakers, headphones and microphone. Choose a device manually, or set priorities for automatic switching when devices connect or disconnect.
 
 [![Download on GitHub Releases](https://img.shields.io/badge/Download_on_GitHub_Releases-2563EB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EthenGod/AudioSwitch/releases)

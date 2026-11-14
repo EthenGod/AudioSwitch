@@ -2,6 +2,8 @@
 
 [简体中文](../zh-CN/USER-GUIDE.md) | [English](USER-GUIDE.md) | [日本語](../ja/USER-GUIDE.md)
 
+> This document may contain machine-translated content. The [Chinese original](../zh-CN/USER-GUIDE.md) is authoritative.
+
 [Back to home](../../README.en.md)
 
 This guide describes the current repository code. Check your version's release notes for features available in a published build.
