@@ -1,4 +1,4 @@
-import { t } from './i18n'
+import { formatList, t } from './i18n'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, AudioLines, Check, ChevronDown, Headphones, LoaderCircle, Mic, Unplug, X } from 'lucide-react'
 import { Button } from './components/ui/button'
@@ -131,7 +131,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   }
   const currentId = arrival && state?.snapshot.Defaults[`${arrival.Flow}:1`]
   const eventDevices = state?.snapshot.Devices.filter(d => arrival?.NewIds.includes(d.Id)) ?? []
-  const eventName = arrival?.Disconnected ? arrival.PreviousName : eventDevices.map(d => d.Name).join('、')
+  const eventName = arrival?.Disconnected ? arrival.PreviousName : formatList(eventDevices.map(d => d.Name))
   const currentName = devices.find(d => d.Id === currentId)?.Name ?? t("没有可用设备")
   const canSelect = !!state?.snapshot.CanWrite && !error && devices.some(d => d.Id === selected)
   const canPrevious = !!state && !!arrival && !error && state.snapshot.CanWrite && canRestore(state, arrival)

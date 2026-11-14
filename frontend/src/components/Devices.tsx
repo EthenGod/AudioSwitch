@@ -5,6 +5,7 @@ import type { Device, Flow, Snapshot } from '@/data/types'
 import { Button } from './ui/button'
 import { DeviceIcon, DeviceIdentity, RoleBadges } from './shared'
 import { DeviceListMotion } from './DeviceListMotion'
+import { deviceDescription } from '@/data/deviceDescription'
 
 export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings, onAutomation }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; onSwitch: (device: Device) => void
@@ -12,14 +13,14 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
 }) {
   const [filter, setFilter] = useState<Flow | -1>(-1)
   const [query, setQuery] = useState('')
-  const visible = snapshot.Devices.filter(d => (filter === -1 || d.Flow === filter) && `${d.Name} ${d.SystemName ?? ''} ${d.Connection}`.toLowerCase().includes(query.toLowerCase().trim()))
+  const visible = snapshot.Devices.filter(d => (filter === -1 || d.Flow === filter) && `${d.Name} ${d.SystemName ?? ''} ${deviceDescription(d)}`.toLowerCase().includes(query.toLowerCase().trim()))
   return <>
     <div className="summary-grid">{([0, 1] as Flow[]).map(flow => {
       const current = snapshot.Devices.find(d => d.Id === snapshot.Defaults[`${flow}:1`])
       const Icon = flow === 0 ? Headphones : Mic
       return <section className="summary-card" key={flow} aria-label={flow === 0 ? t("当前声音输出") : t("当前麦克风")}>
         <div className="summary-top"><span>{current ? <DeviceIcon device={current} size={14} /> : <Icon size={14} />}{flow === 0 ? t("当前声音输出") : t("当前麦克风")}</span></div>
-        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? t("暂无可用设备")}</h2><p>{current?.Connection}</p></div><Button variant="ghost" size="icon" pending={busy} disabled={!current} aria-label={flow === 0 ? t("设置当前输出") : t("设置当前麦克风")} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
+        <div className="summary-device"><div className="min-w-0"><h2 title={current?.Name}>{current?.Name ?? t("暂无可用设备")}</h2><p>{current && deviceDescription(current)}</p></div><Button variant="ghost" size="icon" pending={busy} disabled={!current} aria-label={flow === 0 ? t("设置当前输出") : t("设置当前麦克风")} onClick={() => current && onSettings(current)}><ChevronRight /></Button></div>
       </section>
     })}</div>
     <section className="device-section" aria-labelledby="device-list-title">
@@ -36,8 +37,8 @@ export function Devices({ snapshot, busy, readOnly = false, onSwitch, onSettings
             <div role="cell"><DeviceIdentity device={device} /></div>
             <div role="cell"><RoleBadges device={device} snapshot={snapshot} /></div>
             <div role="cell" className="row-actions">
-              <Button variant="ghost" size="sm" pending={busy} disabled={readOnly || !device.Online || current} aria-label={`${current ? t("正在使用") : t("切换到")} ${device.Name}，${device.Connection}`} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? t("使用中") : readOnly ? t("只读") : t("切换")}</Button>
-              <Button variant="ghost" size="icon" pending={busy} aria-label={t("设置 {0}，{1}", device.Name, device.Connection)} title={t("设备设置")} onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
+              <Button variant="ghost" size="sm" pending={busy} disabled={readOnly || !device.Online || current} aria-label={current ? t('正在使用 {0}，{1}', device.Name, deviceDescription(device)) : t('切换到 {0}，{1}', device.Name, deviceDescription(device))} onClick={() => onSwitch(device)}>{current ? <Check /> : <ArrowRight />}{current ? t("使用中") : readOnly ? t("只读") : t("切换")}</Button>
+              <Button variant="ghost" size="icon" pending={busy} aria-label={t("设置 {0}，{1}", device.Name, deviceDescription(device))} title={t("设备设置")} onClick={() => onSettings(device)}><SlidersHorizontal /></Button>
             </div>
           </div>
         }}</DeviceListMotion>

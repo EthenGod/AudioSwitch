@@ -26,6 +26,8 @@
 
 - 新文案先加到 `zh-CN.json`，再补其他语言。React 使用 `t(source, ...args)`；C# 使用 `L.Text(source, ...args)`；Rust 使用 `localization::text` 或 `format`。
 - 翻译函数在渲染或生成消息时调用。不要在模块加载时缓存翻译后的标题，也不要用翻译后的文本做 React key、状态判断或文件校验。
+- 设备名与用户输入不翻译。程序生成的设备描述通过 `ConnectionType` 和 `deviceDescription()` 显示，切换语言时无需重新读取设备。预览中的 Markdown 示例也要翻译，真实发行说明保留原文。
+- 用户指南位于 `docs/<语言>/USER-GUIDE.md`，README 使用 `README.<语言>.md`。新增文档译本时保留顶部语言链接；只翻译用户说明，不把内部测试记录放进 README。
 - 文件检查用 `EntryStatuses` 和 `PassedFiles` 判断结果，不能从“通过”或其译文反推结果。
 - 构建会从注册表自动嵌入词条。新增语言不需要修改三个运行时的语言列表。运行时不联网取翻译，也不新增轮询或常驻任务。
 - `Preferences.Language` 未确认时为空。首次启动按系统语言推荐，确认保存后才关闭选择框。设置页可随时更改；旧备份没有语言字段时保留当前选择。
@@ -40,3 +42,5 @@ Keep every numbered placeholder such as `{0}`. You may move placeholders to fit 
 Run `npm run locale:check` before submitting. It reports missing and duplicate messages, unknown keys, and mismatched placeholders. Empty translations fall back to Chinese during development, but must be completed for submission. Run `npm run dev` and visit `/preview.html?lang=fr` to check the main panel. Use `/preview.html?view=prompt&lang=fr` for the device prompt. These previews never change audio or local settings. Check both themes and narrow windows, then include screenshots with your contribution.
 
 Language IDs follow tags such as `en`, `ja` or `pt-BR`. `name` is the language's own name. The lowercase `match` list controls system-language matching: `["en"]` matches `en-US` and `en-GB`. User language preferences are tried in order; exact IDs take precedence over prefixes. Unsupported languages fall back to Chinese. Registration automatically includes your catalogue in all builds.
+
+User guides live in `docs/<language>/USER-GUIDE.md`, with translated entry pages at `README.<language>.md`. Keep the language links at the top of each translation. Keep developer test records out of user-facing READMEs. App-owned device descriptions and sample release notes are translated; hardware names, user-entered names and published release notes are preserved.

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Headphones, Speaker, Mic, Monitor, Check, Circle } from 'lucide-react'
 import type { Device, Snapshot, Role } from '@/data/types'
 import { Switch } from './ui/switch'
+import { deviceDescription } from '@/data/deviceDescription'
 
 export function DeviceIcon({ device, size = 19 }: { device: Device; size?: number }) {
   const Icon = { headphones: Headphones, speaker: Speaker, microphone: Mic, monitor: Monitor }[device.Kind]
@@ -11,7 +12,7 @@ export function DeviceIcon({ device, size = 19 }: { device: Device; size?: numbe
 export function DeviceIdentity({ device }: { device: Device }) {
   return <div className="device-identity">
     <span className={`device-icon ${!device.Online ? 'offline' : ''}`}><DeviceIcon device={device} /></span>
-    <div className="min-w-0"><div className="device-name" title={t("{0}\n设备标识：{1}", device.Name, device.Id)}>{device.Name}</div><div className="device-description">{device.Connection}</div></div>
+    <div className="min-w-0"><div className="device-name" title={t("{0}\n设备标识：{1}", device.Name, device.Id)}>{device.Name}</div><div className="device-description" title={deviceDescription(device)}>{deviceDescription(device)}</div></div>
   </div>
 }
 export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Snapshot }) {

@@ -21,7 +21,22 @@
 .language-choices button:hover { background: var(--muted); }
 .language-choices button[aria-checked=true]:hover { background: var(--selected-strong); }
 @media (prefers-reduced-motion: reduce) { .language-dialog, .language-backdrop, .language-choices button { animation: none; transition: none; } }
-@media (min-width: 981px) { :root:lang(en) .sidebar { width: 204px; } }
+@media (min-width: 851px) { :root:lang(en) .sidebar { width: 204px; } }
 :root:lang(en) .brand strong { letter-spacing: 0; }
 :root:lang(en) .prompt-actions button { white-space: normal; }
 :root:lang(ja) { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif; }
+
+/* Text crossfades while named boundaries move and resize on the same timeline. */
+:root[data-language-transition]::view-transition-group(*) { animation-duration: 250ms; animation-timing-function: cubic-bezier(.2, 0, .2, 1); }
+:root[data-language-transition]::view-transition-old(*) { animation: language-text-out 200ms ease-in both; }
+:root[data-language-transition]::view-transition-new(*) { animation: language-text-in 250ms ease-out both; }
+:root[data-language-transition]::view-transition-old(root),
+:root[data-language-transition]::view-transition-new(root) { animation: none; }
+:root[data-language-transition]::view-transition { pointer-events: none; }
+@keyframes language-text-out { to { opacity: 0; } }
+@keyframes language-text-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-language-transition]::view-transition-group(*),
+  :root[data-language-transition]::view-transition-old(*),
+  :root[data-language-transition]::view-transition-new(*) { animation: none; }
+}

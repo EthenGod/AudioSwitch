@@ -11,6 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   Reflect.deleteProperty(document, 'startViewTransition')
   Reflect.deleteProperty(root, 'animate')
+  delete root.dataset.languageTransition
 })
 
 function captures() {
@@ -100,9 +101,19 @@ it('falls back on unsupported browsers and cancels its temporary fade on unmount
   controller.update(classic); controller.update(alternate)
   expect(root).toHaveAttribute('data-ui-style', 'fixture-style')
   expect(animate).toHaveBeenCalledTimes(1)
+  expect(root).toHaveAttribute('data-appearance-transition')
   controller.dispose(); await Promise.resolve()
   expect(cancel).toHaveBeenCalledTimes(1)
   expect(root).not.toHaveAttribute('data-appearance-transition')
+})
+
+it('applies appearance without starting a competing language transition', () => {
+  const { start } = captures(), controller = create()
+  controller.update(classic)
+  root.dataset.languageTransition = ''
+  controller.update(alternate)
+  expect(root).toHaveAttribute('data-ui-style', 'fixture-style')
+  expect(start).not.toHaveBeenCalled()
 })
 
 it('applies the preference even if a browser rejects snapshot creation', () => {

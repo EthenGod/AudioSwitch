@@ -41,7 +41,7 @@ function endpoint(value: unknown, online: boolean, factors: ObjectValue = {}): D
   if (!id) throw invalid()
   // Form factor is optional display metadata. Older backends and offline rows use a name fallback.
   return { Id: id, Name: string(row.Name), Flow: row.Flow, Online: online,
-    Connection: row.Flow === 0 ? t("声音输出") : t("麦克风输入"),
+    Connection: '', ConnectionType: row.Flow === 0 ? 'output' : 'input',
     Kind: deviceKind(string(row.Name), row.Flow, factors[id]) }
 }
 

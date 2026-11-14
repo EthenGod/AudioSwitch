@@ -31,7 +31,7 @@ export function createAppearanceTransition(doc: Document = document) {
       if (!changed && initialized === ready) return
       let reduced = true
       try { reduced = doc.defaultView!.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { /* Immediate fallback. */ }
-      const animate = initialized && ready && changed && !reduced && doc.visibilityState === 'visible'
+      const animate = initialized && ready && changed && !reduced && doc.visibilityState === 'visible' && !root.hasAttribute('data-language-transition')
       previous = next
       initialized = ready
       stop()
@@ -59,6 +59,7 @@ export function createAppearanceTransition(doc: Document = document) {
       // Older WebViews keep the same document and receive a short, restrained fade.
       commit()
       if (typeof root.animate === 'function') {
+        root.dataset.appearanceTransition = ''
         fallback = root.animate([{ opacity: 0.88 }, { opacity: 1 }], { duration: 250, easing: 'ease-out' })
         void fallback.finished.then(finish, finish)
       }

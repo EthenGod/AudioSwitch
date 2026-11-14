@@ -41,3 +41,11 @@ export function translate(locale: string, source: string, ...args: unknown[]): s
   return args.length ? message.replace(/\{(\d+)\}/g, (token, index: string) => Number(index) < args.length ? String(args[Number(index)] ?? '') : token) : message
 }
 export function t(source: string, ...args: unknown[]) { return translate(language, source, ...args) }
+
+const lists = new Map<string, Intl.ListFormat>()
+/** Keep supplied names unchanged, but use the selected language's separators. */
+export function formatList(values: string[]) {
+  let formatter = lists.get(language)
+  if (!formatter) { formatter = new Intl.ListFormat(language, { style: 'short', type: 'conjunction' }); lists.set(language, formatter) }
+  return formatter.format(values)
+}

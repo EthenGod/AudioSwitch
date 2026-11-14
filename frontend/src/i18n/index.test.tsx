@@ -5,11 +5,42 @@ import { App } from '../App'
 import { createMockGateway } from '../data/mock'
 import { createDesktopGateway, mapSnapshot } from '../data/desktop'
 import { backendFixture } from '../test/backendFixture'
-import { matchLanguage, resolveLanguage, translate, setLanguage, t } from './index'
+import { formatList, matchLanguage, resolveLanguage, translate, setLanguage, t } from './index'
 import { FileCheckResult } from '../components/FileCheckResult'
 import { createBrowserConnection } from '../data/browser'
+import { useLanguage } from './useLanguage'
 
 describe('language selection', () => {
+  it('commits translated DOM inside a captured update without remounting input or stealing focus', async () => {
+    let commit!: () => void, finish!: () => void
+    const finished = new Promise<void>(resolve => { finish = resolve })
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: (update: () => void) => {
+      commit = update
+      return { ready: Promise.resolve(), finished, skipTransition: vi.fn() }
+    } })
+    function Surface({ language }: { language: string }) {
+      useLanguage(language)
+      return <section><h1>{t('应用设置')}</h1><input aria-label={t('搜索设备')} defaultValue="Draft" /></section>
+    }
+    const view = render(<Surface language="zh-CN" />)
+    try {
+      const input = screen.getByRole('textbox'); input.focus()
+      view.rerender(<Surface language="en" />)
+      expect(screen.getByRole('heading')).toHaveTextContent('应用设置')
+      act(() => commit())
+      expect(screen.getByRole('heading')).toHaveTextContent('Settings')
+      expect(screen.getByRole('textbox', { name: 'Search devices' })).toBe(input)
+      expect(input).toHaveValue('Draft'); expect(input).toHaveFocus()
+      await act(async () => finish())
+    } finally { view.unmount(); Reflect.deleteProperty(document, 'startViewTransition') }
+  })
+  it('formats multiple device names using the current language without translating the names', () => {
+    setLanguage('en')
+    expect(formatList(['书桌', 'USB Mic'])).toBe('书桌 & USB Mic')
+    setLanguage('ja')
+    expect(formatList(['书桌', 'USB Mic'])).toBe('书桌、USB Mic')
+    setLanguage('zh-CN')
+  })
   it('matches ordered system preferences and regional tags, with Chinese fallback', () => {
     expect(matchLanguage(['ja-JP'])).toBe('ja')
     expect(matchLanguage(['zz-ZZ', 'en-GB'])).toBe('en')

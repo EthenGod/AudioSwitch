@@ -1,5 +1,7 @@
 # Dolby 10 点与 20 段换算
 
+使用指南：[简体中文](docs/zh-CN/USER-GUIDE.md#dolby-方案) | [English](docs/en/USER-GUIDE.md#dolby-profiles) | [日本語](docs/ja/USER-GUIDE.md#dolby-プロファイル)。下文为换算依据与实现说明。
+
 适配依据为本机 Dolby Access 3.27.12250.0 与当前 DAX 输出设备，不是公开的跨厂商 Dolby SDK。原生连接仍沿用已有的组件版本校验。
 
 ## 对照方式

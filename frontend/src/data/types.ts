@@ -10,6 +10,8 @@ export interface Device {
   Id: string; Name: string; Flow: Flow; Online: boolean
   SystemName?: string
   Connection: string; Kind: 'headphones' | 'speaker' | 'microphone' | 'monitor'
+  /** Only app-owned descriptions use these keys; hardware and user text stay verbatim. */
+  ConnectionType?: 'output' | 'input' | 'usb-headphones' | 'display' | 'saved-bluetooth' | 'usb-microphone' | 'built-in'
 }
 export interface AliasEdit { name: string; expected: string }
 export interface DeviceProfile {

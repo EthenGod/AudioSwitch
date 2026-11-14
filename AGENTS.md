@@ -54,6 +54,7 @@
 | `frontend/src/appearance/`、`useAppearance.ts` | 风格注册表、语义变量和可中断的外观过渡；风格独立于深浅色 |
 | `locales/`、`frontend/src/i18n/`、`src/Localization.cs`、`frontend/src-tauri/src/localization.rs` | 共用语言词条、系统语言匹配与运行时切换；贡献入口为 `locales/CONTRIBUTING.md` |
 | `frontend/scripts/locales.mjs`、`tests/LocalizationTests.cs` | 语言注册、词条与占位符检查、配置及原生翻译回归 |
+| `README*.md`、`docs/zh-CN/`、`docs/en/`、`docs/ja/` | 面向用户的三语入口与使用指南；配置实现细节仍在 `CONFIGURATION.md` |
 | `src/PopupTheme.cs` | 原生托盘与报错窗口配色；未适配的风格回退经典 |
 | `frontend/src/components/ScrollSurface.tsx`、`UpgradeScroll.tsx` | 主面板及抽屉滚动、滚动条动画和内容居中 |
 | `frontend/src/data/`、`frontend/src-tauri/` | 前端数据接口、模拟数据及桌面通信 |
