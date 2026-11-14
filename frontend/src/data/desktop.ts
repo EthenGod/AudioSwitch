@@ -1,11 +1,13 @@
+import { t } from '../i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { DEFAULT_UI_STYLE, isUiStyle, isUiStyleId } from '../appearance/styles'
+import { isLanguageId, LANGUAGES } from '../i18n'
 import { mapUpgrade, upgradeActive } from './upgrade'
 import { dolbyProfile, mapDolbyRead, mapDolbyOperation, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
 
 type ObjectValue = Record<string, unknown>
-const invalid = () => new Error('后台返回的设备状态不完整，请确认后台版本后重试。')
+const invalid = () => new Error(t("后台返回的设备状态不完整，请确认后台版本后重试。"))
 function object(value: unknown): ObjectValue {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid()
   return value as ObjectValue
@@ -39,7 +41,7 @@ function endpoint(value: unknown, online: boolean, factors: ObjectValue = {}): D
   if (!id) throw invalid()
   // Form factor is optional display metadata. Older backends and offline rows use a name fallback.
   return { Id: id, Name: string(row.Name), Flow: row.Flow, Online: online,
-    Connection: row.Flow === 0 ? '声音输出' : '麦克风输入',
+    Connection: row.Flow === 0 ? t("声音输出") : t("麦克风输入"),
     Kind: deviceKind(string(row.Name), row.Flow, factors[id]) }
 }
 
@@ -94,6 +96,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     if (device) { device.SystemName = device.Name; device.Name = aliases[id] }
   }
   const preferences: Preferences = {
+    Language: prefs.Language == null ? null : isLanguageId(prefs.Language) ? prefs.Language : (() => { throw invalid() })(),
     UiStyle: uiStyle(prefs.UiStyle),
     DeviceAliases: aliases, RecentDeviceAliases: array(prefs.RecentDeviceAliases ?? []).map(string),
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
@@ -103,6 +106,8 @@ export function mapSnapshot(value: unknown): Snapshot {
   }
   const startup = object(reply.Startup)
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
+    ResolvedLanguage: reply.ResolvedLanguage == null ? undefined : string(reply.ResolvedLanguage),
+    CanSetLanguage: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 14,
     CanRenameDevices: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 11,
     DolbyProfiles: dolbyProfiles, CanEditDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 4,
     CanApplyDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 5,
@@ -134,7 +139,7 @@ function failure(error: unknown, mutation = false): OperationFailure {
 }
 export function mapDeviceDetails(value: unknown): DeviceDetails {
   const reply = object(value)
-  if (reply.OperationError || !reply.DeviceSettings) throw new Error(optionalText(reply.OperationError ?? reply.Error) || '无法读取设备设置，请重试。')
+  if (reply.OperationError || !reply.DeviceSettings) throw new Error(optionalText(reply.OperationError ?? reply.Error) || t("无法读取设备设置，请重试。"))
   const details = object(reply.DeviceSettings)
   const volume = details.CurrentVolume
   if (volume !== null && (typeof volume !== 'number' || !Number.isInteger(volume) || volume < 0 || volume > 100)) throw invalid()
@@ -154,8 +159,9 @@ export function mapMaintenance(value: unknown): MaintenanceJob {
   if (!statuses.includes(status)) throw invalid()
   const result: MaintenanceJob = { Token: string(raw.Token), Kind: raw.Kind, Status: status as MaintenanceJob['Status'], Message: string(raw.Message),
     CurrentVersion: optionalText(raw.CurrentVersion), LatestVersion: optionalText(raw.LatestVersion), Notes: optionalText(raw.Notes), Directory: optionalText(raw.Directory),
+    EntryStatuses: raw.EntryStatuses == null ? undefined : array(raw.EntryStatuses).map(value => { const status = string(value); if (!['passed', 'failed', 'info'].includes(status)) throw invalid(); return status }),
     Entries: raw.Entries == null ? [] : array(raw.Entries).map(string) }
-  if (!result.Token || !result.Message || (['available', 'current', 'ahead'].includes(status) && (!result.CurrentVersion || !result.LatestVersion))
+  if (!result.Token || !result.Message || (result.EntryStatuses && result.EntryStatuses.length !== result.Entries?.length) || (['available', 'current', 'ahead'].includes(status) && (!result.CurrentVersion || !result.LatestVersion))
     || (['passed', 'failed'].includes(status) && (!result.Directory || !result.Entries?.length))) throw invalid()
   return result
 }
@@ -166,28 +172,29 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   const detailReads = new Map<string, Promise<DeviceDetails>>()
   let writing = false, uncertain = false
   async function backupCall<T>(operation: () => Promise<T>, mutation = false): Promise<T> {
-    if (!snapshot?.CanManageBackup) throw new OperationFailure('当前后台暂不支持导入导出，请使用新版后台。')
-    if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请勿重复提交。')
-    if (uncertain) throw new OperationFailure('上次操作结果尚未确认，请先刷新状态。', undefined, true)
+    if (!snapshot?.CanManageBackup) throw new OperationFailure(t("当前后台暂不支持导入导出，请使用新版后台。"))
+    if (writing || pending || detailReads.size) throw new OperationFailure(t("正在处理上一个请求，请勿重复提交。"))
+    if (uncertain) throw new OperationFailure(t("上次操作结果尚未确认，请先刷新状态。"), undefined, true)
     writing = true
     try { return await operation() }
     catch (error) { const result = failure(error, mutation); uncertain ||= result.requiresRefresh; throw result }
     finally { writing = false }
   }
   const mutate = async (action: Record<string, unknown>): Promise<Snapshot> => {
-    if (!snapshot?.CanWrite) throw new OperationFailure('当前后台只支持只读，请使用第三阶段后台。')
-    if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请勿重复提交。')
-    if (uncertain) throw new OperationFailure('上次操作结果尚未确认，请先刷新状态。', undefined, true)
+    if (!snapshot?.CanWrite) throw new OperationFailure(t("当前后台只支持只读，请使用第三阶段后台。"))
+    if (writing || pending || detailReads.size) throw new OperationFailure(t("正在处理上一个请求，请勿重复提交。"))
+    if (uncertain) throw new OperationFailure(t("上次操作结果尚未确认，请先刷新状态。"), undefined, true)
     writing = true
     try {
       const raw = object(await call('panel_action', { action }))
       const actual = mapSnapshot(raw); snapshot = actual
       if (raw.OperationError) throw new OperationFailure(optionalText(raw.OperationError), actual)
-      if (!actual.CanWrite || !Object.hasOwn(raw, 'OperationError')) throw new OperationFailure('后台未确认操作结果，请刷新后检查。', actual, true)
+      if (!actual.CanWrite || !Object.hasOwn(raw, 'OperationError')) throw new OperationFailure(t("后台未确认操作结果，请刷新后检查。"), actual, true)
       let matched = true
       if (action.kind === 'preference') matched = actual.Preferences[action.key as keyof Preferences] === action.value
       if (action.kind === 'browserPort') matched = actual.Preferences.BrowserPort === action.port && raw.PreferencesSaved === true
       if (action.kind === 'uiStyle') matched = actual.Preferences.UiStyle === action.style && raw.PreferencesSaved === true
+      if (action.kind === 'language') matched = actual.Preferences.Language === action.language && raw.PreferencesSaved === true
       if (action.kind === 'startup') matched = actual.StartupEnabled === action.value
       if (action.kind === 'switch') {
         const device = actual.Devices.find(d => d.Id === action.id)
@@ -204,7 +211,7 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
         const order = actual.Preferences.DeviceOrder[action.flow as Flow], requested = action.ids as string[]
         matched = requested.every((id, index) => order[index] === id)
       }
-      if (!matched) throw new OperationFailure('后台当前状态与请求不一致，请检查实际结果后再操作。', actual)
+      if (!matched) throw new OperationFailure(t("后台当前状态与请求不一致，请检查实际结果后再操作。"), actual)
       return actual
     } catch (error) {
       const result = failure(error, true); uncertain = result.requiresRefresh; throw result
@@ -213,25 +220,25 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
   return {
     mode: 'desktop',
     async startUpgrade(kind) {
-      if (!snapshot?.CanManageUpdates) throw new OperationFailure('当前后台只支持检查，请使用新版后台。')
-      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      if (!snapshot?.CanManageUpdates) throw new OperationFailure(t("当前后台只支持检查，请使用新版后台。"))
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure(t("请先结束当前操作或刷新状态。"))
       writing = true
       try { return mapUpgrade(await call('start_upgrade', { kind }), undefined, kind) } catch (e) { throw failure(e) } finally { writing = false }
     },
     async readUpgrade(token) { try { return mapUpgrade(await call('read_upgrade', { token }), token) } catch (e) { throw failure(e) } },
     async upgradeAction(token, action) { try { return mapUpgrade(await call('upgrade_action', { token, action }), token) } catch (e) { throw failure(e) } },
     async cancelUpgrade(token) {
-      try { const job = mapUpgrade(await call('cancel_upgrade', { token }), token); if (upgradeActive(job)) throw new Error('尚未确认任务停止，请稍后重试。'); return job } catch (e) { throw failure(e) }
+      try { const job = mapUpgrade(await call('cancel_upgrade', { token }), token); if (upgradeActive(job)) throw new Error(t("尚未确认任务停止，请稍后重试。")); return job } catch (e) { throw failure(e) }
     },
     async startDolbyApply(id, profile, expected, token) {
-      if (!snapshot?.CanApplyDolby) throw new OperationFailure('当前后台不支持新的 Dolby 应用结果。')
-      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      if (!snapshot?.CanApplyDolby) throw new OperationFailure(t("当前后台不支持新的 Dolby 应用结果。"))
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure(t("请先结束当前操作或刷新状态。"))
       writing = true
       try {
         const requested = dolbyProfile(profile), raw = object(await call('start_dolby_apply', { id, profile:requested, expected:dolbyProfile(expected), token }))
         const actual = mapSnapshot(raw); snapshot = actual
         if (raw.OperationError) throw new OperationFailure(String(raw.OperationError), actual)
-        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true || JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure('保存结果尚未确认，请检查本次应用状态。', actual, true)
+        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true || JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure(t("保存结果尚未确认，请检查本次应用状态。"), actual, true)
         const operation = mapDolbyOperation(raw.DolbyOperation, token)
         if (operation.DeviceId !== id) throw invalid()
         return { snapshot:actual, operation }
@@ -241,23 +248,23 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
     async readDolbyApply(token) { try { return mapDolbyOperation(await call('read_dolby_apply', { token }), token) } catch (e) { throw failure(e) } },
     async cancelDolbyApply(token) { try { return mapDolbyOperation(await call('cancel_dolby_apply', { token }), token) } catch (e) { throw failure(e) } },
     async saveDolby(id, profile, expected) {
-      if (!snapshot?.CanEditDolby) throw new OperationFailure('当前后台不支持新 Dolby 编辑器。')
-      if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求。')
-      if (uncertain) throw new OperationFailure('请先刷新确认上次结果。', undefined, true)
+      if (!snapshot?.CanEditDolby) throw new OperationFailure(t("当前后台不支持新 Dolby 编辑器。"))
+      if (writing || pending || detailReads.size) throw new OperationFailure(t("正在处理上一个请求。"))
+      if (uncertain) throw new OperationFailure(t("请先刷新确认上次结果。"), undefined, true)
       writing = true
       try {
         const requested = dolbyProfile(profile), raw = object(await call('save_dolby', { id, profile:requested, expected:dolbyProfile(expected) }))
         const actual = mapSnapshot(raw); snapshot = actual
         if (raw.OperationError) throw new OperationFailure(String(raw.OperationError), actual)
-        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true) throw new OperationFailure('后台尚未确认保存，请刷新检查。', actual, true)
-        if (JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure('后台保存结果与请求不一致，请刷新检查。', actual, true)
+        if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true) throw new OperationFailure(t("后台尚未确认保存，请刷新检查。"), actual, true)
+        if (JSON.stringify(actual.DolbyProfiles?.[id] ?? null) !== JSON.stringify(requested)) throw new OperationFailure(t("后台保存结果与请求不一致，请刷新检查。"), actual, true)
         return actual
       } catch (error) { const result = failure(error, true); uncertain ||= result.requiresRefresh; throw result }
       finally { writing = false }
     },
     async startDolbyRead(id) {
-      if (!snapshot?.CanEditDolby) throw new OperationFailure('当前后台不支持读取 Dolby。')
-      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure('请先结束当前操作或刷新状态。')
+      if (!snapshot?.CanEditDolby) throw new OperationFailure(t("当前后台不支持读取 Dolby。"))
+      if (writing || pending || detailReads.size || uncertain) throw new OperationFailure(t("请先结束当前操作或刷新状态。"))
       writing = true
       try { return mapDolbyRead(await call('start_dolby_read', { id })) } catch (error) { throw failure(error) } finally { writing = false }
     },
@@ -265,11 +272,11 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       try { const job = mapDolbyRead(await call('read_dolby', { token })); if (job.Token !== token) throw invalid(); return job } catch (e) { throw failure(e) }
     },
     async cancelDolbyRead(token) {
-      try { const job = mapDolbyRead(await call('cancel_dolby_read', { token })); if (job.Token !== token || job.Status === 'running') throw new Error('尚未确认读取结束，请再次取消。'); return job } catch (e) { throw failure(e) }
+      try { const job = mapDolbyRead(await call('cancel_dolby_read', { token })); if (job.Token !== token || job.Status === 'running') throw new Error(t("尚未确认读取结束，请再次取消。")); return job } catch (e) { throw failure(e) }
     },
     async startMaintenance(kind) {
-      if (!snapshot?.CanCheckMaintenance) throw new OperationFailure('当前后台不支持新面板检查，请使用新版后台。')
-      if (writing || pending || detailReads.size) throw new OperationFailure('正在处理上一个请求，请稍后检查。')
+      if (!snapshot?.CanCheckMaintenance) throw new OperationFailure(t("当前后台不支持新面板检查，请使用新版后台。"))
+      if (writing || pending || detailReads.size) throw new OperationFailure(t("正在处理上一个请求，请稍后检查。"))
       writing = true
       try { const job = mapMaintenance(await call('start_maintenance', { kind })); if (job.Kind !== kind) throw invalid(); return job }
       catch (error) { throw failure(error) } finally { writing = false }
@@ -278,13 +285,13 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       try { const job = mapMaintenance(await call('read_maintenance', { token })); if (job.Token !== token) throw invalid(); return job } catch (error) { throw failure(error) }
     },
     async cancelMaintenance(token) {
-      try { const job = mapMaintenance(await call('cancel_maintenance', { token })); if (job.Token !== token || job.Status === 'running') throw new Error('尚未确认检查结束，请稍后再取消。'); return job } catch (error) { throw failure(error) }
+      try { const job = mapMaintenance(await call('cancel_maintenance', { token })); if (job.Token !== token || job.Status === 'running') throw new Error(t("尚未确认检查结束，请稍后再取消。")); return job } catch (error) { throw failure(error) }
     },
     exportBackup: () => backupCall(async () => {
       const raw = await call('export_backup', {})
       if (raw === null) return null
       const path = string(object(raw).Path)
-      if (!path) throw new Error('未收到导出文件位置，请检查后重试。')
+      if (!path) throw new Error(t("未收到导出文件位置，请检查后重试。"))
       return { Path: path }
     }),
     chooseImport: () => backupCall(async () => {
@@ -305,12 +312,12 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
       const actual = mapSnapshot(raw); snapshot = actual
       if (raw.OperationError) throw new OperationFailure(optionalText(raw.OperationError), actual)
       if (!Object.hasOwn(raw, 'OperationError') || raw.PreferencesSaved !== true || typeof raw.BackupPath !== 'string' || !raw.BackupPath) {
-        throw new OperationFailure('后台未确认完整导入结果，请刷新检查，勿重复导入。', actual, true)
+        throw new OperationFailure(t("后台未确认完整导入结果，请刷新检查，勿重复导入。"), actual, true)
       }
       return { snapshot: actual, BackupPath: raw.BackupPath }
     }, true),
     read() {
-      if (writing || detailReads.size) return Promise.reject(new OperationFailure('正在处理操作，请稍后刷新。'))
+      if (writing || detailReads.size) return Promise.reject(new OperationFailure(t("正在处理操作，请稍后刷新。")))
       // StrictMode and focus events share a single in-flight read.
       if (!pending) pending = Promise.resolve().then(readSnapshot).then(mapSnapshot).then(value => { snapshot = value; uncertain = false; return value })
         .catch(error => { throw failure(error) })
@@ -320,7 +327,7 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
     readDevice(id) {
       const existing = detailReads.get(id)
       if (existing) return existing
-      if (writing || pending || detailReads.size) return Promise.reject(new OperationFailure('正在读取其他状态，请关闭设置后重试。'))
+      if (writing || pending || detailReads.size) return Promise.reject(new OperationFailure(t("正在读取其他状态，请关闭设置后重试。")))
       const request = Promise.resolve().then(() => call('read_device_settings', { id })).then(mapDeviceDetails)
         .catch(error => { throw failure(error) }).finally(() => { detailReads.delete(id) })
       detailReads.set(id, request)
@@ -328,20 +335,25 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
     },
     switchDevice: id => mutate({ kind: 'switch', id }),
     saveDevice: (id, profile, rule, expectedProfile, expectedRule, rename) => {
-      if (!snapshot?.CanWrite) return Promise.reject(new OperationFailure('当前后台只支持只读，请使用第三阶段后台。'))
-      if (expectedProfile === undefined || expectedRule === undefined) return Promise.reject(new OperationFailure('缺少原预设，请重新打开设备设置。'))
-      if (rename && !snapshot.CanRenameDevices) return Promise.reject(new OperationFailure('自定义设备名称需要新版后台'))
+      if (!snapshot?.CanWrite) return Promise.reject(new OperationFailure(t("当前后台只支持只读，请使用第三阶段后台。")))
+      if (expectedProfile === undefined || expectedRule === undefined) return Promise.reject(new OperationFailure(t("缺少原预设，请重新打开设备设置。")))
+      if (rename && !snapshot.CanRenameDevices) return Promise.reject(new OperationFailure(t("自定义设备名称需要新版后台")))
       return mutate({ kind: 'saveBasic', id, profile, rule, expectedProfile, expectedRule, ...(rename && { rename }) })
     },
     setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
+    setLanguage: language => {
+      if (!snapshot?.CanSetLanguage) return Promise.reject(new OperationFailure(t("切换语言需要新版后台")))
+      if (!LANGUAGES.some(item => item.id === language)) return Promise.reject(new OperationFailure(t("不支持此语言")))
+      return mutate({ kind: 'language', language })
+    },
     setUiStyle: style => {
-      if (!snapshot?.CanSetUiStyle) return Promise.reject(new OperationFailure('切换界面风格需要新版后台'))
-      if (!isUiStyle(style)) return Promise.reject(new OperationFailure('不支持此界面风格'))
+      if (!snapshot?.CanSetUiStyle) return Promise.reject(new OperationFailure(t("切换界面风格需要新版后台")))
+      if (!isUiStyle(style)) return Promise.reject(new OperationFailure(t("不支持此界面风格")))
       return mutate({ kind: 'uiStyle', style })
     },
     setBrowserPort: port => {
-      if (!snapshot?.CanSetBrowserPort) return Promise.reject(new OperationFailure('自定义端口需要新版后台。'))
-      if (!Number.isInteger(port) || port < 0 || port > 65535) return Promise.reject(new OperationFailure('端口应为 1–65535，留空则自动分配。'))
+      if (!snapshot?.CanSetBrowserPort) return Promise.reject(new OperationFailure(t("自定义端口需要新版后台。")))
+      if (!Number.isInteger(port) || port < 0 || port > 65535) return Promise.reject(new OperationFailure(t("端口应为 1–65535，留空则自动分配。")))
       return mutate({ kind: 'browserPort', port })
     },
     setStartup: value => mutate({ kind: 'startup', value, expectedCommand: snapshot?.StartupCommand ?? null }),

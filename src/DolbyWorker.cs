@@ -38,13 +38,13 @@ namespace AudioSwitch
                     {
                         var output = process.StandardOutput.ReadToEndAsync();
                         process.StandardInput.WriteLine(Wire.Encode(new DolbyRequest { DeviceId = id, Profile = profile, CancellationEvent = eventName, OwnerPid = Process.GetCurrentProcess().Id })); process.StandardInput.Close();
-                        if (!process.WaitForExit(12000)) { try { process.Kill(); process.WaitForExit(1500); } catch { } return new DolbyResult { Error = "Dolby 响应超时，请检查当前音效；已保存的方案仍保留。" }; }
-                        if (!output.Wait(1000) || String.IsNullOrWhiteSpace(output.Result)) return new DolbyResult { Error = "Dolby 辅助进程异常退出，可能有部分设置未完成，请检查当前音效。" };
+                        if (!process.WaitForExit(12000)) { try { process.Kill(); process.WaitForExit(1500); } catch { } return new DolbyResult { Error = L.Text("Dolby 响应超时，请检查当前音效；已保存的方案仍保留。") }; }
+                        if (!output.Wait(1000) || String.IsNullOrWhiteSpace(output.Result)) return new DolbyResult { Error = L.Text("Dolby 辅助进程异常退出，可能有部分设置未完成，请检查当前音效。") };
                         return Wire.Decode<DolbyResult>(output.Result);
                     }
                 }
             }
-            catch (Exception ex) { return new DolbyResult { Error = "Dolby 操作失败：" + ex.Message }; }
+            catch (Exception ex) { return new DolbyResult { Error = L.Text("Dolby 操作失败：{0}", ex.Message) }; }
         }
         internal static void Main()
         {
@@ -57,7 +57,7 @@ namespace AudioSwitch
             try
             {
                 // No WinForms initialization or visible window in this short-lived process.
-                if (UpdateInstaller.IsUpdating()) throw new OperationCanceledException("声间正在更新，Dolby 任务已取消。");
+                if (UpdateInstaller.IsUpdating()) throw new OperationCanceledException(L.Text("声间正在更新，Dolby 任务已取消。"));
                 var request = Wire.Decode<DolbyRequest>(Console.ReadLine());
                 DolbyProfiles.Validate(request.Profile);
                 using (var mutex = new Mutex(false, "Local\\AudioSwitch-Dolby-" + Wire.Identity))
@@ -66,13 +66,13 @@ namespace AudioSwitch
                     try
                     {
                         try { locked = mutex.WaitOne(1500); } catch (AbandonedMutexException) { locked = true; }
-                        if (!locked) throw new InvalidOperationException("Dolby 正在应用其他设置，请稍后重试。");
+                        if (!locked) throw new InvalidOperationException(L.Text("Dolby 正在应用其他设置，请稍后重试。"));
                         using (var audio = new AudioService())
                         using (var signal = request.CancellationEvent == null ? null : EventWaitHandle.OpenExisting(request.CancellationEvent))
                         using (var owner = request.OwnerPid == 0 ? null : Process.GetProcessById(request.OwnerPid))
                         {
-                            Action outputGuard = () => { if (!String.Equals(audio.ReadDefault(0, 1), request.DeviceId, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("此设备已不是当前输出，请先选择此设备再读取或应用 Dolby。"); };
-                            Action guard = () => { if ((signal != null && signal.WaitOne(0)) || (owner != null && owner.HasExited)) throw new OperationCanceledException("Dolby 任务已取消。"); outputGuard(); };
+                            Action outputGuard = () => { if (!String.Equals(audio.ReadDefault(0, 1), request.DeviceId, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException(L.Text("此设备已不是当前输出，请先选择此设备再读取或应用 Dolby。")); };
+                            Action guard = () => { if ((signal != null && signal.WaitOne(0)) || (owner != null && owner.HasExited)) throw new OperationCanceledException(L.Text("Dolby 任务已取消。")); outputGuard(); };
                             guard();
                             using (var native = new DolbyNative(request.DeviceId))
                             {
@@ -116,7 +116,7 @@ namespace AudioSwitch
         }
         internal void ApplyOwned(string id, DolbyProfile profile, Action<DolbyResult, bool> settled)
         {
-            if (stopped || Applying) throw new InvalidOperationException("Dolby 正在处理其他任务，请稍后再应用。");
+            if (stopped || Applying) throw new InvalidOperationException(L.Text("Dolby 正在处理其他任务，请稍后再应用。"));
             if (profile == null || settled == null) throw new ArgumentNullException("profile");
             observed = id; revision++;
             pending = new DolbyRequest { DeviceId = id, Profile = Wire.Decode<DolbyProfile>(Wire.Encode(profile)) };
@@ -139,8 +139,8 @@ namespace AudioSwitch
                 try { dispatch(() => {
                     bool cancelled = cancellation.IsCancellationRequested;
                     running = false; activeCancellation = null; activeOwner = null; cancellation.Dispose();
-                    var result = task.IsFaulted || task.IsCanceled ? new DolbyResult { Error = "Dolby 应用失败，无法确认音效状态。" } : task.Result;
-                    if (result == null) result = new DolbyResult { Error = "Dolby 未返回应用结果，请检查当前音效。" };
+                    var result = task.IsFaulted || task.IsCanceled ? new DolbyResult { Error = L.Text("Dolby 应用失败，无法确认音效状态。") } : task.Result;
+                    if (result == null) result = new DolbyResult { Error = L.Text("Dolby 未返回应用结果，请检查当前音效。") };
                     if (!stopped && revision == version) complete(job.DeviceId, result);
                     if (owner != null) owner(result, cancelled || revision != version || stopped);
                     Start();

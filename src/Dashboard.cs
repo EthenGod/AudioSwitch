@@ -58,7 +58,7 @@ namespace AudioSwitch
         {
             this.preview = preview;
             this.send = send ?? (request => Task.Run(() => Wire.Send(request)));
-            Text = prompt ? "设备变化 · 音频设备管理" : "音频设备管理";
+            Text = prompt ? L.Text("设备变化 · 音频设备管理") : L.Text("音频设备管理");
             Shown += delegate { Palette.ChromeTree(this); };
             Font = new Font("Microsoft YaHei UI", 9F);
             BackColor = Palette.Background; ForeColor = Palette.Text;
@@ -70,50 +70,50 @@ namespace AudioSwitch
             var sidebar = new Panel { Dock = DockStyle.Left, Width = 232, BackColor = Palette.Sidebar, Padding = new Padding(20) };
             Controls.Add(sidebar);
             var logo = new BrandMark { Location = new Point(22, 30), Size = new Size(44, 44) }; sidebar.Controls.Add(logo);
-            var brand = Palette.Label("声间", 19, Palette.Text, true); brand.SetBounds(79, 25, 120, 36); sidebar.Controls.Add(brand);
+            var brand = Palette.Label(L.Text("声间"), 19, Palette.Text, true); brand.SetBounds(79, 25, 120, 36); sidebar.Controls.Add(brand);
             var subtitle = Palette.Label("A U D I O  S W I T C H", 7, Palette.Muted, false); subtitle.SetBounds(81, 64, 136, 22); sidebar.Controls.Add(subtitle);
             var navigation = new Surface { Location = new Point(16, 116), Size = new Size(200, 46), Fill = Palette.Card, Stroke = Palette.Card };
-            var nav = Palette.Label("声音设备", 10, Palette.Accent, true); nav.Dock = DockStyle.Fill; nav.Padding = new Padding(18, 0, 0, 0); nav.TextAlign = ContentAlignment.MiddleLeft; navigation.Controls.Add(nav); sidebar.Controls.Add(navigation);
-            var preferences = Palette.Label("自动切换", 8.5F, Palette.Muted, true); preferences.SetBounds(24, 178, 170, 24); sidebar.Controls.Add(preferences);
-            priority = CreateCheck("按设备优先级选择", 202); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
-            var priorityHint = Palette.Label("优先使用排序靠前的在线设备", 8, Palette.Muted, false); priorityHint.SetBounds(24, 234, 190, 20); sidebar.Controls.Add(priorityHint);
-            ask = CreateCheck("新设备接入时询问", 254); sidebar.Controls.Add(ask);
-            var askHint = Palette.Label("接入时提供快捷切换提示", 8, Palette.Muted, false); askHint.SetBounds(24, 286, 190, 20); sidebar.Controls.Add(askHint);
-            communications = CreateCheck("同时切换通话设备", 306); sidebar.Controls.Add(communications);
-            var callHint = Palette.Label("让通话与日常播放使用同一设备", 8, Palette.Muted, false); callHint.SetBounds(24, 338, 196, 20); sidebar.Controls.Add(callHint);
-            gameMode = CreateCheck("游戏模式", 366); gameMode.Name = "gameMode"; sidebar.Controls.Add(gameMode);
-            darkMode = CreateCheck("深色模式", 404); darkMode.Name = "darkMode"; darkMode.Checked = Palette.Dark; sidebar.Controls.Add(darkMode);
-            startup = CreateCheck("开机自启", 446); startup.Name = "startWithWindows"; startup.Enabled = false; sidebar.Controls.Add(startup);
-            startupHint = Palette.Label("登录 Windows 后只启动托盘", 8, Palette.Muted, false); startupHint.Name = "startupDetails"; startupHint.Cursor = Cursors.Hand; startupHint.SetBounds(24, 478, 196, 24); sidebar.Controls.Add(startupHint);
-            startupHint.Click += delegate { NoticeDialog.ShowNotice(this, "开机自启设置", startupState.Details ?? startupHint.Text); };
-            var export = new FlatAction("导出备份", false) { Name = "exportSettings", Location = new Point(22, 514), Size = new Size(90, 34) };
-            var import = new FlatAction("导入设置", false) { Name = "importSettings", Location = new Point(120, 514), Size = new Size(90, 34) };
+            var nav = Palette.Label(L.Text("声音设备"), 10, Palette.Accent, true); nav.Dock = DockStyle.Fill; nav.Padding = new Padding(18, 0, 0, 0); nav.TextAlign = ContentAlignment.MiddleLeft; navigation.Controls.Add(nav); sidebar.Controls.Add(navigation);
+            var preferences = Palette.Label(L.Text("自动切换"), 8.5F, Palette.Muted, true); preferences.SetBounds(24, 178, 170, 24); sidebar.Controls.Add(preferences);
+            priority = CreateCheck(L.Text("按设备优先级选择"), 202); priority.Name = "usePriority"; sidebar.Controls.Add(priority);
+            var priorityHint = Palette.Label(L.Text("优先使用排序靠前的在线设备"), 8, Palette.Muted, false); priorityHint.SetBounds(24, 234, 190, 20); sidebar.Controls.Add(priorityHint);
+            ask = CreateCheck(L.Text("新设备接入时询问"), 254); sidebar.Controls.Add(ask);
+            var askHint = Palette.Label(L.Text("接入时提供快捷切换提示"), 8, Palette.Muted, false); askHint.SetBounds(24, 286, 190, 20); sidebar.Controls.Add(askHint);
+            communications = CreateCheck(L.Text("同时切换通话设备"), 306); sidebar.Controls.Add(communications);
+            var callHint = Palette.Label(L.Text("让通话与日常播放使用同一设备"), 8, Palette.Muted, false); callHint.SetBounds(24, 338, 196, 20); sidebar.Controls.Add(callHint);
+            gameMode = CreateCheck(L.Text("游戏模式"), 366); gameMode.Name = "gameMode"; sidebar.Controls.Add(gameMode);
+            darkMode = CreateCheck(L.Text("深色模式"), 404); darkMode.Name = "darkMode"; darkMode.Checked = Palette.Dark; sidebar.Controls.Add(darkMode);
+            startup = CreateCheck(L.Text("开机自启"), 446); startup.Name = "startWithWindows"; startup.Enabled = false; sidebar.Controls.Add(startup);
+            startupHint = Palette.Label(L.Text("登录 Windows 后只启动托盘"), 8, Palette.Muted, false); startupHint.Name = "startupDetails"; startupHint.Cursor = Cursors.Hand; startupHint.SetBounds(24, 478, 196, 24); sidebar.Controls.Add(startupHint);
+            startupHint.Click += delegate { NoticeDialog.ShowNotice(this, L.Text("开机自启设置"), startupState.Details ?? startupHint.Text); };
+            var export = new FlatAction(L.Text("导出备份"), false) { Name = "exportSettings", Location = new Point(22, 514), Size = new Size(90, 34) };
+            var import = new FlatAction(L.Text("导入设置"), false) { Name = "importSettings", Location = new Point(120, 514), Size = new Size(90, 34) };
             export.Click += async delegate { await ExportSettings(); };
             import.Click += async delegate { await ImportSettings(); };
             sidebar.Controls.Add(export); sidebar.Controls.Add(import);
-            var update = new FlatAction("检查更新", false) { Name = "checkUpdates", Location = new Point(22, 557), Size = new Size(90, 32) };
+            var update = new FlatAction(L.Text("检查更新"), false) { Name = "checkUpdates", Location = new Point(22, 557), Size = new Size(90, 32) };
             update.Click += async delegate { await OpenUpdateDialog(); };
             sidebar.Controls.Add(update);
-            var integrity = new FlatAction("文件检查", false) { Name = "checkFiles", Location = new Point(120, 557), Size = new Size(90, 32) };
+            var integrity = new FlatAction(L.Text("文件检查"), false) { Name = "checkFiles", Location = new Point(120, 557), Size = new Size(90, 32) };
             integrity.Click += delegate {
                 if (preview || busy) return;
                 using (var dialog = new IntegrityDialog()) { dialog.ShowDialog(this); if (dialog.Restarting) Close(); }
             };
             sidebar.Controls.Add(integrity);
-            var low = Palette.Label("关闭面板后，托盘继续工作", 8, Palette.Muted, false); low.SetBounds(24, ClientSize.Height - 51, 195, 20); low.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(low);
-            var ver = Palette.Label("声间  /  v" + AppVersion.Number, 8, Palette.Muted, false); ver.SetBounds(24, ClientSize.Height - 28, 190, 20); ver.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(ver);
+            var low = Palette.Label(L.Text("关闭面板后，托盘继续工作"), 8, Palette.Muted, false); low.SetBounds(24, ClientSize.Height - 51, 195, 20); low.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(low);
+            var ver = Palette.Label(L.Text("声间  /  v{0}", AppVersion.Number), 8, Palette.Muted, false); ver.SetBounds(24, ClientSize.Height - 28, 190, 20); ver.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; sidebar.Controls.Add(ver);
 
             var main = new Panel { Dock = DockStyle.Fill, Padding = new Padding(28, 26, 28, 18), BackColor = Palette.Background };
             Controls.Add(main); main.BringToFront();
             var header = new Panel { Dock = DockStyle.Top, Height = 143, Width = 812 };
-            var title = Palette.Label("声音设备", 23, Palette.Text, true); title.SetBounds(0, 0, 530, 47); header.Controls.Add(title);
-            summary = Palette.Label("正在连接音频后台…", 9, Palette.Muted, false); summary.SetBounds(2, 54, 560, 24); header.Controls.Add(summary);
-            var reload = new FlatAction("刷新设备", false) { Size = new Size(96, 34), Location = new Point(716, 9), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var title = Palette.Label(L.Text("声音设备"), 23, Palette.Text, true); title.SetBounds(0, 0, 530, 47); header.Controls.Add(title);
+            summary = Palette.Label(L.Text("正在连接音频后台…"), 9, Palette.Muted, false); summary.SetBounds(2, 54, 560, 24); header.Controls.Add(summary);
+            var reload = new FlatAction(L.Text("刷新设备"), false) { Size = new Size(96, 34), Location = new Point(716, 9), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             reload.Click += async delegate { await Execute(new Request { Action = "refresh" }); }; header.Controls.Add(reload);
             for (int i = 0; i < filters.Length; i++)
             {
                 int flow = i - 1;
-                var filter = new FlatAction(new[] { "全部设备", "声音输出", "麦克风输入" }[i], false) { Selected = i == 0, Name = "filter" + i, Location = new Point(i * 116, 94), Size = new Size(108, 34) };
+                var filter = new FlatAction(new[] { L.Text("全部设备"), L.Text("声音输出"), L.Text("麦克风输入") }[i], false) { Selected = i == 0, Name = "filter" + i, Location = new Point(i * 116, 94), Size = new Size(108, 34) };
                 filter.Click += delegate {
                     selectedFlow = flow;
                     for (int j = 0; j < filters.Length; j++) { filters[j].Selected = j == flow + 1; filters[j].Invalidate(); }
@@ -123,15 +123,15 @@ namespace AudioSwitch
             }
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 42 };
-            status = Palette.Label("正在连接…", 8.5F, Palette.Muted, false); status.Dock = DockStyle.Fill; status.TextAlign = ContentAlignment.MiddleLeft; footer.Controls.Add(status);
-            var hide = new FlatAction("收回托盘", false) { Dock = DockStyle.Right, Width = 100, Height = 35 };
+            status = Palette.Label(L.Text("正在连接…"), 8.5F, Palette.Muted, false); status.Dock = DockStyle.Fill; status.TextAlign = ContentAlignment.MiddleLeft; footer.Controls.Add(status);
+            var hide = new FlatAction(L.Text("收回托盘"), false) { Dock = DockStyle.Right, Width = 100, Height = 35 };
             hide.Click += delegate { Close(); }; footer.Controls.Add(hide);
             notice.Dock = DockStyle.Bottom; notice.Visible = false;
             dismissNotice = notice.CloseButton;
             dismissNotice.Click += async delegate { await DismissNotice(); };
             content.Name = "deviceList"; content.Dock = DockStyle.Fill; content.AutoScroll = true;
             updateMessage.Name = "automaticUpdateMessage"; updateMessage.Dock = DockStyle.Fill; updateMessage.TextAlign = ContentAlignment.MiddleLeft;
-            var updateDetails = new FlatAction("检查更新", false) { Dock = DockStyle.Right, Width = 96, Name = "automaticUpdateDetails" };
+            var updateDetails = new FlatAction(L.Text("检查更新"), false) { Dock = DockStyle.Right, Width = 96, Name = "automaticUpdateDetails" };
             updateNotice.Padding = new Padding(14, 10, 12, 10); updateNotice.Controls.Add(updateMessage); updateNotice.Controls.Add(updateDetails);
             updateDetails.Click += async delegate { await OpenUpdateDialog(); };
             main.Controls.Add(content); main.Controls.Add(notice); main.Controls.Add(footer); main.Controls.Add(updateNotice); main.Controls.Add(header);
@@ -193,11 +193,11 @@ namespace AudioSwitch
                 if (mutation && reply.Error != null) dismissedError = null;
                 if (reply.State != null) RenderReply(reply);
                 else RenderNotice(reply.Error, reply.Warning);
-                if (mutation && reply.Error == null && !reply.DolbyApplying) status.Text = "●  已更新  ·  关闭窗口后，托盘继续为你工作";
+                if (mutation && reply.Error == null && !reply.DolbyApplying) status.Text = L.Text("●  已更新  ·  关闭窗口后，托盘继续为你工作");
             }
             catch (Exception ex)
             {
-                if (!IsDisposed) RenderNotice("暂时无法连接后台。请重新启动声间。  " + ex.Message, null);
+                if (!IsDisposed) RenderNotice(L.Text("暂时无法连接后台。请重新启动声间。  {0}", ex.Message), null);
             }
             finally
             {
@@ -215,16 +215,16 @@ namespace AudioSwitch
             tips.SetToolTip(updateMessage, updateMessage.Text);
             currentPreferences = reply.Preferences;
             applying = true; gameMode.Checked = reply.Preferences.GameMode; applying = false;
-            tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
+            tips.SetToolTip(gameMode, L.Text("暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作"));
             currentReply = reply;
-            startupState = reply.Startup ?? new StartupState { Available = preview, Message = "登录 Windows 后只启动托盘" };
+            startupState = reply.Startup ?? new StartupState { Available = preview, Message = L.Text("登录 Windows 后只启动托盘") };
             if (startupState.CurrentExecutablePath != null && !UpdateInstaller.SamePath(startupState.CurrentExecutablePath, Application.ExecutablePath))
-                startupState = new StartupState { Message = "后台位于另一位置，点击查看", Details = "请先从托盘退出声间，再从需要的位置重新打开，避免将自启设置到旧目录。\n\n后台程序：\n" + startupState.CurrentExecutablePath + "\n\n当前面板：\n" + Application.ExecutablePath };
+                startupState = new StartupState { Message = L.Text("后台位于另一位置，点击查看"), Details = L.Text("请先从托盘退出声间，再从需要的位置重新打开，避免将自启设置到旧目录。\n\n后台程序：\n{0}\n\n当前面板：\n{1}", startupState.CurrentExecutablePath, Application.ExecutablePath) };
             applying = true; startup.Checked = startupState.Enabled; applying = false;
             startup.Enabled = startupState.Available;
-            startupHint.Text = startupState.Message ?? "登录 Windows 后只启动托盘";
+            startupHint.Text = startupState.Message ?? L.Text("登录 Windows 后只启动托盘");
             tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
-            if (reply.DolbyApplying || dolbyWasApplying) status.Text = reply.DolbyApplying ? "●  正在后台应用 Dolby 方案…" : "●  设备监听中  ·  关闭窗口即可释放界面";
+            if (reply.DolbyApplying || dolbyWasApplying) status.Text = reply.DolbyApplying ? L.Text("●  正在后台应用 Dolby 方案…") : L.Text("●  设备监听中  ·  关闭窗口即可释放界面");
             dolbyWasApplying = reply.DolbyApplying;
             applying = true; ask.Checked = reply.Preferences.AskOnConnect; communications.Checked = reply.Preferences.IncludeCommunications; priority.Checked = reply.Preferences.UseDevicePriority; darkMode.Checked = reply.Preferences.DarkMode; applying = false;
             string signature = Wire.Encode(reply.State) + Wire.Encode(reply.Pending) + Wire.Encode(reply.Preferences);
@@ -232,12 +232,12 @@ namespace AudioSwitch
             lastSignature = signature;
             bool newPrompt = reply.Pending.Any(p => !previousTokens.Contains(p.Token));
             previousTokens = reply.Pending.Select(p => p.Token).ToArray();
-            summary.Text = StateSummary(reply.State) + (reply.Pending.Count > 0 ? "  ·  " + reply.Pending.Count + " 项设备变化待处理" : "  ·  选择设备，即刻切换");
-            status.Text = reply.DolbyApplying ? "●  正在后台应用 Dolby 方案…" : "●  设备监听中  ·  关闭窗口即可释放界面";
+            summary.Text = L.Text("{0}{1}", StateSummary(reply.State), (reply.Pending.Count > 0 ? L.Text("{0} 项设备变化待处理", "  ·  " + reply.Pending.Count) : L.Text("  ·  选择设备，即刻切换")));
+            status.Text = reply.DolbyApplying ? L.Text("●  正在后台应用 Dolby 方案…") : L.Text("●  设备监听中  ·  关闭窗口即可释放界面");
             var scroll = content.AutoScrollPosition;
             content.SuspendLayout();
             tips.RemoveAll();
-            tips.SetToolTip(gameMode, "暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作");
+            tips.SetToolTip(gameMode, L.Text("暂停自动更新、后台下载和负载检测；设备切换与音效跟随照常工作"));
             tips.SetToolTip(updateMessage, updateMessage.Text);
             tips.SetToolTip(startupHint, startupState.Details ?? startupHint.Text);
             while (content.Controls.Count > 0) { var child = content.Controls[0]; content.Controls.RemoveAt(0); child.Dispose(); }
@@ -251,26 +251,26 @@ namespace AudioSwitch
         }
         private static string StateSummary(AudioState state)
         {
-            return state.Devices.Count(d => d.Flow == 0) + " 个输出  /  " + state.Devices.Count(d => d.Flow == 1) + " 个输入";
+            return L.Text("{0} 个输出  /  {1} 个输入", state.Devices.Count(d => d.Flow == 0), state.Devices.Count(d => d.Flow == 1));
         }
         private Panel CreateArrival(Arrival pending, AudioState state)
         {
             bool disconnected = pending.IsDisconnection;
             var panel = new Surface { Width = 700, Fill = disconnected ? Palette.WarningBackground : Palette.Selected, Margin = new Padding(0, 0, 0, 18) };
-            var title = Palette.Label(disconnected ? "当前" + (pending.Flow == 0 ? "输出设备" : "输入设备") + "已断开" : "新设备已就绪", 13,
+            var title = Palette.Label(disconnected ? L.Text("当前{0}已断开", (pending.Flow == 0 ? L.Text("输出设备") : L.Text("输入设备"))) : L.Text("新设备已就绪"), 13,
                 disconnected ? Palette.Warning : Palette.Accent, true);
             title.SetBounds(20, 16, 600, 29); panel.Controls.Add(title);
-            var old = Palette.Label((disconnected ? "已断开：" : "接入前：") + pending.PreviousName, 9, Palette.Text, false);
+            var old = Palette.Label(L.Text("{0}{1}", (disconnected ? L.Text("已断开：") : L.Text("接入前：")), pending.PreviousName), 9, Palette.Text, false);
             old.SetBounds(20, 53, 655, 26); old.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; panel.Controls.Add(old);
             var current = state.Devices.FirstOrDefault(d => d.Id == state.Default(pending.Flow, 1));
-            var system = Palette.Label((currentPreferences.UseDevicePriority ? "当前选择（优先级已开启）：" : "系统当前选择：") + (current == null ? "暂无默认设备" : current.Name), 9, Palette.Muted, false);
+            var system = Palette.Label(L.Text("{0}{1}", (currentPreferences.UseDevicePriority ? L.Text("当前选择（优先级已开启）：") : L.Text("系统当前选择：")), (current == null ? L.Text("暂无默认设备") : current.Name)), 9, Palette.Muted, false);
             system.SetBounds(20, 82, 655, 26); system.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; panel.Controls.Add(system);
             int y = 119;
             foreach (var device in pending.NewDevices.Where(d => !disconnected))
             {
-                var name = Palette.Label((pending.Flow == 0 ? "输出  /  " : "输入  /  ") + device.Name, 9, Palette.Text, true);
+                var name = Palette.Label(L.Text("{0}{1}", (pending.Flow == 0 ? L.Text("输出  /  ") : L.Text("输入  /  ")), device.Name), 9, Palette.Text, true);
                 name.SetBounds(20, y + 5, 430, 28); name.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; panel.Controls.Add(name);
-                var button = new FlatAction("使用新设备", true) { Location = new Point(542, y), Size = new Size(140, 34), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+                var button = new FlatAction(L.Text("使用新设备"), true) { Location = new Point(542, y), Size = new Size(140, 34), Anchor = AnchorStyles.Top | AnchorStyles.Right };
                 var captured = device;
                 button.Click += async delegate { await Execute(new Request { Action = "new", Token = pending.Token, DeviceId = captured.Id }); }; panel.Controls.Add(button);
                 y += 46;
@@ -278,14 +278,14 @@ namespace AudioSwitch
             var alternatives = DevicePriority.Ordered(state.Devices, currentPreferences, state, pending.Flow);
             if (alternatives.Count > 0)
             {
-                var caption = Palette.Label(disconnected ? "选择可用设备" : "也可以选择其他在线设备", 8.5F, Palette.Muted, false);
+                var caption = Palette.Label(disconnected ? L.Text("选择可用设备") : L.Text("也可以选择其他在线设备"), 8.5F, Palette.Muted, false);
                 caption.SetBounds(20, y, 640, 25); caption.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; panel.Controls.Add(caption); y += 29;
                 var selection = new ChoiceBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat,
                     BackColor = Palette.Card, ForeColor = Palette.Text, DisplayMember = "Name", ValueMember = "Id",
                     Location = new Point(20, y + 3), Size = new Size(504, 32), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
-                    AccessibleName = "选择在线" + (pending.Flow == 0 ? "输出设备" : "输入设备"), DataSource = alternatives };
+                    AccessibleName = L.Text("选择在线{0}", (pending.Flow == 0 ? L.Text("输出设备") : L.Text("输入设备"))), DataSource = alternatives };
                 panel.Controls.Add(selection);
-                var choose = new FlatAction("使用所选设备", true) { Location = new Point(542, y), Size = new Size(140, 34), Anchor = AnchorStyles.Right | AnchorStyles.Top };
+                var choose = new FlatAction(L.Text("使用所选设备"), true) { Location = new Point(542, y), Size = new Size(140, 34), Anchor = AnchorStyles.Right | AnchorStyles.Top };
                 choose.Click += async delegate {
                     var selected = selection.SelectedItem as Endpoint;
                     if (selected != null) await Execute(new Request { Action = "alternative", Token = pending.Token, DeviceId = selected.Id });
@@ -294,22 +294,22 @@ namespace AudioSwitch
             }
             else
             {
-                var empty = Palette.Label("暂无可用" + (pending.Flow == 0 ? "输出" : "输入") + "设备，请连接设备后再选择。", 9, Palette.Muted, false);
+                var empty = Palette.Label(L.Text("暂无可用{0}设备，请连接设备后再选择。", (pending.Flow == 0 ? L.Text("输出") : L.Text("输入"))), 9, Palette.Muted, false);
                 empty.SetBounds(20, y, 640, 34); panel.Controls.Add(empty); y += 46;
             }
             int laterX = 20;
             if (!disconnected)
             {
-                var keep = new FlatAction("继续用旧设备", false) { Location = new Point(20, y), Size = new Size(148, 34) };
+                var keep = new FlatAction(L.Text("继续用旧设备"), false) { Location = new Point(20, y), Size = new Size(148, 34) };
                 string oldId;
                 keep.Enabled = pending.PreviousDefaults.TryGetValue(pending.Flow + ":1", out oldId) && state.Devices.Any(d => d.Id == oldId);
-                if (!keep.Enabled) keep.Text = "旧设备不可用";
+                if (!keep.Enabled) keep.Text = L.Text("旧设备不可用");
                 keep.Click += async delegate { await Execute(new Request { Action = "old", Token = pending.Token }); }; panel.Controls.Add(keep);
                 laterX = 180;
             }
-            var later = new FlatAction(alternatives.Count == 0 ? "知道了" : currentPreferences.UseDevicePriority ? "保持当前选择" : "保持系统当前选择", false) { Location = new Point(laterX, y), Size = new Size(174, 34) };
+            var later = new FlatAction(alternatives.Count == 0 ? L.Text("知道了") : currentPreferences.UseDevicePriority ? L.Text("保持当前选择") : L.Text("保持系统当前选择"), false) { Location = new Point(laterX, y), Size = new Size(174, 34) };
             later.Click += async delegate { await Execute(new Request { Action = "later", Token = pending.Token }); }; panel.Controls.Add(later);
-            var hint = Palette.Label("仅关闭提示，不更改设备设置", 8, Palette.Muted, false); hint.SetBounds(laterX + 190, y + 7, 300, 24); hint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; panel.Controls.Add(hint);
+            var hint = Palette.Label(L.Text("仅关闭提示，不更改设备设置"), 8, Palette.Muted, false); hint.SetBounds(laterX + 190, y + 7, 300, 24); hint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; panel.Controls.Add(hint);
             panel.Height = y + 54;
             return panel;
         }
@@ -318,17 +318,17 @@ namespace AudioSwitch
             var devices = DevicePriority.Ordered(state.Devices, currentPreferences, state, flow);
             var panel = new Surface { Name = "deviceGroup" + flow, Width = 800, Margin = new Padding(0, 0, 0, 18), Height = 82 + Math.Max(1, devices.Count) * 94 };
             panel.SuspendLayout();
-            var title = Palette.Label(flow == 0 ? "声音输出" : "麦克风输入", 13, Palette.Text, true); title.SetBounds(22, 18, 180, 28); panel.Controls.Add(title);
-            var caption = Palette.Label(devices.Count + " 个在线  ·  " + (flow == 0 ? "耳机、扬声器与显示器" : "录音与语音通话"), 8.5F, Palette.Muted, false);
+            var title = Palette.Label(flow == 0 ? L.Text("声音输出") : L.Text("麦克风输入"), 13, Palette.Text, true); title.SetBounds(22, 18, 180, 28); panel.Controls.Add(title);
+            var caption = Palette.Label(L.Text("{0} 个在线  ·  {1}", devices.Count, (flow == 0 ? L.Text("耳机、扬声器与显示器") : L.Text("录音与语音通话"))), 8.5F, Palette.Muted, false);
             caption.SetBounds(23, 48, 400, 24); panel.Controls.Add(caption);
-            var sort = new FlatAction("调整优先级", false) { Name = "order" + flow, Location = new Point(670, 22), Size = new Size(108, 32), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var sort = new FlatAction(L.Text("调整优先级"), false) { Name = "order" + flow, Location = new Point(670, 22), Size = new Size(108, 32), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             sort.Click += delegate { EditPriority(flow); }; panel.Controls.Add(sort);
             int y = 80;
             if (devices.Count == 0)
             {
-                var empty = Palette.Label(flow == 0 ? "还没有可用的声音输出" : "还没有可用的麦克风", 11, Palette.Text, true);
+                var empty = Palette.Label(flow == 0 ? L.Text("还没有可用的声音输出") : L.Text("还没有可用的麦克风"), 11, Palette.Text, true);
                 empty.SetBounds(24, y + 9, 470, 28); panel.Controls.Add(empty);
-                var help = Palette.Label("连接 USB、蓝牙或有线设备后，会自动显示在这里。", 9, Palette.Muted, false);
+                var help = Palette.Label(L.Text("连接 USB、蓝牙或有线设备后，会自动显示在这里。"), 9, Palette.Muted, false);
                 help.SetBounds(24, y + 42, 590, 26); panel.Controls.Add(help);
             }
             foreach (var device in devices)
@@ -344,27 +344,26 @@ namespace AudioSwitch
                 var ordered = currentPreferences.DeviceOrder.Where(d => d.Flow == flow).Select(d => d.Id).ToList();
                 int rank = ordered.IndexOf(device.Id) + 1;
                 if (rank == 0) rank = devices.IndexOf(device) + 1;
-                string detail = (isDefault ? "正在使用" : "已连接") + "  ·  优先级 " + rank;
-                if (isCall) detail += "  ·  通话默认";
+                string detail = L.Text("{0}  ·  优先级 {1}", (isDefault ? L.Text("正在使用") : L.Text("已连接")), rank);
+                if (isCall) detail += L.Text("  ·  通话默认");
                 var rule = DeviceAutomation.Rule(currentPreferences, device.Id);
-                if (rule != DeviceRule.Normal) detail += rule == DeviceRule.AcceptSystem ? "  ·  接受系统免打扰" : "  ·  接入自动切换";
+                if (rule != DeviceRule.Normal) detail += rule == DeviceRule.AcceptSystem ? L.Text("  ·  接受系统免打扰") : L.Text("  ·  接入自动切换");
                 var meta = Palette.Label(detail, 8, isDefault ? Palette.Accent : Palette.Muted, false); meta.SetBounds(70, 37, 464, 20);
                 meta.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; tips.SetToolTip(meta, detail); row.Controls.Add(meta);
                 bool fullySelected = isDefault && state.Default(flow, 0) == device.Id && (!communications.Checked || isCall);
                 DeviceProfile profile;
                 bool configured = currentPreferences.DeviceProfiles != null && currentPreferences.DeviceProfiles.TryGetValue(device.Id, out profile);
                 profile = configured ? currentPreferences.DeviceProfiles[device.Id] : null;
-                string preset = profile == null ? "未设置预设 · 保持设备原有声音" : (profile.Volume.HasValue ? "音量 " + profile.Volume + "%" : "音量保持") +
-                    (flow == 1 ? "" : "  ·  " + (profile.SpatialFormat == null ? "音效保持" : DeviceProfiles.SameFormat(profile.SpatialFormat, "") ? "空间音效关闭" : "空间音效已保存"));
-                if (profile != null && profile.Dolby != null) preset += "  ·  Dolby 自动方案";
+                string preset = profile == null ? L.Text("未设置预设 · 保持设备原有声音") : L.Text("{0}{1}", (profile.Volume.HasValue ? L.Text("音量 {0}%", profile.Volume) : L.Text("音量保持")), (flow == 1 ? "" : L.Text("  ·  {0}", (profile.SpatialFormat == null ? L.Text("音效保持") : DeviceProfiles.SameFormat(profile.SpatialFormat, "") ? L.Text("空间音效关闭") : L.Text("空间音效已保存")))));
+                if (profile != null && profile.Dolby != null) preset += L.Text("  ·  Dolby 自动方案");
                 var presetLabel = Palette.Label(preset, 8, Palette.Muted, false); presetLabel.SetBounds(70, 59, 464, 20);
                 presetLabel.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top; tips.SetToolTip(presetLabel, preset); row.Controls.Add(presetLabel);
-                var action = new FlatAction(fullySelected ? (configured ? "应用预设" : "使用中") : "切换至此", !fullySelected) {
+                var action = new FlatAction(fullySelected ? (configured ? L.Text("应用预设") : L.Text("使用中")) : L.Text("切换至此"), !fullySelected) {
                     Name = "switchDevice", Location = new Point(548, 25), Size = new Size(112, 34), Anchor = AnchorStyles.Right | AnchorStyles.Top, Enabled = !fullySelected || configured };
-                action.AccessibleName = (fullySelected && configured ? "应用预设 " : "切换到 ") + device.Name;
+                action.AccessibleName = L.Text("{0}{1}", (fullySelected && configured ? L.Text("应用预设 ") : L.Text("切换到 ")), device.Name);
                 var captured = device;
                 action.Click += async delegate { await Execute(new Request { Action = "switch", DeviceId = captured.Id }); };
-                var settings = new FlatAction("设备设置", false) { Name = "deviceSettings", AccessibleName = "设备设置 " + device.Name,
+                var settings = new FlatAction(L.Text("设备设置"), false) { Name = "deviceSettings", AccessibleName = L.Text("设备设置 {0}", device.Name),
                     Location = new Point(670, 25), Size = new Size(92, 34), Anchor = AnchorStyles.Right | AnchorStyles.Top };
                 settings.Click += async delegate { await EditDevice(captured.Id); };
                 row.Controls.Add(action); row.Controls.Add(settings); row.ResumeLayout(true); panel.Controls.Add(row); y += 94;
@@ -398,7 +397,7 @@ namespace AudioSwitch
             {
                 var reply = await send(new Request { Action = "deviceSettings", DeviceId = id });
                 if (IsDisposed) return;
-                if (reply.Error != null || reply.DeviceSettings == null) throw new InvalidOperationException(reply.Error ?? "无法读取设备设置。");
+                if (reply.Error != null || reply.DeviceSettings == null) throw new InvalidOperationException(reply.Error ?? L.Text("无法读取设备设置。"));
                 using (var editor = new DeviceSettingsDialog(reply.DeviceSettings, async request => {
                     var saved = await send(request);
                     if (!IsDisposed && saved.State != null) RenderReply(saved);
@@ -437,20 +436,20 @@ namespace AudioSwitch
             busy = true;
             try
             {
-                using (var dialog = new SaveFileDialog { Title = "导出声间设置备份", Filter = "声间配置 (*.json)|*.json", DefaultExt = "json", AddExtension = true,
+                using (var dialog = new SaveFileDialog { Title = L.Text("导出声间设置备份"), Filter = L.Text("声间配置 (*.json)|*.json"), DefaultExt = "json", AddExtension = true,
                     FileName = "AudioSwitch-settings-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json", OverwritePrompt = true })
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
                     if (Path.GetFullPath(dialog.FileName).Equals(Path.GetFullPath(PreferenceStore.SettingsPath), StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("请选择其他备份位置，不要覆盖程序正在使用的配置文件。");
+                        throw new InvalidOperationException(L.Text("请选择其他备份位置，不要覆盖程序正在使用的配置文件。"));
                     var reply = await send(new Request { Action = "exportSettings" });
                     if (reply.Error != null) throw new InvalidOperationException(reply.Error);
                     var settings = PreferenceStore.Parse(reply.ConfigurationJson);
                     PreferenceStore.Save(dialog.FileName, settings);
-                    if (!IsDisposed) status.Text = "●  备份已导出：" + dialog.FileName;
+                    if (!IsDisposed) status.Text = L.Text("●  备份已导出：{0}", dialog.FileName);
                 }
             }
-            catch (Exception ex) { if (!IsDisposed) { dismissedError = null; RenderNotice("导出失败：" + ex.Message, null); } }
+            catch (Exception ex) { if (!IsDisposed) { dismissedError = null; RenderNotice(L.Text("导出失败：{0}", ex.Message), null); } }
             finally { busy = false; }
         }
         private async Task ImportSettings()
@@ -459,24 +458,23 @@ namespace AudioSwitch
             busy = true;
             try
             {
-                using (var dialog = new OpenFileDialog { Title = "导入声间设置备份", Filter = "声间配置 (*.json)|*.json", CheckFileExists = true, Multiselect = false })
+                using (var dialog = new OpenFileDialog { Title = L.Text("导入声间设置备份"), Filter = L.Text("声间配置 (*.json)|*.json"), CheckFileExists = true, Multiselect = false })
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
                     string json = PreferenceStore.ReadFile(dialog.FileName);
                     var imported = PreferenceStore.Parse(json);
-                    string summary = "将替换当前全部设置：\n" + imported.DeviceOrder.Count + " 个设备排序记录，" + imported.DeviceProfiles.Count + " 个设备预设，"
-                        + imported.DeviceRules.Count(p => p.Value != DeviceRule.Normal) + " 条白名单。\n\n导入前会自动备份当前设置。离线设备记录会保留。\n不会立即切换设备或改变当前音量。\n\n确认导入？";
-                    if (NoticeDialog.ShowNotice(this, "导入设置", summary, false, true) != DialogResult.OK) return;
+                    string summary = L.Text("将替换当前全部设置：\n{0} 个设备排序记录，{1} 个设备预设，{2} 条白名单。\n\n导入前会自动备份当前设置。离线设备记录会保留。\n不会立即切换设备或改变当前音量。\n\n确认导入？", imported.DeviceOrder.Count, imported.DeviceProfiles.Count, imported.DeviceRules.Count(p => p.Value != DeviceRule.Normal));
+                    if (NoticeDialog.ShowNotice(this, L.Text("导入设置"), summary, false, true) != DialogResult.OK) return;
                     var reply = await send(new Request { Action = "importSettings", ConfigurationJson = json });
                     if (IsDisposed) return;
                     if (reply.Error != null) throw new InvalidOperationException(reply.Error);
                     dismissedError = dismissedWarning = null;
                     if (reply.State != null) RenderReply(reply);
-                    status.Text = "●  设置已导入，原配置已自动备份";
-                    NoticeDialog.ShowNotice(this, "导入完成", "设置已导入。原配置备份：\n" + reply.BackupPath);
+                    status.Text = L.Text("●  设置已导入，原配置已自动备份");
+                    NoticeDialog.ShowNotice(this, L.Text("导入完成"), L.Text("设置已导入。原配置备份：\n{0}", reply.BackupPath));
                 }
             }
-            catch (Exception ex) { if (!IsDisposed) { dismissedError = null; RenderNotice("导入失败：" + ex.Message, null); } }
+            catch (Exception ex) { if (!IsDisposed) { dismissedError = null; RenderNotice(L.Text("导入失败：{0}", ex.Message), null); } }
             finally { busy = false; }
         }
         private async Task DismissNotice()
@@ -499,10 +497,10 @@ namespace AudioSwitch
                 if (!IsDisposed)
                 {
                     // Keep the local dismissal through stale responses until the next fresh snapshot.
-                    if (reply.Error != null) status.Text = "●  提示已收起，后台同步未完成";
+                    if (reply.Error != null) status.Text = L.Text("●  提示已收起，后台同步未完成");
                 }
             }
-            catch { if (!IsDisposed) status.Text = "●  提示已收起，后台同步未完成"; }
+            catch { if (!IsDisposed) status.Text = L.Text("●  提示已收起，后台同步未完成"); }
             finally { if (!IsDisposed) dismissNotice.Enabled = true; }
         }
     }

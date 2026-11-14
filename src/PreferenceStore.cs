@@ -30,7 +30,7 @@ namespace AudioSwitch
         }
         internal static string ReadFile(string path)
         {
-            if (new FileInfo(path).Length > MaxBytes) throw new InvalidOperationException("配置文件最大支持 1 MiB。");
+            if (new FileInfo(path).Length > MaxBytes) throw new InvalidOperationException(L.Text("配置文件最大支持 1 MiB。"));
             return File.ReadAllText(path, new UTF8Encoding(false, true));
         }
         internal static Preferences Parse(string text) { bool legacy; return Parse(text, out legacy); }
@@ -39,16 +39,16 @@ namespace AudioSwitch
             legacy = false;
             try
             {
-                if (String.IsNullOrWhiteSpace(text) || Encoding.UTF8.GetByteCount(text) > MaxBytes) throw new InvalidOperationException("配置为空或超过 1 MiB。");
+                if (String.IsNullOrWhiteSpace(text) || Encoding.UTF8.GetByteCount(text) > MaxBytes) throw new InvalidOperationException(L.Text("配置为空或超过 1 MiB。"));
                 var root = new JavaScriptSerializer().DeserializeObject(text) as Dictionary<string, object>;
-                if (root == null) throw new InvalidOperationException("配置必须是 JSON 对象。");
+                if (root == null) throw new InvalidOperationException(L.Text("配置必须是 JSON 对象。"));
                 Dictionary<string, object> settings;
                 if (root.ContainsKey("Format") || root.ContainsKey("Version") || root.ContainsKey("Settings"))
                 {
                     Keys(root, "Format", "Version", "Settings");
-                    if (!root.ContainsKey("Format") || !Object.Equals(root["Format"], "AudioSwitch.Settings")) throw new InvalidOperationException("这不是声间的配置文件。");
-                    if (!root.ContainsKey("Version") || !(root["Version"] is int) || (int)root["Version"] != 1) throw new InvalidOperationException("不支持此配置版本。");
-                    if (!root.ContainsKey("Settings") || (settings = root["Settings"] as Dictionary<string, object>) == null) throw new InvalidOperationException("缺少 Settings 内容。");
+                    if (!root.ContainsKey("Format") || !Object.Equals(root["Format"], "AudioSwitch.Settings")) throw new InvalidOperationException(L.Text("这不是声间的配置文件。"));
+                    if (!root.ContainsKey("Version") || !(root["Version"] is int) || (int)root["Version"] != 1) throw new InvalidOperationException(L.Text("不支持此配置版本。"));
+                    if (!root.ContainsKey("Settings") || (settings = root["Settings"] as Dictionary<string, object>) == null) throw new InvalidOperationException(L.Text("缺少 Settings 内容。"));
                 }
                 else { legacy = true; settings = root; }
                 // Trial builds embedded the optional suggestion cache in settings.json.
@@ -64,60 +64,61 @@ namespace AudioSwitch
                 Validate(result);
                 return result;
             }
-            catch (Exception ex) { throw new InvalidOperationException("无法读取配置：" + ex.Message, ex); }
+            catch (Exception ex) { throw new InvalidOperationException(L.Text("无法读取配置：{0}", ex.Message), ex); }
         }
         private static void Keys(Dictionary<string, object> map, params string[] allowed)
         {
-            if (map.Keys.Any(k => !allowed.Contains(k))) throw new InvalidOperationException("存在不支持的配置字段。");
+            if (map.Keys.Any(k => !allowed.Contains(k))) throw new InvalidOperationException(L.Text("存在不支持的配置字段。"));
         }
         private static void Shape(Dictionary<string, object> settings)
         {
-            if (settings.Count == 0) throw new InvalidOperationException("缺少设置内容。");
-            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "UiStyle", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.Count == 0) throw new InvalidOperationException(L.Text("缺少设置内容。"));
+            Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "UiStyle", "Language", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
+            if (settings.ContainsKey("Language") && settings["Language"] != null && !L.ValidId(settings["Language"] as string)) throw new InvalidOperationException(L.Text("语言标识无效"));
             if (settings.ContainsKey("UiStyle")) ValidateUiStyle(settings["UiStyle"] as string);
             if (settings.ContainsKey("DeviceAliases"))
             {
                 var aliases = settings["DeviceAliases"] as Dictionary<string, object>;
                 if (aliases == null || aliases.Values.Any(value => !(value is string)))
-                    throw new InvalidOperationException("自定义名称必须是按设备 ID 保存的文本。");
+                    throw new InvalidOperationException(L.Text("自定义名称必须是按设备 ID 保存的文本。"));
             }
-            if (settings.ContainsKey("UpdateChannel") && !String.Equals(settings["UpdateChannel"] as string, "GitHub", StringComparison.Ordinal)) throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
-            if (settings.ContainsKey("BrowserPort") && !(settings["BrowserPort"] is int)) throw new InvalidOperationException("浏览器端口必须为整数。");
+            if (settings.ContainsKey("UpdateChannel") && !String.Equals(settings["UpdateChannel"] as string, "GitHub", StringComparison.Ordinal)) throw new InvalidOperationException(L.Text("目前仅支持 GitHub 更新渠道。"));
+            if (settings.ContainsKey("BrowserPort") && !(settings["BrowserPort"] is int)) throw new InvalidOperationException(L.Text("浏览器端口必须为整数。"));
             foreach (string key in new[] { "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "GameMode", "AutoUpdateEnabled", "IncludePrerelease", "OpenPanelInBrowser", "KeepBrowserPortOpen" })
-                if (settings.ContainsKey(key) && !(settings[key] is bool)) throw new InvalidOperationException(key + " 必须为 true 或 false。");
+                if (settings.ContainsKey(key) && !(settings[key] is bool)) throw new InvalidOperationException(L.Text("{0} 必须为 true 或 false。", key));
             foreach (string key in new[] { "DeviceProfiles", "DeviceRules" })
             {
                 if (!settings.ContainsKey(key) || settings[key] == null) continue;
                 var map = settings[key] as Dictionary<string, object>;
-                if (map == null) throw new InvalidOperationException(key + " 必须是对象。");
+                if (map == null) throw new InvalidOperationException(L.Text("{0} 必须是对象。", key));
                 foreach (var pair in map)
                 {
                     if (key == "DeviceRules")
                     {
-                        if (!(pair.Value is int) || !Enum.IsDefined(typeof(DeviceRule), pair.Value)) throw new InvalidOperationException("白名单规则无效。");
+                        if (!(pair.Value is int) || !Enum.IsDefined(typeof(DeviceRule), pair.Value)) throw new InvalidOperationException(L.Text("白名单规则无效。"));
                     }
                     else
                     {
                         var profile = pair.Value as Dictionary<string, object>;
-                        if (profile == null) throw new InvalidOperationException("设备预设无效。");
+                        if (profile == null) throw new InvalidOperationException(L.Text("设备预设无效。"));
                         Keys(profile, "Volume", "SpatialFormat", "Dolby");
                         if (profile.ContainsKey("Dolby") && profile["Dolby"] != null) DolbyProfiles.ValidateShape(profile["Dolby"]);
-                        if (profile.ContainsKey("Volume") && profile["Volume"] != null && !(profile["Volume"] is int)) throw new InvalidOperationException("音量必须为整数。");
-                        if (profile.ContainsKey("SpatialFormat") && profile["SpatialFormat"] != null && !(profile["SpatialFormat"] is string)) throw new InvalidOperationException("空间音效格式必须为字符串。");
+                        if (profile.ContainsKey("Volume") && profile["Volume"] != null && !(profile["Volume"] is int)) throw new InvalidOperationException(L.Text("音量必须为整数。"));
+                        if (profile.ContainsKey("SpatialFormat") && profile["SpatialFormat"] != null && !(profile["SpatialFormat"] is string)) throw new InvalidOperationException(L.Text("空间音效格式必须为字符串。"));
                     }
                 }
             }
             if (settings.ContainsKey("DeviceOrder") && settings["DeviceOrder"] != null)
             {
                 var order = settings["DeviceOrder"] as object[];
-                if (order == null) throw new InvalidOperationException("设备排序必须是数组。");
+                if (order == null) throw new InvalidOperationException(L.Text("设备排序必须是数组。"));
                 foreach (var item in order)
                 {
                     var device = item as Dictionary<string, object>;
-                    if (device == null) throw new InvalidOperationException("设备排序项无效。");
+                    if (device == null) throw new InvalidOperationException(L.Text("设备排序项无效。"));
                     Keys(device, "Id", "Name", "Flow");
                     if (!device.ContainsKey("Id") || !(device["Id"] is string) || !device.ContainsKey("Name") || !(device["Name"] is string)
-                        || !device.ContainsKey("Flow") || !(device["Flow"] is int)) throw new InvalidOperationException("设备需要 Id、Name 和整数 Flow。");
+                        || !device.ContainsKey("Flow") || !(device["Flow"] is int)) throw new InvalidOperationException(L.Text("设备需要 Id、Name 和整数 Flow。"));
                 }
             }
         }
@@ -131,34 +132,35 @@ namespace AudioSwitch
         {
             if (String.IsNullOrEmpty(value) || value.Length > 32 || value[0] < 'a' || value[0] > 'z'
                 || value.Any(c => !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')))
-                throw new InvalidOperationException("界面风格标识无效。");
+                throw new InvalidOperationException(L.Text("界面风格标识无效。"));
         }
         private static void Validate(Preferences preferences)
         {
-            if (preferences == null) throw new InvalidOperationException("缺少配置。");
+            if (preferences == null) throw new InvalidOperationException(L.Text("缺少配置。"));
             ValidateUiStyle(preferences.UiStyle);
+            if (preferences.Language != null && !L.ValidId(preferences.Language)) throw new InvalidOperationException(L.Text("语言标识无效"));
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
-            if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException("目前仅支持 GitHub 更新渠道。");
+            if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException(L.Text("目前仅支持 GitHub 更新渠道。"));
             var history = preferences.RecentDeviceAliases;
             if (history == null || history.Count > Preferences.AliasHistoryLimit || history.Any(name => !ValidAlias(name)) || history.Distinct().Count() != history.Count)
-                throw new InvalidOperationException("最近使用的设备名称列表无效。");
+                throw new InvalidOperationException(L.Text("最近使用的设备名称列表无效。"));
             if (preferences.DeviceAliases == null || preferences.DeviceAliases.Any(pair =>
                 String.IsNullOrWhiteSpace(pair.Key) || !ValidAlias(pair.Value)))
-                throw new InvalidOperationException("自定义名称无效，最多可输入 64 个字符。");
+                throw new InvalidOperationException(L.Text("自定义名称无效，最多可输入 64 个字符。"));
             if (preferences.DeviceProfiles == null) preferences.DeviceProfiles = new Dictionary<string, DeviceProfile>();
             if (preferences.DeviceRules == null) preferences.DeviceRules = new Dictionary<string, DeviceRule>();
             if (preferences.DeviceOrder == null) preferences.DeviceOrder = new List<Endpoint>();
             var ids = new HashSet<string>();
             foreach (var device in preferences.DeviceOrder)
                 if (device == null || String.IsNullOrWhiteSpace(device.Id) || String.IsNullOrWhiteSpace(device.Name) || (device.Flow != 0 && device.Flow != 1) || !ids.Add(device.Id))
-                    throw new InvalidOperationException("设备排序包含无效或重复设备。");
+                    throw new InvalidOperationException(L.Text("设备排序包含无效或重复设备。"));
             foreach (var pair in preferences.DeviceProfiles)
             {
-                if (String.IsNullOrWhiteSpace(pair.Key)) throw new InvalidOperationException("预设缺少设备 ID。");
+                if (String.IsNullOrWhiteSpace(pair.Key)) throw new InvalidOperationException(L.Text("预设缺少设备 ID。"));
                 var device = preferences.DeviceOrder.FirstOrDefault(d => d.Id == pair.Key);
                 DeviceProfiles.Validate(pair.Value, device != null ? device.Flow : pair.Key.StartsWith("{0.0.1.") ? 1 : 0);
             }
-            if (preferences.DeviceRules.Any(p => String.IsNullOrWhiteSpace(p.Key) || !Enum.IsDefined(typeof(DeviceRule), p.Value))) throw new InvalidOperationException("白名单规则无效。");
+            if (preferences.DeviceRules.Any(p => String.IsNullOrWhiteSpace(p.Key) || !Enum.IsDefined(typeof(DeviceRule), p.Value))) throw new InvalidOperationException(L.Text("白名单规则无效。"));
         }
         internal static string Export(Preferences preferences)
         {
@@ -168,8 +170,9 @@ namespace AudioSwitch
             settings.Remove("RecentDeviceAliases");
             if (copy.DeviceAliases.Count == 0) settings.Remove("DeviceAliases");
             if (copy.UiStyle == "classic") settings.Remove("UiStyle");
+            if (copy.Language == null) settings.Remove("Language");
             string json = Pretty(Wire.Encode(new { Format = "AudioSwitch.Settings", Version = 1, Settings = settings }));
-            if (Encoding.UTF8.GetByteCount(json) > MaxBytes) throw new InvalidOperationException("配置超过 1 MiB，无法保存。");
+            if (Encoding.UTF8.GetByteCount(json) > MaxBytes) throw new InvalidOperationException(L.Text("配置超过 1 MiB，无法保存。"));
             return json;
         }
         internal static void Save(string path, Preferences preferences) { WriteAtomic(path, Export(preferences)); }
@@ -190,6 +193,7 @@ namespace AudioSwitch
         {
             var imported = Parse(json);
             imported.RecentDeviceAliases = current.RecentDeviceAliases;
+            if (imported.Language == null) imported.Language = current.Language;
             string prepared = Export(imported);
             backupPath = Backup(path, current, "before-import");
             WriteAtomic(path, prepared);

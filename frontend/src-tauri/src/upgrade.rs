@@ -22,21 +22,21 @@ impl Upgrade {
         self.start_worker(path, kind, "--panel-upgrade").await
     }
     async fn start_worker(&self, path: PathBuf, kind: Kind, argument: &str) -> Result<Value, String> {
-        if self.closed.load(Ordering::SeqCst) { return Err("面板已经关闭。".into()); }
+        if self.closed.load(Ordering::SeqCst) { return Err(crate::localization::text("面板已经关闭。").into()); }
         if self.job.lock().unwrap().as_ref().is_some_and(|j| j.running.load(Ordering::SeqCst) || j.committed.load(Ordering::SeqCst)) {
-            return Err("已有维护任务；若已确认安装，请查看安装结果，勿重复提交。".into());
+            return Err(crate::localization::text("已有维护任务；若已确认安装，请查看安装结果，勿重复提交。").into());
         }
-        let mut child = Command::new(&path).arg(argument).current_dir(path.parent().ok_or("后台目录无效。")?)
+        let mut child = Command::new(&path).arg(argument).current_dir(path.parent().ok_or(crate::localization::text("后台目录无效。"))?)
             .creation_flags(0x08000000).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
             // Once installation is accepted the helper must survive the panel closing.
-            .kill_on_drop(false).spawn().map_err(|e| format!("无法启动维护任务：{e}"))?;
-        let mut input = child.stdin.take().ok_or("维护输入不可用。")?;
-        let output = child.stdout.take().ok_or("维护输出不可用。")?;
+            .kill_on_drop(false).spawn().map_err(|e| crate::localization::format("无法启动维护任务：{0}", &[&e.to_string()]))?;
+        let mut input = child.stdin.take().ok_or(crate::localization::text("维护输入不可用。"))?;
+        let output = child.stdout.take().ok_or(crate::localization::text("维护输出不可用。"))?;
         if let Err(e) = input.write_all(format!("{}\n", kind.text()).as_bytes()).await {
             drop(input); let _ = stop(&mut child).await; return Err(e.to_string());
         }
         let token = self.next.fetch_add(1, Ordering::SeqCst).to_string();
-        let initial = json!({"Token":token,"Kind":kind,"Status":"checking","Message":"正在检查…","CanDownload":false,"Bytes":0,"Total":0});
+        let initial = json!({"Token":token,"Kind":kind,"Status":"checking","Message":crate::localization::text("正在检查…"),"CanDownload":false,"Bytes":0,"Total":0});
         let (tx, mut rx) = mpsc::channel(1);
         let job = Job { token, view:Arc::new(Mutex::new(initial.clone())), commands:tx, cancel:Arc::new(Notify::new()), running:Arc::new(AtomicBool::new(true)), committed:Arc::new(AtomicBool::new(false)), cancelling:Arc::new(AtomicBool::new(false)) };
         *self.job.lock().unwrap() = Some(job.clone());
@@ -53,22 +53,22 @@ impl Upgrade {
                             // Recheck after waking: install may have been queued while select was waiting.
                             if !job.committed.load(Ordering::SeqCst) { return Err("cancelled".into()); }
                         },
-                        _ = tokio::time::sleep_until(deadline) => return Err("维护任务超时。".into()),
+                        _ = tokio::time::sleep_until(deadline) => return Err(crate::localization::text("维护任务超时。").into()),
                         command = rx.recv() => {
-                            let action = command.ok_or("维护窗口已关闭。")?;
+                            let action = command.ok_or(crate::localization::text("维护窗口已关闭。"))?;
                             input.write_all(match action { Action::Download => b"download\n", Action::Install => b"install\n" }).await.map_err(|e| e.to_string())?;
                             deadline = Instant::now() + Duration::from_secs(if matches!(action, Action::Install) { 60 } else { 185 });
                         },
                         count = limited.read_until(b'\n', &mut line) => {
                             let count = count.map_err(|e| e.to_string())?;
-                            if count == 0 || line.len() > 1024 * 1024 || line.last() != Some(&b'\n') { return Err("维护结果不完整或过大。".into()); }
+                            if count == 0 || line.len() > 1024 * 1024 || line.last() != Some(&b'\n') { return Err(crate::localization::text("维护结果不完整或过大。").into()); }
                             let mut value = decode(&line, kind)?;
                             line.clear();
                             value["Token"] = json!(job.token);
                             let status = value["Status"].as_str().unwrap().to_string();
                             if terminal(&status) {
-                                let code = timeout(Duration::from_secs(5), child.wait()).await.map_err(|_| "尚未确认维护进程退出。")?.map_err(|e| e.to_string())?;
-                                if !code.success() { return Err("维护进程异常退出。".into()); }
+                                let code = timeout(Duration::from_secs(5), child.wait()).await.map_err(|_| crate::localization::text("尚未确认维护进程退出。"))?.map_err(|e| e.to_string())?;
+                                if !code.success() { return Err(crate::localization::text("维护进程异常退出。").into()); }
                                 return Ok(value);
                             }
                             if matches!(status.as_str(), "available" | "repairable" | "ready") { deadline = Instant::now() + Duration::from_secs(600); }
@@ -85,8 +85,8 @@ impl Upgrade {
                     let stopped = if committed { Ok(()) } else { stop(&mut child).await };
                     let cancelled = error == "cancelled" && stopped.is_ok() && !committed;
                     json!({"Kind":kind,"Status":if cancelled {"cancelled"} else {"error"},"CanDownload":false,"Bytes":0,"Total":0,
-                        "Message":if committed { "安装交接结果尚未确认，请查看程序和安装结果，勿重复提交。".to_string() }
-                        else { stopped.err().unwrap_or_else(|| if cancelled { "任务已停止；缓存会保留，没有安装或重启程序。".into() } else {error}) }})
+                        "Message":if committed { crate::localization::text("安装交接结果尚未确认，请查看程序和安装结果，勿重复提交。").to_string() }
+                        else { stopped.err().unwrap_or_else(|| if cancelled { crate::localization::text("任务已停止；缓存会保留，没有安装或重启程序。").into() } else {error}) }})
                 }
             };
             value["Token"] = json!(job.token);
@@ -95,25 +95,25 @@ impl Upgrade {
         });
         Ok(initial)
     }
-    fn find(&self, token: &str) -> Result<Job, String> { self.job.lock().unwrap().as_ref().filter(|j| j.token == token).cloned().ok_or("维护任务已失效，请重新检查。".into()) }
+    fn find(&self, token: &str) -> Result<Job, String> { self.job.lock().unwrap().as_ref().filter(|j| j.token == token).cloned().ok_or(crate::localization::text("维护任务已失效，请重新检查。").into()) }
     pub fn read(&self, token: &str) -> Result<Value, String> { Ok(self.find(token)?.view.lock().unwrap().clone()) }
     pub fn action(&self, token: &str, action: Action) -> Result<Value, String> {
         let job = self.find(token)?;
         let mut view = job.view.lock().unwrap();
-        if !job.running.load(Ordering::SeqCst) || job.committed.load(Ordering::SeqCst) || job.cancelling.load(Ordering::SeqCst) || self.closed.load(Ordering::SeqCst) { return Err("任务已结束或已提交，请勿重复操作。".into()); }
+        if !job.running.load(Ordering::SeqCst) || job.committed.load(Ordering::SeqCst) || job.cancelling.load(Ordering::SeqCst) || self.closed.load(Ordering::SeqCst) { return Err(crate::localization::text("任务已结束或已提交，请勿重复操作。").into()); }
         let status = view["Status"].as_str().unwrap_or("");
         let next = match action {
             Action::Download if matches!(status, "available" | "repairable") && view["CanDownload"] == true => "downloading",
             Action::Install if status == "ready" => "installing",
-            _ => return Err("当前步骤不能执行此操作。".into()),
+            _ => return Err(crate::localization::text("当前步骤不能执行此操作。").into()),
         };
         // Reserve delivery before marking installation irreversible. A closed/full
         // worker channel must leave the task cancellable, without sending twice.
-        let permit = job.commands.try_reserve().map_err(|_| "操作尚未确认，请勿重复提交。")?;
+        let permit = job.commands.try_reserve().map_err(|_| crate::localization::text("操作尚未确认，请勿重复提交。"))?;
         if matches!(action, Action::Install) { job.committed.store(true, Ordering::SeqCst); }
         permit.send(action);
         view["Status"] = json!(next); view["CanDownload"] = json!(false);
-        view["Message"] = json!(if next == "installing" { "正在交给安装助手，请等待。" } else { "正在下载并校验…" });
+        view["Message"] = json!(if next == "installing" { crate::localization::text("正在交给安装助手，请等待。") } else { crate::localization::text("正在下载并校验…") });
         Ok(view.clone())
     }
     pub async fn cancel(&self, token: &str) -> Result<Value, String> {
@@ -122,11 +122,11 @@ impl Upgrade {
             // Share action's lock: either installation commits first or cancellation
             // closes admission first. Never accept a command while stopping.
             let _view = job.view.lock().unwrap();
-            if job.committed.load(Ordering::SeqCst) { return Err("安装已经提交，不能取消或重复提交。".into()); }
+            if job.committed.load(Ordering::SeqCst) { return Err(crate::localization::text("安装已经提交，不能取消或重复提交。").into()); }
             job.cancelling.store(true, Ordering::SeqCst);
             job.cancel.notify_one();
         }
-        timeout(Duration::from_secs(8), async { while job.running.load(Ordering::SeqCst) { sleep(Duration::from_millis(25)).await; } }).await.map_err(|_| "尚未确认任务停止，请稍后重试。")?;
+        timeout(Duration::from_secs(8), async { while job.running.load(Ordering::SeqCst) { sleep(Duration::from_millis(25)).await; } }).await.map_err(|_| crate::localization::text("尚未确认任务停止，请稍后重试。"))?;
         self.read(token)
     }
     pub fn close(&self) {
@@ -141,17 +141,17 @@ impl Upgrade {
 impl Drop for Upgrade { fn drop(&mut self) { self.close(); } }
 async fn stop(child: &mut Child) -> Result<(), String> {
     if timeout(Duration::from_secs(3), child.wait()).await.is_ok_and(|r| r.is_ok()) { return Ok(()); }
-    child.kill().await.map_err(|e| format!("无法确认任务停止：{e}"))
+    child.kill().await.map_err(|e| crate::localization::format("无法确认任务停止：{0}", &[&e.to_string()]))
 }
 fn terminal(status: &str) -> bool { matches!(status, "current" | "passed" | "unavailable" | "cancelled" | "error" | "handoff") }
 fn decode(bytes: &[u8], kind: Kind) -> Result<Value, String> {
-    let value: Value = serde_json::from_slice(bytes).map_err(|_| "维护结果无法读取。")?;
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| crate::localization::text("维护结果无法读取。"))?;
     let status = value["Status"].as_str().unwrap_or("");
     if value["Kind"] != kind.text() || value["Message"].as_str().is_none_or(str::is_empty) || value["CanDownload"].as_bool().is_none()
         || value["Bytes"].as_u64().is_none() || value["Total"].as_u64().is_none()
         || (value["CanDownload"] == true && !matches!(status, "available" | "repairable"))
         || !(terminal(status) || matches!(status, "checking" | "available" | "repairable" | "downloading" | "ready" | "installing")) {
-        return Err("维护结果不完整。".into());
+        return Err(crate::localization::text("维护结果不完整。").into());
     }
     Ok(value)
 }

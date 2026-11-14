@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { mapSnapshot } from './desktop'
 import { createMockGateway } from './mock'
@@ -23,7 +24,7 @@ export class PromptFailure extends Error {
 }
 export function mapPrompt(value: unknown): PromptState {
   const snapshot = mapSnapshot(value), reply = value as Record<string, unknown>
-  const invalid = () => new Error('设备提示不完整，请刷新后重试。')
+  const invalid = () => new Error(t("设备提示不完整，请刷新后重试。"))
   if (!Array.isArray(reply.Pending)) throw invalid()
   const tokens = new Set<string>()
   const pending = reply.Pending.map((raw): Arrival => {
@@ -68,32 +69,32 @@ export function createPromptGateway(call: Transport = invoke): PromptGateway {
     async ready(dark, system) { await call('panel_ready', system ? { dark, system } : { dark }) },
     async resize(expanded, reducedMotion, compact = false) { await call('resize_prompt', { expanded, reducedMotion, compact }) },
     async read() {
-      if (busy) throw new Error('正在处理上一个操作。')
+      if (busy) throw new Error(t("正在处理上一个操作。"))
       try { const state = mapPrompt(await call('read_prompt_snapshot')); uncertain = false; return state }
       catch (error) { throw new PromptFailure(message(error)) }
     },
     async respond(action) {
-      if (busy || uncertain) throw new Error('请先刷新确认上次结果，勿重复提交。')
+      if (busy || uncertain) throw new Error(t("请先刷新确认上次结果，勿重复提交。"))
       busy = true
       try {
         const raw = await call('prompt_action', { action })
         const state = mapPrompt(raw), reply = raw as Record<string, unknown>
-        if (!Object.hasOwn(reply, 'OperationError')) throw new Error('后台没有确认操作结果。')
+        if (!Object.hasOwn(reply, 'OperationError')) throw new Error(t("后台没有确认操作结果。"))
         if (reply.OperationError) throw new PromptFailure(String(reply.OperationError), state)
-        if (state.pending.some(p => p.Token === action.token)) throw new Error('提示尚未处理，请刷新确认。')
+        if (state.pending.some(p => p.Token === action.token)) throw new Error(t("提示尚未处理，请刷新确认。"))
         return state
       } catch (error) {
         uncertain = true
         if (error instanceof PromptFailure) throw error
-        throw new PromptFailure(`${message(error)} 请刷新确认后再操作。`)
+        throw new PromptFailure(t("{0} 请刷新确认后再操作。", message(error)))
       } finally { busy = false }
     },
     async close() { await call('close_prompt') },
     async openPanel() { await call('open_prompt_panel') },
   }
 }
-export function createPreviewPromptGateway(disconnected = false, dark = true): PromptGateway {
-  const mock = createMockGateway()
+export function createPreviewPromptGateway(disconnected = false, dark = true, language = 'zh-CN'): PromptGateway {
+  const mock = createMockGateway(260, [], language)
   let state: PromptState | undefined
   return {
     mode: 'preview',
@@ -101,14 +102,14 @@ export function createPreviewPromptGateway(disconnected = false, dark = true): P
       if (!state) {
         const snapshot = await mock.read(), device = snapshot.Devices.find(d => d.Online && d.Flow === 0)!
         snapshot.Preferences.DarkMode = dark
-        state = { snapshot: { ...snapshot, CanWrite: true }, pending: [{ Token: 'preview-output', Flow: 0, NewIds: [device.Id], Disconnected: disconnected, PreviousName: '桌面扬声器', PreviousDefaults: { ...snapshot.Defaults } }] }
+        state = { snapshot: { ...snapshot, CanWrite: true }, pending: [{ Token: 'preview-output', Flow: 0, NewIds: [device.Id], Disconnected: disconnected, PreviousName: t("桌面扬声器"), PreviousDefaults: { ...snapshot.Defaults } }] }
       }
       return structuredClone(state)
     },
     async respond(action) {
       const current = await this.read()
       const arrival = current.pending.find(p => p.Token === action.token)
-      if (!arrival) throw new Error('提示已失效，请刷新。')
+      if (!arrival) throw new Error(t("提示已失效，请刷新。"))
       const roles = current.snapshot.Preferences.IncludeCommunications ? [0, 1, 2] as const : [0, 1] as const
       for (const role of roles) {
         const key = `${arrival.Flow}:${role}` as const

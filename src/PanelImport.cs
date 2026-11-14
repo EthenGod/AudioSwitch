@@ -22,7 +22,7 @@ namespace AudioSwitch
             {
                 // Parser exceptions can include backup contents. Keep the UI error
                 // actionable and do not forward that payload through an inner exception.
-                throw new InvalidOperationException("备份内容损坏或格式不受支持，请重新选择声间导出的备份。当前配置未改变。");
+                throw new InvalidOperationException(L.Text("备份内容损坏或格式不受支持，请重新选择声间导出的备份。当前配置未改变。"));
             }
             return new Reply { PanelApiVersion = 2, ConfigurationJson = PreferenceStore.Export(incoming), ConfigurationRevision = Revision(current),
                 ImportPreview = new ImportPreviewInfo {
@@ -34,7 +34,7 @@ namespace AudioSwitch
         internal static void RequireUnchanged(Preferences current, string revision)
         {
             if (String.IsNullOrEmpty(revision) || Revision(current) != revision)
-                throw new InvalidOperationException("预览后配置已变化，请重新选择备份并确认，避免覆盖刚才的修改。");
+                throw new InvalidOperationException(L.Text("预览后配置已变化，请重新选择备份并确认，避免覆盖刚才的修改。"));
         }
     }
 }

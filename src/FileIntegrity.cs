@@ -15,7 +15,9 @@ namespace AudioSwitch
         internal bool Candidate;
         internal bool Desktop;
         internal bool WholePackage { get { return Candidate || Desktop; } }
-        internal string PackageLabel { get { return Candidate ? "候选整包" : "桌面整包"; } }
+        internal string PackageLabel { get { return Candidate ? L.Text("候选整包") : L.Text("桌面整包"); } }
+        internal readonly List<string> EntryStatuses = new List<string>();
+        internal readonly List<string> PassedFiles = new List<string>();
         internal readonly List<string> Entries = new List<string>();
         internal readonly List<string> FailedFiles = new List<string>();
         internal string Directory;
@@ -23,15 +25,12 @@ namespace AudioSwitch
         {
             get
             {
-                return (WholePackage ? (Passed ? PackageLabel + "文件检查通过。" : PackageLabel + "文件检查未通过，暂不能继续启动。请重新解压完整" + (Candidate ? "候选" : "桌面") + "包到独立目录。") :
-                    (Passed ? "运行必需文件检查通过。" : "运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。")) +
-                    "\r\n\r\n检查目录：" + Directory + "\r\n\r\n" + String.Join("\r\n", Entries) +
-                    (Passed ? "" : "\r\n\r\n正式发布页：" + AppUpdate.ReleasesUrl) +
-                    (WholePackage ? "\r\n\r\n界面包的面板、说明和许可文件均须完整；本次检查不会修复或替换文件。" : "\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。") + "用户设置和开机自启登记不受影响。" +
-                    "\r\n检查用于发现文件缺损，不用于验证发布者身份。";
+                return L.Text("{0}\r\n\r\n检查目录：{1}\r\n\r\n{2}{3}{4}用户设置和开机自启登记不受影响。\r\n检查用于发现文件缺损，不用于验证发布者身份。", (WholePackage ? (Passed ? L.Text("{0}文件检查通过。", PackageLabel) : L.Text("{0}文件检查未通过，暂不能继续启动。请重新解压完整{1}包到独立目录。", PackageLabel, (Candidate ? L.Text("候选") : L.Text("桌面")))) :
+                    (Passed ? L.Text("运行必需文件检查通过。") : L.Text("运行必需文件仍有问题，暂不能继续启动。请查看下方修复结果；可解除文件占用后重试，或下载完整发布包。"))), Directory, String.Join("\r\n", Entries), (Passed ? "" : L.Text("\r\n\r\n正式发布页：{0}", AppUpdate.ReleasesUrl)), (WholePackage ? L.Text("\r\n\r\n界面包的面板、说明和许可文件均须完整；本次检查不会修复或替换文件。") : L.Text("\r\n\r\n说明、帮助和许可文件不影响本地运行，不要求补齐。")));
             }
         }
-        internal void Fail(string message, string file = null) { Passed = false; Entries.Add(message); if (file != null) FailedFiles.Add(file); }
+        internal void Pass(string message, string file = null) { Entries.Add(message); EntryStatuses.Add("passed"); if (file != null) PassedFiles.Add(file); }
+        internal void Fail(string message, string file = null) { Passed = false; Entries.Add(message); EntryStatuses.Add("failed"); if (file != null) FailedFiles.Add(file); }
     }
 
     internal static class FileIntegrity
@@ -72,9 +71,9 @@ namespace AudioSwitch
             {
                 try {
                     PanelLaunch.Validate(directory, AppVersion.Number);
-                    result.Entries.Add("通过：" + result.PackageLabel + "清单及全部 13 个内容文件（长度、摘要、面板版本和平台）");
+                    result.Pass(L.Text("通过：{0}清单及全部 13 个内容文件（长度、摘要、面板版本和平台）", result.PackageLabel));
                 }
-                catch (Exception ex) { result.Fail(result.PackageLabel + "检查失败：" + ex.Message); }
+                catch (Exception ex) { result.Fail(L.Text("{0}检查失败：{1}", result.PackageLabel, ex.Message)); }
             }
             try
             {
@@ -82,14 +81,14 @@ namespace AudioSwitch
                 var assembly = AssemblyName.GetAssemblyName(exe);
                 if (assembly.Name != "AudioSwitch" || assembly.ProcessorArchitecture != ProcessorArchitecture.Amd64 ||
                     assembly.Version.ToString(3) != AppVersion.Number)
-                    result.Fail("版本或平台不符：AudioSwitch.exe", "AudioSwitch.exe");
-                else if (!VerifyExecutable(exe)) result.Fail("内容不符或缺少校验值：AudioSwitch.exe", "AudioSwitch.exe");
-                else result.Entries.Add("通过：AudioSwitch.exe（内容、名称、版本、平台）");
+                    result.Fail(L.Text("版本或平台不符：AudioSwitch.exe"), "AudioSwitch.exe");
+                else if (!VerifyExecutable(exe)) result.Fail(L.Text("内容不符或缺少校验值：AudioSwitch.exe"), "AudioSwitch.exe");
+                else result.Pass(L.Text("通过：AudioSwitch.exe（内容、名称、版本、平台）"));
             }
-            catch (FileNotFoundException) { result.Fail("缺失：AudioSwitch.exe", "AudioSwitch.exe"); }
-            catch (DirectoryNotFoundException) { result.Fail("缺失：AudioSwitch.exe", "AudioSwitch.exe"); }
-            catch (BadImageFormatException) { result.Fail("无法识别程序格式：AudioSwitch.exe", "AudioSwitch.exe"); }
-            catch (Exception ex) { result.Fail("无法读取：AudioSwitch.exe（" + ex.Message + "）", "AudioSwitch.exe"); }
+            catch (FileNotFoundException) { result.Fail(L.Text("缺失：AudioSwitch.exe"), "AudioSwitch.exe"); }
+            catch (DirectoryNotFoundException) { result.Fail(L.Text("缺失：AudioSwitch.exe"), "AudioSwitch.exe"); }
+            catch (BadImageFormatException) { result.Fail(L.Text("无法识别程序格式：AudioSwitch.exe"), "AudioSwitch.exe"); }
+            catch (Exception ex) { result.Fail(L.Text("无法读取：AudioSwitch.exe（{0}）", ex.Message), "AudioSwitch.exe"); }
 
             try
             {
@@ -98,12 +97,12 @@ namespace AudioSwitch
                 string[] lines;
                 using (var stream = typeof(FileIntegrity).Assembly.GetManifestResourceStream("AudioSwitch.Integrity"))
                 {
-                    if (stream == null) throw new InvalidDataException("程序缺少内置文件清单，请重新下载完整版本。");
+                    if (stream == null) throw new InvalidDataException(L.Text("程序缺少内置文件清单，请重新下载完整版本。"));
                     using (var reader = new StreamReader(stream)) lines = reader.ReadToEnd().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 }
                 if (lines.Length != expected.Length + 1 || !lines[expected.Length].StartsWith(SelfHashMarker, StringComparison.Ordinal) ||
                     lines[expected.Length].Length != SelfHashMarker.Length + 64 || lines[expected.Length].Substring(SelfHashMarker.Length).Any(c => !Uri.IsHexDigit(c)))
-                    throw new InvalidDataException("内置文件清单不完整。");
+                    throw new InvalidDataException(L.Text("内置文件清单不完整。"));
                 var fields = lines.Take(expected.Length).Select(line => line.Split('|')).ToArray();
                 for (int i = 0; i < fields.Length; i++)
                 {
@@ -111,7 +110,7 @@ namespace AudioSwitch
                     if (fields[i].Length != 3 || fields[i][0] != expected[i] ||
                         !Int64.TryParse(fields[i][1], NumberStyles.None, CultureInfo.InvariantCulture, out length) ||
                         length < 0 || length > AppUpdate.MaxPackage * 2 || fields[i][2].Length != 64 ||
-                        fields[i][2].Any(c => !Uri.IsHexDigit(c))) throw new InvalidDataException("内置文件清单无效。");
+                        fields[i][2].Any(c => !Uri.IsHexDigit(c))) throw new InvalidDataException(L.Text("内置文件清单无效。"));
                 }
                 foreach (var entry in fields)
                 {
@@ -123,7 +122,7 @@ namespace AudioSwitch
                         // The length check bounds hashing work even for an unexpectedly huge replacement.
                         using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
-                            if (input.Length != Int64.Parse(entry[1], CultureInfo.InvariantCulture)) result.Fail("大小不符：" + name, name);
+                            if (input.Length != Int64.Parse(entry[1], CultureInfo.InvariantCulture)) result.Fail(L.Text("大小不符：{0}", name), name);
                             else
                             {
                                 string hash;
@@ -131,17 +130,17 @@ namespace AudioSwitch
                                     hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "");
                                 if (!String.Equals(hash, entry[2], StringComparison.OrdinalIgnoreCase) ||
                                     (name == "vendor/svcl/svcl.exe" && !String.Equals(hash, SpatialAudio.HelperHash, StringComparison.OrdinalIgnoreCase)))
-                                    result.Fail("内容不符：" + name, name);
-                                else result.Entries.Add("通过：" + name);
+                                    result.Fail(L.Text("内容不符：{0}", name), name);
+                                else result.Pass(L.Text("通过：{0}", name), name);
                             }
                         }
                     }
-                    catch (FileNotFoundException) { result.Fail("缺失：" + name, name); }
-                    catch (DirectoryNotFoundException) { result.Fail("缺失：" + name, name); }
-                    catch (Exception ex) { result.Fail("无法读取：" + name + "（" + ex.Message + "）", name); }
+                    catch (FileNotFoundException) { result.Fail(L.Text("缺失：{0}", name), name); }
+                    catch (DirectoryNotFoundException) { result.Fail(L.Text("缺失：{0}", name), name); }
+                    catch (Exception ex) { result.Fail(L.Text("无法读取：{0}（{1}）", name, ex.Message), name); }
                 }
             }
-            catch (Exception ex) { result.Fail("检查未完成：" + ex.Message); }
+            catch (Exception ex) { result.Fail(L.Text("检查未完成：{0}", ex.Message)); }
             return result;
         }
 

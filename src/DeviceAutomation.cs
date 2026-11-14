@@ -68,7 +68,7 @@ namespace AudioSwitch
                 }
                 catch (Exception ex)
                 {
-                    errors.Add((decision.Target == null ? "设备" : decision.Target.Name) + "：" + ex.Message);
+                    errors.Add(L.Text("{0}：{1}", (decision.Target == null ? L.Text("设备") : decision.Target.Name), ex.Message));
                 }
             }
             notify = arrival && tracker.Pending.Count > 0;

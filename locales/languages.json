@@ -1,0 +1,5 @@
+[
+  { "id": "zh-CN", "name": "简体中文", "match": ["zh"] },
+  { "id": "en", "name": "English", "match": ["en"] },
+  { "id": "ja", "name": "日本語", "match": ["ja"] }
+]

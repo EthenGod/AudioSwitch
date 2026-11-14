@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { CircleCheck, Download, Info, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { UpgradeJob } from '@/data/types'
@@ -32,13 +33,13 @@ export function StageTransition({ stage, layoutKey, children, className = '' }: 
 
 export function UpgradeStage({ job, stage }: { job: UpgradeJob | null; stage: string }) {
   const waiting = ['checking', 'downloading', 'installing', 'cancelling', 'closing'].includes(stage)
-  const labels: Record<string, string> = { idle: '检查可用更新', checking: '正在检查更新', downloading: '正在下载并校验', installing: '正在交接安装', cancelling: '正在取消任务', closing: '正在关闭' }
+  const labels: Record<string, string> = { idle: t("检查可用更新"), checking: t("正在检查更新"), downloading: t("正在下载并校验"), installing: t("正在交接安装"), cancelling: t("正在取消任务"), closing: t("正在关闭") }
   const Icon = waiting ? LoaderCircle : stage === 'ready' ? ShieldCheck : stage === 'current' ? CircleCheck : stage === 'available' ? Download : stage === 'idle' ? RefreshCw : Info
   const message = job?.Status === stage ? job.Message : labels[stage] ?? job?.Message ?? labels.idle
   return <StageTransition stage={stage} layoutKey={JSON.stringify([message, job?.Version])} className="upgrade-status">
-    <div className="upgrade-status-heading" role="status"><Icon size={20} className={waiting ? 'spin' : undefined} aria-hidden="true" /><div><h3>{message}</h3>{job?.Version && <p>版本：{job.Version}</p>}</div></div>
+    <div className="upgrade-status-heading" role="status"><Icon size={20} className={waiting ? 'spin' : undefined} aria-hidden="true" /><div><h3>{message}</h3>{job?.Version && <p>{t("版本：")}{job.Version}</p>}</div></div>
     {stage === 'downloading' && <div className="upgrade-download">
-      <div className="upgrade-progress" role="progressbar" aria-label="下载进度" aria-valuemin={0} aria-valuemax={job?.Total || undefined} aria-valuenow={job?.Total ? Math.min(job.Bytes, job.Total) : undefined} data-indeterminate={!job?.Total || undefined}><span style={{ transform: `scaleX(${job?.Total ? Math.min(job.Bytes / job.Total, 1) : 0})` }} /></div>
+      <div className="upgrade-progress" role="progressbar" aria-label={t("下载进度")} aria-valuemin={0} aria-valuemax={job?.Total || undefined} aria-valuenow={job?.Total ? Math.min(job.Bytes, job.Total) : undefined} data-indeterminate={!job?.Total || undefined}><span style={{ transform: `scaleX(${job?.Total ? Math.min(job.Bytes / job.Total, 1) : 0})` }} /></div>
       <p>{((job?.Bytes ?? 0) / 1048576).toFixed(1)} MiB{(job?.Total ?? 0) > 0 && ` / ${(job!.Total / 1048576).toFixed(1)} MiB`}</p>
     </div>}
   </StageTransition>

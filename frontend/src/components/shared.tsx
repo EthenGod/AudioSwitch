@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import type { ReactNode } from 'react'
 import { Headphones, Speaker, Mic, Monitor, Check, Circle } from 'lucide-react'
 import type { Device, Snapshot, Role } from '@/data/types'
@@ -10,13 +11,13 @@ export function DeviceIcon({ device, size = 19 }: { device: Device; size?: numbe
 export function DeviceIdentity({ device }: { device: Device }) {
   return <div className="device-identity">
     <span className={`device-icon ${!device.Online ? 'offline' : ''}`}><DeviceIcon device={device} /></span>
-    <div className="min-w-0"><div className="device-name" title={`${device.Name}\n设备标识：${device.Id}`}>{device.Name}</div><div className="device-description">{device.Connection}</div></div>
+    <div className="min-w-0"><div className="device-name" title={t("{0}\n设备标识：{1}", device.Name, device.Id)}>{device.Name}</div><div className="device-description">{device.Connection}</div></div>
   </div>
 }
 export function RoleBadges({ device, snapshot }: { device: Device; snapshot: Snapshot }) {
   const active = ([0, 1, 2] as Role[]).filter(role => snapshot.Defaults[`${device.Flow}:${role}`] === device.Id)
-  if (!device.Online) return <span className="subtle-label"><Circle size={7} /> 离线</span>
-  return <div className="badges">{active.length ? active.map(role => <span className={`role-badge ${role === 1 ? 'primary-badge' : ''}`} key={role}>{role === 1 && <Check size={11} />}{['控制台', '多媒体', '通话'][role]}</span>) : <span className="subtle-label"><span className="online-dot" /> 可用</span>}</div>
+  if (!device.Online) return <span className="subtle-label"><Circle size={7} />{t("离线")}</span>
+  return <div className="badges">{active.length ? active.map(role => <span className={`role-badge ${role === 1 ? 'primary-badge' : ''}`} key={role}>{role === 1 && <Check size={11} />}{[t("控制台"), t("多媒体"), t("通话")][role]}</span>) : <span className="subtle-label"><span className="online-dot" />{t("可用")}</span>}</div>
 }
 export function SettingRow({ title, description, children, muted = false }: { title: string; description?: ReactNode; children: ReactNode; muted?: boolean }) {
   return <div className="setting-row" data-muted={muted || undefined}><div><div className="setting-title">{title}</div>{description && <p>{typeof description === 'string' ? description.trim().replace(/。+$/u, '') : description}</p>}</div><div className="setting-control">{children}</div></div>

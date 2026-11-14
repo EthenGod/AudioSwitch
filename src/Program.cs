@@ -18,6 +18,7 @@ namespace AudioSwitch
         [STAThread]
         private static void Main(string[] args)
         {
+            L.Initialize();
             if (args.Contains("--dolby-worker")) { DolbyWorker.Main(); return; }
             if (args.Length == 1 && args[0] == "--panel-maintenance") { PanelMaintenance.Main(); return; }
             if (args.Length == 1 && args[0] == "--panel-upgrade") { PanelUpgrade.Main(); return; }
@@ -25,15 +26,15 @@ namespace AudioSwitch
             SetProcessDPIAware();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e) { Log(e.Exception); NoticeDialog.ShowNotice(Form.ActiveForm, "操作未完成", e.Exception.Message, true); };
+            Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e) { Log(e.Exception); NoticeDialog.ShowNotice(Form.ActiveForm, L.Text("操作未完成"), e.Exception.Message, true); };
             try
             {
-                if (args.Contains("--licenses")) { NoticeDialog.ShowNotice(null, "许可与第三方说明", DistributionNotices.Read()); return; }
+                if (args.Contains("--licenses")) { NoticeDialog.ShowNotice(null, L.Text("许可与第三方说明"), DistributionNotices.Read()); return; }
                 if (args.Length == 2 && (args[0] == "--apply-update" || args[0] == "--apply-auto-update"))
                 { UpdateInstaller.Run(args[1], args[0] == "--apply-auto-update"); return; }
                 if (UpdateInstaller.IsUpdating()) {
                     if (args.Contains("--check-files")) Environment.ExitCode = 3;
-                    if (!args.Contains("--background") && !(args.Contains("--check-files") && args.Contains("--quiet"))) NoticeDialog.ShowNotice(null, "正在更新声间", "更新完成后会自动重新打开，请稍候。");
+                    if (!args.Contains("--background") && !(args.Contains("--check-files") && args.Contains("--quiet"))) NoticeDialog.ShowNotice(null, L.Text("正在更新声间"), L.Text("更新完成后会自动重新打开，请稍候。"));
                     return;
                 }
                 if (args.Contains("--check-files"))
@@ -101,7 +102,7 @@ namespace AudioSwitch
                     }
                 }
             }
-            catch (Exception ex) { Log(ex); NoticeDialog.ShowNotice(null, "无法启动声间", ex.Message, true); }
+            catch (Exception ex) { Log(ex); NoticeDialog.ShowNotice(null, L.Text("无法启动声间"), ex.Message, true); }
         }
         internal static void Log(Exception ex)
         {

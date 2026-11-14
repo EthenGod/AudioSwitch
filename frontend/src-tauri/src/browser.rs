@@ -24,7 +24,7 @@ impl BrowserSession {
     async fn start<F, T>(&self, operation: F) -> Result<T, BridgeError>
     where F: std::future::Future<Output = Result<T, BridgeError>> {
         let _guard = self.gate.lock().await;
-        if self.closed.load(Ordering::SeqCst) { return Err("浏览器面板连接已结束，请重新打开。".to_string().into()); }
+        if self.closed.load(Ordering::SeqCst) { return Err(crate::localization::text("浏览器面板连接已结束，请重新打开。").to_string().into()); }
         operation.await
     }
     async fn close<F, Fut>(&self, cancel: F)
@@ -55,8 +55,8 @@ fn port_from_args(args: impl Iterator<Item = String>) -> Result<u16, String> {
     let mut port = None;
     for arg in args {
         if let Some(value) = arg.strip_prefix("--browser-port=") {
-            if port.is_some() || value.is_empty() || !value.bytes().all(|c| c.is_ascii_digit()) { return Err("浏览器端口无效。".into()); }
-            port = Some(value.parse::<u16>().map_err(|_| "浏览器端口应为 1–65535，或用 0 自动分配。")?);
+            if port.is_some() || value.is_empty() || !value.bytes().all(|c| c.is_ascii_digit()) { return Err(crate::localization::text("浏览器端口无效。").into()); }
+            port = Some(value.parse::<u16>().map_err(|_| crate::localization::text("浏览器端口应为 1–65535，或用 0 自动分配。"))?);
         }
     }
     Ok(port.unwrap_or(0))
@@ -64,8 +64,8 @@ fn port_from_args(args: impl Iterator<Item = String>) -> Result<u16, String> {
 
 fn bind_port(port: u16) -> Result<TcpListener, String> {
     TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map_err(|error| {
-        if port != 0 { format!("无法使用本机端口 {port}。端口可能已被占用或被系统保留，请在主面板的应用设置中更换端口。") }
-        else { format!("无法开启本机浏览器服务：{error}") }
+        if port != 0 { crate::localization::format("无法使用本机端口 {0}。端口可能已被占用或被系统保留，请在主面板的应用设置中更换端口。", &[&port.to_string()]) }
+        else { crate::localization::format("无法开启本机浏览器服务：{0}", &[&error.to_string()]) }
     })
 }
 
@@ -118,7 +118,7 @@ fn open(host: &Host) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!("http://{}/?browser#{}", host.authority, host.token);
     let url: Vec<u16> = url.encode_utf16().chain(Some(0)).collect();
     let result = unsafe { windows::Win32::UI::Shell::ShellExecuteW(None, windows::core::w!("open"), windows::core::PCWSTR(url.as_ptr()), None, None, windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL) };
-    if result.0 as isize <= 32 { return Err("无法打开默认浏览器，请检查 Windows 默认应用设置。".into()); }
+    if result.0 as isize <= 32 { return Err(crate::localization::text("无法打开默认浏览器，请检查 Windows 默认应用设置。").into()); }
     Ok(())
 }
 
@@ -206,7 +206,7 @@ fn serve(mut stream: TcpStream, host: &Arc<Host>, app: &tauri::AppHandle) -> std
     let Some(session) = session else { return respond(&mut stream, "403 Forbidden", "text/plain", b"Session ended"); };
     let result = match serde_json::from_slice::<Rpc>(&request.body) {
         Ok(rpc) => tauri::async_runtime::block_on(dispatch(app, &session, rpc)),
-        Err(_) => Err("请求格式无效。".to_string().into()),
+        Err(_) => Err(crate::localization::text("请求格式无效。").to_string().into()),
     };
     let body = match result { Ok(value) => json!({"ok":true,"value":value}), Err(error) => json!({"ok":false,"error":error}) };
     respond(&mut stream, "200 OK", "application/json; charset=utf-8", body.to_string().as_bytes())
@@ -216,11 +216,11 @@ fn serve(mut stream: TcpStream, host: &Arc<Host>, app: &tauri::AppHandle) -> std
 #[serde(deny_unknown_fields)]
 struct Rpc { command: String, args: Value }
 fn argument<T: serde::de::DeserializeOwned>(args: &Value, name: &str) -> Result<T, BridgeError> {
-    serde_json::from_value(args.get(name).cloned().unwrap_or(Value::Null)).map_err(|_| "请求参数无效。".to_string().into())
+    serde_json::from_value(args.get(name).cloned().unwrap_or(Value::Null)).map_err(|_| crate::localization::text("请求参数无效。").to_string().into())
 }
 async fn dispatch(app: &tauri::AppHandle, session: &BrowserSession, rpc: Rpc) -> Result<Value, BridgeError> {
     let args = &rpc.args;
-    if !args.is_object() { return Err("请求参数无效。".to_string().into()); }
+    if !args.is_object() { return Err(crate::localization::text("请求参数无效。").to_string().into()); }
     // Only the existing panel commands are exposed. No generic IPC, shell or path access.
     match rpc.command.as_str() {
         "read_snapshot" => read_snapshot(app.state(), app.state()).await,
@@ -248,7 +248,7 @@ async fn dispatch(app: &tauri::AppHandle, session: &BrowserSession, rpc: Rpc) ->
             let action = if rpc.command == "read_dolby_apply" { "readDolbyApply" } else { "cancelDolbyApply" };
             Ok(dolby_apply::operation(&pipe::send(&json!({"Action":action,"Token":token}), false).await?, &token)?)
         },
-        _ => Err("此操作不可用。".to_string().into()),
+        _ => Err(crate::localization::text("此操作不可用。").to_string().into()),
     }
 }
 

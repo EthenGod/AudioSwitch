@@ -38,6 +38,7 @@ namespace AudioSwitch
             try
             {
                 if (args.Contains("--runtime-benchmark")) { RuntimeEfficiencyTests.Benchmark(); return 0; }
+                if (args.Contains("--language-render")) { LocalizationTests.Render(Check); Console.WriteLine("PASS: " + passed + " language UI checks"); return 0; }
                 if (args.Contains("--tray-popup-render")) { TrayPopupTests.Run(Check); TrayPopupTests.Render(Check); Console.WriteLine("PASS: " + passed + " tray checks"); return 0; }
                 if (args.Contains("--update-online")) { UpdateTests.OnlineCheck(Check); return 0; }
                 if (args.Contains("--update-activity")) { BackgroundUpdateTests.NativeActivity(Check); return 0; }
@@ -73,6 +74,7 @@ namespace AudioSwitch
                 GameModeSchedulingTests.Run(Check);
                 AutoUpdatePreferenceTests.Run(Check);
                 AppearancePreferenceTests.Run(Check);
+                LocalizationTests.Run(Check);
                 IntegrityTests.Run(Check);
                 FrontendLaunchTests.Run(Check); TrayPopupTests.Run(Check);
                 CandidateUpdateTests.Run(Check);

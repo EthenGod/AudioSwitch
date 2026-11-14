@@ -1,10 +1,15 @@
+import { t, getLanguage } from '../i18n'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 let words: Intl.Segmenter | undefined
+let wordsLanguage = ''
 
 function nextWordEnd(name: string, caret: number) {
   if (typeof Intl.Segmenter !== 'function') return caret
-  words ??= new Intl.Segmenter('zh', { granularity: 'word' })
+  if (!words || wordsLanguage !== getLanguage()) {
+    wordsLanguage = getLanguage()
+    words = new Intl.Segmenter(wordsLanguage, { granularity: 'word' })
+  }
   // Segment the whole name so a partially typed word keeps its original boundary.
   const remaining = [...words.segment(name)].filter(part => part.isWordLike && part.index + part.segment.length > caret)
   return remaining.length > 1 ? remaining[0].index + remaining[0].segment.length : name.length
@@ -30,7 +35,7 @@ export function AliasInput({ value, onChange, names, placeholder, disabled }: {
   useLayoutEffect(align, [value, suffix])
   return <div className="alias-input" data-suggesting={!!suffix || undefined}>
     <input ref={input} id="device-alias" type="text" autoComplete="off" aria-autocomplete="inline" spellCheck={false}
-      aria-description={suffix ? `建议补全：${suffix}。按 Tab 补一个词` : undefined}
+      aria-description={suffix ? t("建议补全：{0}。按 Tab 补一个词", suffix) : undefined}
       maxLength={64} value={value} placeholder={placeholder} disabled={disabled}
       onChange={event => { setEdited(true); setEnd(atEnd(event.currentTarget)); onChange(event.currentTarget.value) }}
       onBlur={() => setEdited(false)} onSelect={event => setEnd(atEnd(event.currentTarget))} onScroll={align}

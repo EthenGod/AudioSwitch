@@ -1,3 +1,4 @@
+import { t, resolveLanguage } from './i18n'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Gamepad2, Headphones, Info, LoaderCircle, Moon, RefreshCw, Settings2, SlidersHorizontal, Sun, ArrowRightLeft, X } from 'lucide-react'
 import type { Device, Page, PreferenceKey, UiGateway, Scenario, Snapshot } from './data/types'
@@ -19,23 +20,26 @@ import { ConnectionError } from './components/ConnectionError'
 import { useAppearance } from './useAppearance'
 import { ScrollSurface } from './components/ScrollSurface'
 import { Toast, type Notice } from './components/Toast'
+import { useLanguage } from './i18n/useLanguage'
+import { LanguageDialog } from './components/LanguageDialog'
 
 const pages = {
-  devices: { title: '声音设备', Icon: Headphones },
-  automation: { title: '自动切换', Icon: ArrowRightLeft },
-  settings: { title: '应用设置', Icon: Settings2 },
+  devices: { get title() { return t('声音设备') }, Icon: Headphones },
+  automation: { get title() { return t('自动切换') }, Icon: ArrowRightLeft },
+  settings: { get title() { return t('应用设置') }, Icon: Settings2 },
 }
 
 export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark: boolean, system?: boolean) => void }) {
   const desktop = gateway.mode === 'desktop'
-  useEffect(() => {
-    document.title = desktop ? '声间 设备面板' : '声间 界面预览'
-    document.querySelector('meta[name="description"]')?.setAttribute('content', desktop
-      ? '声间 Audio Switch 音频设备管理'
-      : '声间 Audio Switch 仅使用模拟数据的界面预览')
-  }, [desktop])
-  const [page, setPage] = useState<Page>('devices')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const language = useLanguage(snapshot?.Preferences.Language, snapshot?.ResolvedLanguage, !!snapshot)
+  useEffect(() => {
+    document.title = desktop ? t("声间 设备面板") : t("声间 界面预览")
+    document.querySelector('meta[name="description"]')?.setAttribute('content', desktop
+      ? t("声间 Audio Switch 音频设备管理")
+      : t("声间 Audio Switch 仅使用模拟数据的界面预览"))
+  }, [desktop, language])
+  const [page, setPage] = useState<Page>('devices')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -82,7 +86,7 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
         if (e.snapshot) { setSnapshot(e.snapshot); setDark(e.snapshot.Preferences.DarkMode) }
         if (e.requiresRefresh) setUncertain(true)
       }
-      setNotice({ text: e instanceof Error ? e.message : '操作未完成，请重试', error: true }); return false
+      setNotice({ text: e instanceof Error ? e.message : t("操作未完成，请重试"), error: true }); return false
     }
     finally { locked.current = false; setBusy(false) }
   }, [])
@@ -91,14 +95,14 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
     if (gateway.mode !== 'preview' || locked.current || loading) return
     locked.current = true; setLoading(true); setError(''); setSnapshot(null); setNotice(null); setEditing(null); setScenario(next)
     try { const data = await gateway.setScenario(next); setSnapshot(data); setDark(data.Preferences.DarkMode) }
-    catch (e) { setError(e instanceof Error ? e.message : '无法读取示例数据') }
+    catch (e) { setError(e instanceof Error ? e.message : t("无法读取示例数据")) }
     finally { locked.current = false; setLoading(false) }
   }
   const refresh = useCallback(async () => {
     if (locked.current) return
     locked.current = true; setRefreshing(true)
     try { const data = await gateway.read(); setSnapshot(data); setDark(data.Preferences.DarkMode); setUncertain(false); setError('') }
-    catch (e) { setError(e instanceof Error ? e.message : '无法读取设备状态') }
+    catch (e) { setError(e instanceof Error ? e.message : t("无法读取设备状态")) }
     finally { locked.current = false; setLoading(false); setRefreshing(false) }
   }, [gateway])
   useEffect(() => {
@@ -114,41 +118,42 @@ export function App({ gateway, onReady }: { gateway: UiGateway; onReady?: (dark:
 
 
   return <div className="app-shell">
-    <a href="#main-content" className="skip-link">跳到主要内容</a>
+    <a href="#main-content" className="skip-link">{t("跳到主要内容")}</a>
     <aside className="sidebar">
-      <div className="brand"><img src="/mark.svg" alt="" width="34" height="34" /><div><strong>声间</strong></div></div>
-      <nav aria-label="主导航">{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span></button> })}</nav>
+      <div className="brand"><img src="/mark.svg" alt="" width="34" height="34" /><div><strong>{t("声间")}</strong></div></div>
+      <nav aria-label={t("主导航")}>{(Object.keys(pages) as Page[]).map(key => { const { title, Icon } = pages[key]; return <button key={key} aria-label={title} title={title} aria-current={page === key ? 'page' : undefined} onClick={() => { setPage(key); setNotice(null) }}><Icon size={17} /><span>{title}</span></button> })}</nav>
       <div className="sidebar-bottom">
-        <div className="sidebar-meta"><span>声间 <span className="version">v{APP_VERSION}</span></span></div>
+        <div className="sidebar-meta"><span>{t("声间")}<span className="version">v{APP_VERSION}</span></span></div>
       </div>
     </aside>
     <div className="workspace">
-      {(!desktop || (readOnly && snapshot)) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? '连接中断，仅显示上次状态' : uncertain ? '操作结果尚未确认，请先刷新状态' : '只读连接，仅显示真实状态，不会改变系统设置' : '界面预览，操作不会改变系统设置'}</span></div>}
+      {(!desktop || (readOnly && snapshot)) && <div className="preview-banner"><Info size={14} /><span>{desktop ? error ? t("连接中断，仅显示上次状态") : uncertain ? t("操作结果尚未确认，请先刷新状态") : t("只读连接，仅显示真实状态，不会改变系统设置") : t("界面预览，操作不会改变系统设置")}</span></div>}
       <ScrollSurface main viewportRef={main} id="main-content" className="main-content" bodyClassName="main-scroll-body">
         {!connectionFailed && <div className="page-heading"><h1>{currentPage.title}</h1><div className="page-actions">
-          <ActionSlot visible={page === 'devices'}><Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? '刷新状态' : '刷新示例'}</Button></ActionSlot>
-          <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />游戏模式</span></ActionSlot>
-          <ActionSlot visible={page !== 'settings'}><Button variant="ghost" size="icon" aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></ActionSlot>
+          <ActionSlot visible={page === 'devices'}><Button variant="outline" pending={busy || refreshing} disabled={loading} onClick={() => { void (scenario === 'error' ? loadScenario('normal') : refresh()) }}><RefreshCw size={14} className={loading || refreshing ? 'spin' : ''} /> {desktop ? t("刷新状态") : t("刷新示例")}</Button></ActionSlot>
+          <ActionSlot visible={!!snapshot?.Preferences.GameMode}><span className="game-badge"><Gamepad2 size={13} />{t("游戏模式")}</span></ActionSlot>
+          <ActionSlot visible={page !== 'settings'}><Button variant="ghost" size="icon" aria-label={dark ? t("切换到浅色模式") : t("切换到深色模式")} pending={busy} disabled={loading || !snapshot} onClick={() => preference('DarkMode', !dark)}>{dark ? <Sun /> : <Moon />}</Button></ActionSlot>
         </div></div>}
-        {connectionFailed && <ConnectionError title="无法读取设备状态" message={error} busy={refreshing || loading} retry={() => { void (desktop ? refresh() : loadScenario('normal')) }} />}
-        <PanelAlert message={snapshot ? error : ''}><Button variant="outline" pending={refreshing || loading} onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw size={14} className={refreshing || loading ? 'spin' : ''} />重试</Button></PanelAlert>
-        <PanelAlert warning message={desktop && snapshot?.BackendWarning && snapshot.BackendWarning !== dismissedWarning ? snapshot.BackendWarning : ''}><Button variant="ghost" size="icon" aria-label="关闭后台提示" onClick={() => setDismissedWarning(snapshot?.BackendWarning ?? '')}><X /></Button></PanelAlert>
+        {connectionFailed && <ConnectionError title={t("无法读取设备状态")} message={error} busy={refreshing || loading} retry={() => { void (desktop ? refresh() : loadScenario('normal')) }} />}
+        <PanelAlert message={snapshot ? error : ''}><Button variant="outline" pending={refreshing || loading} onClick={() => { void (desktop ? refresh() : loadScenario('normal')) }}><RefreshCw size={14} className={refreshing || loading ? 'spin' : ''} />{t("重试")}</Button></PanelAlert>
+        <PanelAlert warning message={desktop && snapshot?.BackendWarning && snapshot.BackendWarning !== dismissedWarning ? snapshot.BackendWarning : ''}><Button variant="ghost" size="icon" aria-label={t("关闭后台提示")} onClick={() => setDismissedWarning(snapshot?.BackendWarning ?? '')}><X /></Button></PanelAlert>
         <PageTransition page={page}>
-        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? '正在读取设备状态…' : '正在载入示例设备…'}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>
-          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? `已切换到「${device.Name}」` : `已在预览中切换到「${device.Name}」`) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
+        {loading ? <div className="loading-state" role="status"><LoaderCircle className="spin" size={26} /><h2>{desktop ? t("正在读取设备状态…") : t("正在载入示例设备…")}</h2><div className="skeleton-row" /><div className="skeleton-row" /></div> : snapshot && <>
+          {page === 'devices' && <Devices snapshot={snapshot} busy={busy} readOnly={readOnly} onSwitch={device => { void run(() => gateway.switchDevice(device.Id), desktop ? t("已切换到「{0}」", device.Name) : t("已在预览中切换到「{0}」", device.Name)) }} onSettings={device => { setNotice(null); setEditing(device) }} onAutomation={() => setPage('automation')} />}
           {page === 'automation' && <Automation desktop={desktop} snapshot={snapshot} busy={busy} readOnly={readOnly} onPreference={preference} onReorder={(flow, ids) => run(() => gateway.reorder(flow, ids), null)} />}
-          {page === 'settings' && <Settings onUiStyle={style => { void run(() => gateway.setUiStyle(style), null) }} onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
+          {page === 'settings' && <Settings onLanguage={value => { void run(() => gateway.setLanguage(value), null) }} onUiStyle={style => { void run(() => gateway.setUiStyle(style), null) }} onBrowserPort={port => run(() => gateway.setBrowserPort(port), null)} desktop={desktop} snapshot={{ ...snapshot, Preferences: { ...snapshot.Preferences, DarkMode: dark } }} busy={busy} readOnly={readOnly} onPreference={preference} onStartup={value => { void run(() => gateway.setStartup(value), null) }} onBackup={mode => { setNotice(null); setBackup(mode) }} onMaintenance={kind => { setNotice(null); setMaintenance(kind) }} />}
         </>}
         </PageTransition>
       </ScrollSurface>
-      <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{desktop ? busy ? '正在处理操作…' : snapshot?.DolbyApplying ? '正在应用 Dolby，刷新可查看结果' : loading || refreshing ? '正在读取…' : error ? '连接不可用，请重试' : '已连接' : busy ? '正在更新预览…' : '模拟数据'}</span>{!desktop && <div className="preview-scenario"><SlidersHorizontal size={12} /><span>预览场景</span><Select label="预览场景" value={scenario} pending={busy} disabled={loading} onValueChange={value => { void loadScenario(value as Scenario) }} options={[{ value: 'normal', label: '常规设备' }, { value: 'empty', label: '空设备' }, { value: 'duplicate', label: '同名设备' }, { value: 'long', label: '长名称' }, { value: 'loading', label: '加载中' }, { value: 'error', label: '连接错误' }]} /></div>}</footer>
+      <footer className="statusbar"><span><span className={error ? 'offline-dot' : 'online-dot'} />{desktop ? busy ? t("正在处理操作…") : snapshot?.DolbyApplying ? t("正在应用 Dolby，刷新可查看结果") : loading || refreshing ? t("正在读取…") : error ? t("连接不可用，请重试") : t("已连接") : busy ? t("正在更新预览…") : t("模拟数据")}</span>{!desktop && <div className="preview-scenario"><SlidersHorizontal size={12} /><span>{t("预览场景")}</span><Select label={t("预览场景")} value={scenario} pending={busy} disabled={loading} onValueChange={value => { void loadScenario(value as Scenario) }} options={[{ value: 'normal', label: t("常规设备") }, { value: 'empty', label: t("空设备") }, { value: 'duplicate', label: t("同名设备") }, { value: 'long', label: t("长名称") }, { value: 'loading', label: t("加载中") }, { value: 'error', label: t("连接错误") }]} /></div>}</footer>
     </div>
     <Toast notice={notice} onClose={() => setNotice(null)} />
-    {editing && snapshot && <DeviceSheet onDolbyResult={(text, error) => setNotice({ text, error })} onDolbySaved={data => { setSnapshot(data); setNotice({ text: desktop ? 'Dolby 方案已保存' : 'Dolby 示例方案已保存' }) }} onDolbyFailure={failure => { setNotice({ text:failure.message, error:true }); if (failure.snapshot) setSnapshot(failure.snapshot); if (failure.requiresRefresh) setUncertain(true) }} key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} gateway={gateway} saveError={notice?.error ? notice.text : undefined} onClose={() => setEditing(null)} onSave={(profile, rule, expectedProfile, expectedRule, rename) => run(() => gateway.saveDevice(editing.Id, profile, rule, expectedProfile, expectedRule, rename), desktop ? '预设已保存' : '预设已保存在本次预览中')} />}
+    {snapshot && (!desktop || snapshot.CanSetLanguage) && <LanguageDialog open={snapshot.Preferences.Language === null} recommended={resolveLanguage(null, snapshot.ResolvedLanguage)} onConfirm={value => run(() => gateway.setLanguage(value), null)} />}
+    {editing && snapshot && <DeviceSheet onDolbyResult={(text, error) => setNotice({ text, error })} onDolbySaved={data => { setSnapshot(data); setNotice({ text: desktop ? t("Dolby 方案已保存") : t("Dolby 示例方案已保存") }) }} onDolbyFailure={failure => { setNotice({ text:failure.message, error:true }); if (failure.snapshot) setSnapshot(failure.snapshot); if (failure.requiresRefresh) setUncertain(true) }} key={editing.Id} device={editing} snapshot={snapshot} busy={busy} readOnly={readOnly} gateway={gateway} saveError={notice?.error ? notice.text : undefined} onClose={() => setEditing(null)} onSave={(profile, rule, expectedProfile, expectedRule, rename) => run(() => gateway.saveDevice(editing.Id, profile, rule, expectedProfile, expectedRule, rename), desktop ? t("预设已保存") : t("预设已保存在本次预览中"))} />}
     {backup && <BackupSheet mode={backup} gateway={gateway} onClose={() => setBackup(null)} onResult={data => { setSnapshot(data); setDark(data.Preferences.DarkMode) }} onFailure={failure => {
       if (failure.snapshot) { setSnapshot(failure.snapshot); setDark(failure.snapshot.Preferences.DarkMode) }
       if (failure.requiresRefresh) setUncertain(true)
     }} />}
-    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet preferenceBusy={busy || readOnly} onPreference={async value => { if (!await run(() => gateway.setPreference('IncludePrerelease', value), null)) throw new Error('更新设置未保存，请重试') }} kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
+    {maintenance && snapshot && (!desktop || snapshot.CanManageUpdates ? <UpgradeSheet preferenceBusy={busy || readOnly} onPreference={async value => { if (!await run(() => gateway.setPreference('IncludePrerelease', value), null)) throw new Error(t("更新设置未保存，请重试")) }} kind={maintenance === 'files' ? 'repair' : 'update'} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} /> : <MaintenanceSheet kind={maintenance} gateway={gateway} snapshot={snapshot} onClose={() => setMaintenance(null)} />)}
   </div>
 }

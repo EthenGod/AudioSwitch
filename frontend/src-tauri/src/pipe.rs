@@ -15,21 +15,21 @@ fn pipe_name() -> Result<String, String> {
     unsafe {
         let mut token = std::ptr::null_mut();
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return Err("无法读取当前 Windows 用户。".into());
+            return Err(crate::localization::text("无法读取当前 Windows 用户。").into());
         }
         let result = (|| {
             let mut length = 0;
             GetTokenInformation(token, TokenUser, std::ptr::null_mut(), 0, &mut length);
-            if length == 0 { return Err("无法读取当前用户标识。".into()); }
+            if length == 0 { return Err(crate::localization::text("无法读取当前用户标识。").into()); }
             // usize provides TOKEN_USER alignment; the SID lives within this allocation.
             let mut buffer = vec![0usize; (length as usize).div_ceil(std::mem::size_of::<usize>())];
             if GetTokenInformation(token, TokenUser, buffer.as_mut_ptr().cast(), length, &mut length) == 0 {
-                return Err("无法读取当前用户标识。".into());
+                return Err(crate::localization::text("无法读取当前用户标识。").into());
             }
             let user = &*buffer.as_ptr().cast::<TOKEN_USER>();
             let mut text = std::ptr::null_mut();
             if ConvertSidToStringSidW(user.User.Sid, &mut text) == 0 {
-                return Err("无法转换当前用户标识。".into());
+                return Err(crate::localization::text("无法转换当前用户标识。").into());
             }
             let mut count = 0;
             while *text.add(count) != 0 { count += 1; }
@@ -37,7 +37,7 @@ fn pipe_name() -> Result<String, String> {
             LocalFree(text.cast());
             let mut session = 0;
             if ProcessIdToSessionId(GetCurrentProcessId(), &mut session) == 0 {
-                return Err("无法读取当前 Windows 会话。".into());
+                return Err(crate::localization::text("无法读取当前 Windows 会话。").into());
             }
             Ok(format!(r"\\.\pipe\AudioSwitch-{sid}-{session}"))
         })();
@@ -49,11 +49,13 @@ fn pipe_name() -> Result<String, String> {
 async fn read_reply(reader: impl AsyncRead + Unpin, limit: usize) -> Result<Value, String> {
     let mut bytes = Vec::new();
     BufReader::new(reader.take((limit + 1) as u64)).read_until(b'\n', &mut bytes).await
-        .map_err(|_| "后台连接已中断，请重试。".to_string())?;
-    if bytes.len() > limit { return Err("后台响应过大，已停止读取。".into()); }
-    if bytes.last() != Some(&b'\n') { return Err("后台连接已中断，未收到完整状态。".into()); }
+        .map_err(|_| crate::localization::text("后台连接已中断，请重试。").to_string())?;
+    if bytes.len() > limit { return Err(crate::localization::text("后台响应过大，已停止读取。").into()); }
+    if bytes.last() != Some(&b'\n') { return Err(crate::localization::text("后台连接已中断，未收到完整状态。").into()); }
     let bytes = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(&bytes);
-    serde_json::from_slice(bytes).map_err(|_| "后台响应格式无效，请确认后台版本后重试。".into())
+    let reply: Value = serde_json::from_slice(bytes).map_err(|_| crate::localization::text("后台响应格式无效，请确认后台版本后重试。"))?;
+    if let Some(language) = reply["ResolvedLanguage"].as_str() { crate::localization::set_language(language); }
+    Ok(reply)
 }
 
 async fn exchange_request(path: &str, request: &[u8], connect_wait: Duration, reply_wait: Duration) -> Result<Value, String> {
@@ -68,16 +70,16 @@ async fn exchange_request(path: &str, request: &[u8], connect_wait: Duration, re
                 Ok(pipe) => return Ok(pipe),
                 Err(error) if error.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => { missing = false; sleep(Duration::from_millis(50)).await; },
                 Err(error) if error.kind() == io::ErrorKind::NotFound => { missing = true; sleep(Duration::from_millis(50)).await; },
-                Err(_) => return Err("无法连接声间后台，请确认它运行在当前 Windows 用户和会话中。".to_string()),
+                Err(_) => return Err(crate::localization::text("无法连接声间后台，请确认它运行在当前 Windows 用户和会话中。").to_string()),
             }
         }
-    }).await.map_err(|_| if missing { "未连接到声间后台。请先打开原版声间，再点击重试。".to_string() }
-        else { "后台暂忙，请稍后重试。".to_string() })??;
+    }).await.map_err(|_| if missing { crate::localization::text("未连接到声间后台。请先打开原版声间，再点击重试。").to_string() }
+        else { crate::localization::text("后台暂忙，请稍后重试。").to_string() })??;
     // Timeout drops the pending overlapped I/O and pipe handle. No detached worker remains.
     timeout(reply_wait, async {
-        pipe.write_all(request).await.map_err(|_| "后台连接已中断，请重试。".to_string())?;
+        pipe.write_all(request).await.map_err(|_| crate::localization::text("后台连接已中断，请重试。").to_string())?;
         read_reply(pipe, MAX_REPLY).await
-    }).await.map_err(|_| "后台响应超时，请稍后重试。".to_string())?
+    }).await.map_err(|_| crate::localization::text("后台响应超时，请稍后重试。").to_string())?
 }
 
 pub async fn read_snapshot() -> Result<Value, String> {
@@ -85,9 +87,9 @@ pub async fn read_snapshot() -> Result<Value, String> {
 }
 
 pub async fn send(request: &Value, mutation: bool) -> Result<Value, String> {
-    let mut bytes = serde_json::to_vec(request).map_err(|_| "无法编码后台请求。".to_string())?;
+    let mut bytes = serde_json::to_vec(request).map_err(|_| crate::localization::text("无法编码后台请求。").to_string())?;
     // An at-most 1 MiB configuration is JSON-escaped inside the wire request.
-    if bytes.len() > 4 * 1024 * 1024 { return Err("请求过大。".into()); }
+    if bytes.len() > 4 * 1024 * 1024 { return Err(crate::localization::text("请求过大。").into()); }
     bytes.push(b'\n');
     exchange_request(&pipe_name()?, &bytes, Duration::from_millis(1800), Duration::from_secs(if mutation { 20 } else { 4 })).await
 }

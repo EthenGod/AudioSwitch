@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react'
 import type { Device } from '@/data/types'
@@ -42,8 +43,8 @@ export function PriorityList({ order, devices, busy, readOnly, suspended = false
     locked.current = true; setPending(ids)
     try {
       const okay = await onReorder(ids)
-      setAnnouncement(okay ? `已将${devices.find(d => d.Id === id)?.Name ?? '设备'}移到第 ${ids.indexOf(id) + 1} 位` : '排序未保存，已恢复原顺序')
-    } catch { setAnnouncement('排序未保存，已恢复原顺序') }
+      setAnnouncement(okay ? t("已将{0}移到第 {1} 位", devices.find(d => d.Id === id)?.Name ?? '设备', ids.indexOf(id) + 1) : t("排序未保存，已恢复原顺序"))
+    } catch { setAnnouncement(t("排序未保存，已恢复原顺序")) }
     finally { locked.current = false; setPending(null) }
   }
   function track(clientY: number) {
@@ -114,14 +115,14 @@ export function PriorityList({ order, devices, busy, readOnly, suspended = false
         const destination = drag ? drag.tops[0] + preview.slice(0, slot).reduce((sum, key) => sum + drag.heights[shown.indexOf(key)], 0) : 0
         const shift = drag ? dragging ? drag.y - drag.tops[index] : destination - drag.tops[index] : 0
         return <div className="priority-row" key={id} data-device-id={id} data-dragging={dragging || undefined} style={{ transform: `translateY(${shift}px)` }}>
-          <button className="priority-grip" aria-label={`拖动 ${device.Name} 调整优先级`} disabled={disabled} data-pending={pending !== null || busy || undefined}
+          <button className="priority-grip" aria-label={t("拖动 {0} 调整优先级", device.Name)} disabled={disabled} data-pending={pending !== null || busy || undefined}
             onPointerDown={event => start(event, id)} onPointerMove={event => { if (active.current?.pointer === event.pointerId) track(event.clientY) }} onPointerUp={finish} onPointerCancel={cancel} onLostPointerCapture={cancel}
             onKeyDown={event => { if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && !disabled) { event.preventDefault(); const to = index + (event.key === 'ArrowUp' ? -1 : 1); if (to >= 0 && to < shown.length) void commit(movePriority(shown, index, to), id) } }}><GripVertical size={16} /></button>
-          <span className="order-number">{String(slot + 1).padStart(2, '0')}</span><DeviceIdentity device={device} /><span className="priority-state">{device.Online ? '在线' : '离线'}</span>
-          <div className="row-actions"><Button variant="ghost" size="icon" aria-label={`上移 ${device.Name}`} pending={busy || pending !== null} disabled={readOnly || !!drag || index === 0} onClick={() => void commit(movePriority(shown, index, index - 1), id)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label={`下移 ${device.Name}`} pending={busy || pending !== null} disabled={readOnly || !!drag || index === shown.length - 1} onClick={() => void commit(movePriority(shown, index, index + 1), id)}><ArrowDown /></Button></div>
+          <span className="order-number">{String(slot + 1).padStart(2, '0')}</span><DeviceIdentity device={device} /><span className="priority-state">{device.Online ? t("在线") : t("离线")}</span>
+          <div className="row-actions"><Button variant="ghost" size="icon" aria-label={t("上移 {0}", device.Name)} pending={busy || pending !== null} disabled={readOnly || !!drag || index === 0} onClick={() => void commit(movePriority(shown, index, index - 1), id)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label={t("下移 {0}", device.Name)} pending={busy || pending !== null} disabled={readOnly || !!drag || index === shown.length - 1} onClick={() => void commit(movePriority(shown, index, index + 1), id)}><ArrowDown /></Button></div>
         </div>
       })}
-      {!shown.length && <div className="empty-state"><p>暂无可排序的设备</p></div>}
+      {!shown.length && <div className="empty-state"><p>{t("暂无可排序的设备")}</p></div>}
     </div>
     <span className="sr-only" role="status">{announcement}</span>
   </>

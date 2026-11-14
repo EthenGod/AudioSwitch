@@ -8,16 +8,16 @@ impl Session {
     pub fn token(&self) -> Option<String> { self.token.lock().unwrap().clone() }
     pub fn bind(&self, token: &str) { *self.token.lock().unwrap() = Some(token.into()); }
     pub fn require(&self, token: &str) -> Result<(), String> {
-        if self.token.lock().unwrap().as_deref() != Some(token) { return Err("应用记录不属于此窗口，请检查当前音效。".into()); }
+        if self.token.lock().unwrap().as_deref() != Some(token) { return Err(crate::localization::text("应用记录不属于此窗口，请检查当前音效。").into()); }
         Ok(())
     }
 }
 pub fn request(snapshot: &Value, id: &str, profile: &Profile, expected: &Option<Profile>, token: &str) -> Result<Value, String> {
-    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 5 { return Err("当前后台不支持新的 Dolby 应用结果，请使用新版后台。".into()); }
-    if token.len() != 32 || !token.bytes().all(|b| b.is_ascii_hexdigit()) { return Err("无效的应用标记。".into()); }
+    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 5 { return Err(crate::localization::text("当前后台不支持新的 Dolby 应用结果，请使用新版后台。").into()); }
+    if token.len() != 32 || !token.bytes().all(|b| b.is_ascii_hexdigit()) { return Err(crate::localization::text("无效的应用标记。").into()); }
     if snapshot["DolbyApplying"] != false || snapshot["State"]["Defaults"]["0:1"] != id
         || !snapshot["State"]["Devices"].as_array().into_iter().flatten().any(|d| d["Id"] == id && d["Flow"] == 0) {
-        return Err("请等待其他音效任务结束，并选择当前在线输出设备。".into());
+        return Err(crate::localization::text("请等待其他音效任务结束，并选择当前在线输出设备。").into());
     }
     let mut request = save_request(snapshot, id, &Some(profile.clone()), expected)?;
     request["Action"] = json!("saveAndApplyDolby"); request["Token"] = json!(token);
@@ -30,7 +30,7 @@ pub fn operation(reply: &Value, token: &str) -> Result<Value, String> {
     let job = &reply["DolbyOperation"];
     if job["Token"] != token || job["DeviceId"].as_str().is_none_or(str::is_empty) || job["Message"].as_str().is_none()
         || !matches!(job["Status"].as_str(), Some("running" | "cancelling" | "applied" | "warning" | "error" | "cancelled")) {
-        return Err("后台未确认本次 Dolby 结果，请重新检查状态，勿重复应用。".into());
+        return Err(crate::localization::text("后台未确认本次 Dolby 结果，请重新检查状态，勿重复应用。").into());
     }
     Ok(job.clone())
 }

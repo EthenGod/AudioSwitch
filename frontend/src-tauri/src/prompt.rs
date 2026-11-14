@@ -8,14 +8,14 @@ pub struct Session { owner: Mutex<Option<(u32, OwnedHandle)>> }
 impl Default for Session { fn default() -> Self { Self { owner: Mutex::new(None) } } }
 impl Session {
     pub fn bind(&self, pid: u32) -> Result<(), String> {
-        let mut owner = self.owner.lock().map_err(|_| "无法读取后台状态。")?;
+        let mut owner = self.owner.lock().map_err(|_| crate::localization::text("无法读取后台状态。"))?;
         if let Some((original, handle)) = owner.as_ref() {
             if *original != pid || unsafe { WaitForSingleObject(handle.as_raw_handle(), 0) } != WAIT_TIMEOUT {
-                return Err("所属后台已退出，请重新打开界面。".into());
+                return Err(crate::localization::text("所属后台已退出，请重新打开界面。").into());
             }
         } else {
             let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
-            if handle.is_null() { return Err("所属后台已退出或无法访问。".into()); }
+            if handle.is_null() { return Err(crate::localization::text("所属后台已退出或无法访问。").into()); }
             *owner = Some((pid, unsafe { OwnedHandle::from_raw_handle(handle) }));
         }
         Ok(())
@@ -33,29 +33,29 @@ pub fn panel_opened(reply: &Value) -> Result<(), String> {
     let error = if reply.get("OperationError").is_some() { reply["OperationError"].as_str() } else { reply["Error"].as_str() };
     if let Some(error) = error { return Err(error.to_string()); }
     if reply["FrontendPid"].as_u64().and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0).is_none() {
-        return Err("后台尚未确认面板已打开，请重试。".into());
+        return Err(crate::localization::text("后台尚未确认面板已打开，请重试。").into());
     }
     Ok(())
 }
 impl Action {
     pub fn request(&self, snapshot: &Value) -> Result<Value, String> {
-        if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 1 { return Err("当前后台仅支持查看，请更新后台后再操作。".into()); }
+        if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 1 { return Err(crate::localization::text("当前后台仅支持查看，请更新后台后再操作。").into()); }
         let token = match self { Self::Selected { token, .. } | Self::Previous { token } | Self::Current { token } => token };
         let pending = snapshot["Pending"].as_array().and_then(|rows| rows.iter().find(|p| p["Token"].as_str() == Some(token)))
-            .ok_or("设备状态已变化，请刷新后重新选择。")?;
-        let flow = pending["Flow"].as_u64().filter(|f| *f <= 1).ok_or("设备方向无效。")?;
-        let devices = snapshot["State"]["Devices"].as_array().ok_or("设备列表不完整。")?;
+            .ok_or(crate::localization::text("设备状态已变化，请刷新后重新选择。"))?;
+        let flow = pending["Flow"].as_u64().filter(|f| *f <= 1).ok_or(crate::localization::text("设备方向无效。"))?;
+        let devices = snapshot["State"]["Devices"].as_array().ok_or(crate::localization::text("设备列表不完整。"))?;
         let online = |id: &str| devices.iter().any(|d| d["Id"] == id && d["Flow"] == flow);
         match self {
             Self::Selected { id, .. } => {
-                if id.is_empty() || id.len() > 2048 || !online(id) { return Err("设备已断开或不属于此提示，请重新选择。".into()); }
+                if id.is_empty() || id.len() > 2048 || !online(id) { return Err(crate::localization::text("设备已断开或不属于此提示，请重新选择。").into()); }
                 Ok(json!({"Action":"alternative", "Token":token, "DeviceId":id}))
             },
             Self::Previous { .. } => {
-                if pending["DisconnectedDevices"].as_array().is_some_and(|d| !d.is_empty()) { return Err("旧设备已经断开。".into()); }
+                if pending["DisconnectedDevices"].as_array().is_some_and(|d| !d.is_empty()) { return Err(crate::localization::text("旧设备已经断开。").into()); }
                 let count = if snapshot["Preferences"]["IncludeCommunications"] == true { 3 } else { 2 };
                 let ids: Vec<_> = (0..count).filter_map(|role| pending["PreviousDefaults"][format!("{flow}:{role}")].as_str()).filter(|id| !id.is_empty()).collect();
-                if ids.is_empty() || ids.iter().any(|id| !online(id)) { return Err("旧设备已经断开，请重新选择。".into()); }
+                if ids.is_empty() || ids.iter().any(|id| !online(id)) { return Err(crate::localization::text("旧设备已经断开，请重新选择。").into()); }
                 Ok(json!({"Action":"old", "Token":token}))
             },
             Self::Current { .. } => Ok(json!({"Action":"later", "Token":token})),

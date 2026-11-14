@@ -14,7 +14,7 @@ namespace AudioSwitch
         {
             var before = read();
             if (targets.Any(p => !before.Devices.Any(d => d.Flow == flow && d.Id == p.Value)))
-                throw new InvalidOperationException("设备已断开，请选择其他设备。");
+                throw new InvalidOperationException(L.Text("设备已断开，请选择其他设备。"));
             var changed = new List<int>();
             try
             {
@@ -25,7 +25,7 @@ namespace AudioSwitch
                     changed.Add(pair.Key); set(pair.Value, pair.Key);
                 }
                 var actual = read();
-                if (targets.Any(p => actual.Default(flow, p.Key) != p.Value)) throw new InvalidOperationException("Windows 尚未采用所选设备。");
+                if (targets.Any(p => actual.Default(flow, p.Key) != p.Value)) throw new InvalidOperationException(L.Text("Windows 尚未采用所选设备。"));
             }
             catch (Exception ex)
             {
@@ -41,7 +41,7 @@ namespace AudioSwitch
                     if (changed.Any(role => restored.Default(flow, role) != before.Default(flow, role))) rollbackFailed = true;
                 }
                 catch { rollbackFailed = true; }
-                throw new InvalidOperationException("切换失败：" + ex.Message + (rollbackFailed ? " 部分设置无法恢复，请检查系统声音设置。" : " 已恢复原设置。"));
+                throw new InvalidOperationException(L.Text("切换失败：{0}{1}", ex.Message, (rollbackFailed ? L.Text(" 部分设置无法恢复，请检查系统声音设置。") : L.Text(" 已恢复原设置。"))));
             }
         }
     }

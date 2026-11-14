@@ -1,0 +1,27 @@
+.language-backdrop {
+  position: fixed; inset: 0; z-index: 100; background: var(--overlay);
+  opacity: 1; transition: opacity 250ms ease-out;
+}
+.language-backdrop[data-starting-style], .language-backdrop[data-ending-style] { opacity: 0; }
+.language-backdrop[data-ending-style] { transition-duration: 200ms; transition-timing-function: ease-in; }
+.language-dialog {
+  position: fixed; z-index: 101; top: 50%; left: 50%; translate: -50% -50%;
+  width: min(380px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--border);
+  border-radius: var(--radius-panel); background: var(--background); color: var(--foreground);
+  box-shadow: var(--shadow-panel); display: grid; gap: 16px;
+  opacity: 1; transform: none; transition: opacity 250ms ease-out, transform 250ms ease-out;
+}
+.language-dialog[data-starting-style], .language-dialog[data-ending-style] { opacity: 0; transform: translateY(6px); }
+.language-dialog[data-ending-style] { transition-duration: 200ms; transition-timing-function: ease-in; }
+.language-dialog h2 { font-size: 18px; font-weight: 650; margin: 0; }
+.language-dialog p { font-size: 12px; color: var(--muted-foreground); margin: -8px 0 0; }
+.language-choices { display: grid; gap: 6px; }
+.language-choices button { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; transition: background 150ms ease, border-color 150ms ease; }
+.language-choices button[aria-checked=true] { background: var(--selected); color: var(--accent); border-color: var(--selected-border); }
+.language-choices button:hover { background: var(--muted); }
+.language-choices button[aria-checked=true]:hover { background: var(--selected-strong); }
+@media (prefers-reduced-motion: reduce) { .language-dialog, .language-backdrop, .language-choices button { animation: none; transition: none; } }
+@media (min-width: 981px) { :root:lang(en) .sidebar { width: 204px; } }
+:root:lang(en) .brand strong { letter-spacing: 0; }
+:root:lang(en) .prompt-actions button { white-space: normal; }
+:root:lang(ja) { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif; }

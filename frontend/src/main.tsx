@@ -1,3 +1,4 @@
+import { resolveLanguage, setLanguage } from './i18n'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
@@ -9,6 +10,8 @@ import { PromptApp } from './PromptApp'
 import { createPreviewPromptGateway, createPromptGateway } from './data/prompt'
 import './styles.css'
 import { openBrowserPanel } from './BrowserPanel'
+
+setLanguage(resolveLanguage())
 
 function panel() {
   if (isTauri()) {

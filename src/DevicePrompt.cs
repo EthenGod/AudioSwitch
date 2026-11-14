@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -52,7 +52,7 @@ namespace AudioSwitch
         {
             this.send = send; this.preview = preview;
             this.initial = preload;
-            Text = "声间 · 设备切换提示"; Name = "DevicePrompt";
+            Text = L.Text("声间 · 设备切换提示"); Name = "DevicePrompt";
             FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = !preview;
             StartPosition = FormStartPosition.Manual; AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Palette.Sidebar; ForeColor = Palette.Text;
@@ -60,14 +60,14 @@ namespace AudioSwitch
             Font = new Font("Microsoft YaHei UI", 9F); ClientSize = new Size(360, 212);
             Padding = new Padding(1);
             header = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Palette.Card };
-            heading = Palette.Label("设备变化", 10.5F, Palette.Text, true); heading.SetBounds(12, 10, 292, 25); header.Controls.Add(heading);
-            var close = new FlatAction("×", false) { Name = "close", AccessibleName = "关闭提示，保留待处理选择", Location = new Point(323, 9), Size = new Size(24, 24) };
+            heading = Palette.Label(L.Text("设备变化"), 10.5F, Palette.Text, true); heading.SetBounds(12, 10, 292, 25); header.Controls.Add(heading);
+            var close = new FlatAction("×", false) { Name = "close", AccessibleName = L.Text("关闭提示，保留待处理选择"), Location = new Point(323, 9), Size = new Size(24, 24) };
             close.Click += delegate { Close(); }; header.Controls.Add(close);
             body.Dock = DockStyle.Fill; body.AutoScroll = true;
             error = Palette.Label("", 8.5F, Palette.Warning, false); error.Dock = DockStyle.Bottom; error.Height = 44; error.Visible = false; error.Padding = new Padding(12, 2, 12, 2);
             footer = new Panel { Dock = DockStyle.Bottom, Height = 28 };
-            counter = Palette.Label("声间 · 手动选择", 8, Palette.Muted, false); counter.SetBounds(12, 4, 252, 20); footer.Controls.Add(counter);
-            var manage = new FlatAction("打开面板", false) { Name = "manage", Location = new Point(277, 1), Size = new Size(70, 24) };
+            counter = Palette.Label(L.Text("声间 · 手动选择"), 8, Palette.Muted, false); counter.SetBounds(12, 4, 252, 20); footer.Controls.Add(counter);
+            var manage = new FlatAction(L.Text("打开面板"), false) { Name = "manage", Location = new Point(277, 1), Size = new Size(70, 24) };
             manage.Click += async delegate { await Execute(new Request { Action = "show" }); }; footer.Controls.Add(manage);
             Controls.Add(body); Controls.Add(error); Controls.Add(footer); Controls.Add(header);
             timer.Tick += async delegate { await Execute(new Request { Action = "snapshot" }); };
@@ -126,7 +126,7 @@ namespace AudioSwitch
             }
             catch (Exception ex)
             {
-                if (!IsDisposed) { error.Text = "无法连接后台：" + ex.Message; error.Visible = true; }
+                if (!IsDisposed) { error.Text = L.Text("无法连接后台：{0}", ex.Message); error.Visible = true; }
             }
             finally { busy = false; if (!IsDisposed) body.Enabled = true; }
         }
@@ -139,7 +139,7 @@ namespace AudioSwitch
                 // must not keep an otherwise completed notification alive.
                 if (reply.Error == null) { Close(); return; }
                 while (body.Controls.Count > 0) { var child = body.Controls[0]; body.Controls.RemoveAt(0); child.Dispose(); }
-                heading.Text = "设备状态已变化";
+                heading.Text = L.Text("设备状态已变化");
                 return;
             }
             var pending = reply.Pending.FirstOrDefault(p => p.Token == currentToken) ?? reply.Pending[0];
@@ -153,14 +153,14 @@ namespace AudioSwitch
             body.SuspendLayout();
             while (body.Controls.Count > 0) { var child = body.Controls[0]; body.Controls.RemoveAt(0); child.Dispose(); }
             bool lost = pending.IsDisconnection;
-            string type = pending.Flow == 0 ? "输出" : "输入";
-            heading.Text = lost ? "当前" + type + "设备已断开" : "发现新的" + type + "设备";
+            string type = pending.Flow == 0 ? L.Text("输出") : L.Text("输入");
+            heading.Text = lost ? L.Text("当前{0}设备已断开", type) : L.Text("发现新的{0}设备", type);
             heading.ForeColor = lost ? Palette.Warning : Palette.Accent;
-            counter.Text = reply.Pending.Count > 1 ? "声间 · " + reply.Pending.Count + " 项待处理" : reply.Preferences.UseDevicePriority ? "声间 · 优先级已开启，可手动更改" : "声间 · 手动选择";
-            string detail = lost ? "已断开：" + pending.PreviousName : "新设备：" + String.Join("、", pending.NewDevices.Select(d => d.Name));
+            counter.Text = reply.Pending.Count > 1 ? L.Text("声间 · {0} 项待处理", reply.Pending.Count) : reply.Preferences.UseDevicePriority ? L.Text("声间 · 优先级已开启，可手动更改") : L.Text("声间 · 手动选择");
+            string detail = lost ? L.Text("已断开：{0}", pending.PreviousName) : L.Text("新设备：{0}", String.Join("、", pending.NewDevices.Select(d => d.Name)));
             AddLabel(detail, 7, Palette.Text);
             var current = reply.State.Devices.FirstOrDefault(d => d.Id == reply.State.Default(pending.Flow, 1));
-            AddLabel("当前：" + (current == null ? "暂无默认设备" : current.Name), 31, Palette.Muted);
+            AddLabel(L.Text("当前：{0}", (current == null ? L.Text("暂无默认设备") : current.Name)), 31, Palette.Muted);
             var devices = reply.State.Devices.Where(d => d.Flow == pending.Flow)
                 .OrderByDescending(d => lost ? d.Id == reply.State.Default(pending.Flow, 1) : pending.NewDevices.Any(n => n.Id == d.Id))
                 .ThenBy(d => d.Name).ToList();
@@ -168,18 +168,18 @@ namespace AudioSwitch
             int y = 59;
             if (devices.Count > 0)
             {
-                var picker = new ChoiceBox { Name = "devices", AccessibleName = "选择在线" + type + "设备",
+                var picker = new ChoiceBox { Name = "devices", AccessibleName = L.Text("选择在线{0}设备", type),
                     DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat,
                     BackColor = Palette.Card, ForeColor = Palette.Text, DisplayMember = "Name", ValueMember = "Id",
                     DataSource = devices, DropDownWidth = (int)(460 * uiScale) };
                 Place(picker, 12, y + 3, 240, 28);
                 if (selectedId != null && devices.Any(d => d.Id == selectedId)) picker.SelectedValue = selectedId;
                 body.Controls.Add(picker);
-                var choose = new FlatAction("切换", true) { Name = "choose", AccessibleName = "切换到所选设备" };
+                var choose = new FlatAction(L.Text("切换"), true) { Name = "choose", AccessibleName = L.Text("切换到所选设备") };
                 Place(choose, 260, y, 87, 30);
                 Action updateText = delegate {
                     var selected = picker.SelectedItem as Endpoint;
-                    choose.Text = selected != null && !lost && pending.NewDevices.Any(d => d.Id == selected.Id) ? "用新设备" : "切换";
+                    choose.Text = selected != null && !lost && pending.NewDevices.Any(d => d.Id == selected.Id) ? L.Text("用新设备") : L.Text("切换");
                 };
                 picker.SelectedIndexChanged += delegate { updateText(); }; updateText();
                 choose.Click += async delegate {
@@ -188,18 +188,18 @@ namespace AudioSwitch
                 };
                 body.Controls.Add(choose); y += 38;
             }
-            else { AddLabel("暂无可用设备，请连接后再选择。", y, Palette.Muted); y += 28; }
+            else { AddLabel(L.Text("暂无可用设备，请连接后再选择。"), y, Palette.Muted); y += 28; }
             if (!lost)
             {
                 var roles = reply.Preferences.IncludeCommunications ? new[] { 0, 1, 2 } : new[] { 0, 1 };
                 var oldIds = roles.Select(r => { string id; return pending.PreviousDefaults.TryGetValue(pending.Flow + ":" + r, out id) ? id : null; }).Where(id => id != null).ToList();
                 bool available = oldIds.Count > 0 && oldIds.All(id => devices.Any(d => d.Id == id));
-                var keep = new FlatAction(available ? "继续用旧设备" : "旧设备不可用", false) { Name = "keepOld", Enabled = available };
+                var keep = new FlatAction(available ? L.Text("继续用旧设备") : L.Text("旧设备不可用"), false) { Name = "keepOld", Enabled = available };
                 Place(keep, 12, y, 163, 30);
-                tips.SetToolTip(keep, "恢复到接入前：" + pending.PreviousName);
+                tips.SetToolTip(keep, L.Text("恢复到接入前：{0}", pending.PreviousName));
                 keep.Click += async delegate { await Execute(new Request { Action = "old", Token = pending.Token }); }; body.Controls.Add(keep);
             }
-            var later = new FlatAction(devices.Count == 0 ? "知道了" : "保持当前选择", false) { Name = "keepSystem", AccessibleName = "保持系统当前选择，不更改设备设置" };
+            var later = new FlatAction(devices.Count == 0 ? L.Text("知道了") : L.Text("保持当前选择"), false) { Name = "keepSystem", AccessibleName = L.Text("保持系统当前选择，不更改设备设置") };
             Place(later, lost ? 12 : 183, y, lost ? 335 : 164, 30);
             later.Click += async delegate { await Execute(new Request { Action = "later", Token = pending.Token }); }; body.Controls.Add(later);
             bodyHeight = y + 40;

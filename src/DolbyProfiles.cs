@@ -37,35 +37,35 @@ namespace AudioSwitch
         internal static void Validate(DolbyProfile p)
         {
             if (p == null) return;
-            if (p.MainProfile.HasValue && p.MainProfile != 0 && p.MainProfile != 4) throw new InvalidOperationException("目前支持电影和自定义 Dolby 预设。");
-            if (p.MainProfile == 4 && !p.SubProfile.HasValue) throw new InvalidOperationException("请选择自定义预设槽位。");
-            if (p.SubProfile.HasValue && (p.MainProfile != 4 || (p.SubProfile != 4 && p.SubProfile != 5))) throw new InvalidOperationException("请选择自定义 1 或自定义 2。");
-            if (p.Eq != null && (p.MainProfile != 4 || !p.SubProfile.HasValue || p.Eq.Length != 20 || p.Eq.Any(v => v < -192 || v > 192))) throw new InvalidOperationException("均衡器需要自定义预设及 20 个 −192～192 的数值。");
-            if (p.Ieq.HasValue && (p.MainProfile != 0 || (p.Ieq != 0 && p.Ieq != 2))) throw new InvalidOperationException("智能均衡器目前支持电影模式的关闭或平衡。");
+            if (p.MainProfile.HasValue && p.MainProfile != 0 && p.MainProfile != 4) throw new InvalidOperationException(L.Text("目前支持电影和自定义 Dolby 预设。"));
+            if (p.MainProfile == 4 && !p.SubProfile.HasValue) throw new InvalidOperationException(L.Text("请选择自定义预设槽位。"));
+            if (p.SubProfile.HasValue && (p.MainProfile != 4 || (p.SubProfile != 4 && p.SubProfile != 5))) throw new InvalidOperationException(L.Text("请选择自定义 1 或自定义 2。"));
+            if (p.Eq != null && (p.MainProfile != 4 || !p.SubProfile.HasValue || p.Eq.Length != 20 || p.Eq.Any(v => v < -192 || v > 192))) throw new InvalidOperationException(L.Text("均衡器需要自定义预设及 20 个 −192～192 的数值。"));
+            if (p.Ieq.HasValue && (p.MainProfile != 0 || (p.Ieq != 0 && p.Ieq != 2))) throw new InvalidOperationException(L.Text("智能均衡器目前支持电影模式的关闭或平衡。"));
             foreach (var value in new[] { p.SurroundStrength, p.DialogStrength, p.LevelerStrength })
-                if (value.HasValue && (Double.IsNaN(value.Value) || Double.IsInfinity(value.Value) || value < 0 || value > 1)) throw new InvalidOperationException("Dolby 强度必须在 0–100% 之间。");
+                if (value.HasValue && (Double.IsNaN(value.Value) || Double.IsInfinity(value.Value) || value < 0 || value > 1)) throw new InvalidOperationException(L.Text("Dolby 强度必须在 0–100% 之间。"));
         }
         internal static void ValidateShape(object value)
         {
             var map = value as Dictionary<string, object>;
-            if (map == null) throw new InvalidOperationException("Dolby 设置必须为对象。");
+            if (map == null) throw new InvalidOperationException(L.Text("Dolby 设置必须为对象。"));
             foreach (var pair in map)
             {
                 var property = typeof(DolbyProfile).GetProperty(pair.Key);
-                if (property == null) throw new InvalidOperationException("未知 Dolby 设置字段。");
+                if (property == null) throw new InvalidOperationException(L.Text("未知 Dolby 设置字段。"));
                 if (pair.Value == null) continue;
                 Type type = property.PropertyType;
                 bool valid = type == typeof(bool?) ? pair.Value is bool : type == typeof(int?) ? pair.Value is int :
                     type == typeof(double?) ? pair.Value is int || pair.Value is decimal || pair.Value is double :
                     pair.Value is object[] && ((object[])pair.Value).All(x => x is int);
-                if (!valid) throw new InvalidOperationException("Dolby 设置类型无效：" + pair.Key);
+                if (!valid) throw new InvalidOperationException(L.Text("Dolby 设置类型无效：{0}", pair.Key));
             }
         }
         internal static string EndpointGuid(string id)
         {
             Guid guid;
             if (id == null || !id.StartsWith("{0.0.0.00000000}.", StringComparison.OrdinalIgnoreCase) || !Guid.TryParse(id.Substring(17), out guid))
-                throw new InvalidOperationException("不是有效的 Windows 输出设备标识。");
+                throw new InvalidOperationException(L.Text("不是有效的 Windows 输出设备标识。"));
             return guid.ToString("B").ToUpperInvariant();
         }
         internal static DolbyProfile Capture(IDolbyAccess a)
@@ -77,7 +77,7 @@ namespace AudioSwitch
             if (p.MainProfile == 4) p.Eq = a.ReadEq();
             if (p.MainProfile == 0) p.Ieq = a.Read(42);
             if (a.Read(7) != main || (sub.HasValue && a.Read(38) != sub.Value))
-                throw new InvalidOperationException("读取期间 Dolby 预设发生变化，请重新读取。");
+                throw new InvalidOperationException(L.Text("读取期间 Dolby 预设发生变化，请重新读取。"));
             Validate(p); return p;
         }
         private static bool ValidStrength(double value)
@@ -91,18 +91,18 @@ namespace AudioSwitch
             Action<int, int, int?> integer = (get, set, value) => {
                 if (!value.HasValue) return;
                 guard(); int before = a.Read(get); guard(); if (before == value.Value) return;
-                undo.Add(() => { a.Write(set, before); if (a.Read(get) != before) throw new InvalidOperationException("Dolby 恢复未生效。"); }); a.Write(set, value.Value);
-                if (a.Read(get) != value.Value) throw new InvalidOperationException("Dolby 未接受设置（" + set + "）。");
+                undo.Add(() => { a.Write(set, before); if (a.Read(get) != before) throw new InvalidOperationException(L.Text("Dolby 恢复未生效。")); }); a.Write(set, value.Value);
+                if (a.Read(get) != value.Value) throw new InvalidOperationException(L.Text("Dolby 未接受设置（{0}）。", set));
             };
             Action<int, int, double?> strength = (get, set, value) => {
                 if (!value.HasValue) return;
                 guard(); double before = a.ReadStrength(get); guard();
-                if (!ValidStrength(before)) throw new InvalidOperationException("Dolby 返回无效的原始强度，已停止写入。");
+                if (!ValidStrength(before)) throw new InvalidOperationException(L.Text("Dolby 返回无效的原始强度，已停止写入。"));
                 if (Math.Abs(before - value.Value) < 0.00001) return;
-                undo.Add(() => { a.WriteStrength(set, before); double restored = a.ReadStrength(get); if (!ValidStrength(restored) || Math.Abs(restored - before) > 0.00001) throw new InvalidOperationException("Dolby 强度恢复未生效。"); }); a.WriteStrength(set, value.Value);
+                undo.Add(() => { a.WriteStrength(set, before); double restored = a.ReadStrength(get); if (!ValidStrength(restored) || Math.Abs(restored - before) > 0.00001) throw new InvalidOperationException(L.Text("Dolby 强度恢复未生效。")); }); a.WriteStrength(set, value.Value);
                 double actual = a.ReadStrength(get);
-                if (!ValidStrength(actual)) throw new InvalidOperationException("Dolby 返回无效强度。");
-                if (Math.Abs(actual - value.Value) > 0.005) warnings.Add((get == 45 ? "环绕" : get == 47 ? "人声" : "音量平衡") + "强度按驱动档位调整为 " + Math.Round(actual * 100) + "%");
+                if (!ValidStrength(actual)) throw new InvalidOperationException(L.Text("Dolby 返回无效强度。"));
+                if (Math.Abs(actual - value.Value) > 0.005) warnings.Add(L.Text("{0}强度按驱动档位调整为 {1}%", (get == 45 ? L.Text("环绕") : get == 47 ? L.Text("人声") : L.Text("音量平衡")), Math.Round(actual * 100)));
             };
             try
             {
@@ -115,9 +115,9 @@ namespace AudioSwitch
                     if (main != p.MainProfile.Value)
                     {
                         int sub = main == 4 ? a.Read(38) : 0; guard();
-                        undo.Add(() => { a.Write(8, main); if (main == 4 && a.Read(38) != sub) { rollbackGuard(); a.Write(39, sub); } if (a.Read(7) != main || (main == 4 && a.Read(38) != sub)) throw new InvalidOperationException("Dolby 预设恢复未生效。"); });
+                        undo.Add(() => { a.Write(8, main); if (main == 4 && a.Read(38) != sub) { rollbackGuard(); a.Write(39, sub); } if (a.Read(7) != main || (main == 4 && a.Read(38) != sub)) throw new InvalidOperationException(L.Text("Dolby 预设恢复未生效。")); });
                         a.Write(8, p.MainProfile.Value);
-                        if (a.Read(7) != p.MainProfile.Value) throw new InvalidOperationException("Dolby 未接受预设。");
+                        if (a.Read(7) != p.MainProfile.Value) throw new InvalidOperationException(L.Text("Dolby 未接受预设。"));
                     }
                 }
                 integer(38, 39, p.SubProfile);
@@ -130,8 +130,8 @@ namespace AudioSwitch
                 if (p.Eq != null)
                 {
                     guard(); int[] before = a.ReadEq(); guard();
-                    if (before == null || before.Length != 20 || before.Any(n => n < -192 || n > 192)) throw new InvalidOperationException("Dolby 返回无效的原始均衡器，已停止写入。");
-                    if (!before.SequenceEqual(p.Eq)) { undo.Add(() => { a.WriteEq(before); if (!a.ReadEq().SequenceEqual(before)) throw new InvalidOperationException("Dolby 均衡器恢复未生效。"); }); a.WriteEq(p.Eq); if (!a.ReadEq().SequenceEqual(p.Eq)) throw new InvalidOperationException("Dolby 未接受均衡器设置。"); }
+                    if (before == null || before.Length != 20 || before.Any(n => n < -192 || n > 192)) throw new InvalidOperationException(L.Text("Dolby 返回无效的原始均衡器，已停止写入。"));
+                    if (!before.SequenceEqual(p.Eq)) { undo.Add(() => { a.WriteEq(before); if (!a.ReadEq().SequenceEqual(before)) throw new InvalidOperationException(L.Text("Dolby 均衡器恢复未生效。")); }); a.WriteEq(p.Eq); if (!a.ReadEq().SequenceEqual(p.Eq)) throw new InvalidOperationException(L.Text("Dolby 未接受均衡器设置。")); }
                 }
                 if (p.AutoSwitch == true) integer(73, 74, -1);
                 guard(); return warnings.Count == 0 ? null : String.Join("；", warnings);
@@ -140,7 +140,7 @@ namespace AudioSwitch
             {
                 bool incomplete = false;
                 for (int i = undo.Count - 1; i >= 0; i--) { try { rollbackGuard(); undo[i](); } catch { incomplete = true; } }
-                throw new InvalidOperationException(ex.Message + (incomplete ? " 部分 Dolby 更改未能恢复，请检查当前音效。" : undo.Count == 0 ? " 本次未写入 Dolby 设置。" : " 本次 Dolby 更改已恢复。"));
+                throw new InvalidOperationException(L.Text("{0}{1}", ex.Message, (incomplete ? L.Text(" 部分 Dolby 更改未能恢复，请检查当前音效。") : undo.Count == 0 ? L.Text(" 本次未写入 Dolby 设置。") : L.Text(" 本次 Dolby 更改已恢复。"))));
             }
         }
     }

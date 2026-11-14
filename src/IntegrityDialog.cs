@@ -23,28 +23,28 @@ namespace AudioSwitch
         {
             this.startup = startup;
             AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
-            Text = "声间 文件检查与修复"; Font = new Font("Microsoft YaHei UI", 9F);
+            Text = L.Text("声间 文件检查与修复"); Font = new Font("Microsoft YaHei UI", 9F);
             ClientSize = new Size(600, 470); FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false; StartPosition = startup ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent;
-            var title = Palette.Label("文件检查与修复", 15, Theme.Text, true); title.SetBounds(26, 22, 548, 32); Controls.Add(title);
-            status = Palette.Label("正在检查运行必需文件…", 9, Palette.Text, false); status.SetBounds(26, 76, 548, 48); Controls.Add(status);
+            var title = Palette.Label(L.Text("文件检查与修复"), 15, Theme.Text, true); title.SetBounds(26, 22, 548, 32); Controls.Add(title);
+            status = Palette.Label(L.Text("正在检查运行必需文件…"), 9, Palette.Text, false); status.SetBounds(26, 76, 548, 48); Controls.Add(status);
             var card = new Surface { Padding = new Padding(14, 12, 10, 12) }; card.SetBounds(26, 130, 548, 245); Controls.Add(card);
             details = new DetailsBox { Name = "integrityDetails", Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
                 BackColor = Palette.Card, ForeColor = Palette.Text, BorderStyle = BorderStyle.None, Dock = DockStyle.Fill,
-                Text = "旧格式程序会尝试修复缺失文件。桌面包和候选包只检查完整性。" };
+                Text = L.Text("旧格式程序会尝试修复缺失文件。桌面包和候选包只检查完整性。") };
             card.Controls.Add(details);
-            var website = new FlatAction("打开发布页", false); website.SetBounds(26, 405, 112, 38); Controls.Add(website);
+            var website = new FlatAction(L.Text("打开发布页"), false); website.SetBounds(26, 405, 112, 38); Controls.Add(website);
             website.Click += delegate { try { Process.Start(new ProcessStartInfo(AppUpdate.ReleasesUrl) { UseShellExecute = true }); } catch (Exception ex) { status.Text = ex.Message; } };
-            close = new FlatAction(preview ? "关闭" : "取消", false); close.SetBounds(334, 405, 104, 38); Controls.Add(close); CancelButton = close;
+            close = new FlatAction(preview ? L.Text("关闭") : L.Text("取消"), false); close.SetBounds(334, 405, 104, 38); Controls.Add(close); CancelButton = close;
             close.Click += delegate { Close(); };
-            retry = new FlatAction("重新检查", true) { Name = "retryIntegrity" }; retry.SetBounds(450, 405, 124, 38); Controls.Add(retry);
+            retry = new FlatAction(L.Text("重新检查"), true) { Name = "retryIntegrity" }; retry.SetBounds(450, 405, 124, 38); Controls.Add(retry);
             retry.Click += async delegate { if (!preview) await Execute(); };
             ActiveControl = close;
             Shown += async delegate { Palette.ChromeTree(this); if (!preview) await Execute(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e) {
                 if (Restarting) return;
                 if (handingOff) { e.Cancel = true; return; }
-                if (cancellation != null) { closeRequested = true; cancellation.Cancel(); status.Text = "正在取消，请稍候…"; e.Cancel = true; }
+                if (cancellation != null) { closeRequested = true; cancellation.Cancel(); status.Text = L.Text("正在取消，请稍候…"); e.Cancel = true; }
             };
         }
         private sealed class DetailsBox : TextBox
@@ -55,8 +55,8 @@ namespace AudioSwitch
         internal void RenderResult(RepairResult result)
         {
             Passed = result.Check.Passed;
-            status.Text = result.Check.WholePackage ? (Passed ? result.Check.PackageLabel + "检查通过。" : result.Check.PackageLabel + "检查未通过，请重新解压完整包。") :
-                (Passed ? "运行必需文件已齐全，可以正常使用。" : "修复尚未完成，请查看原因后重试。");
+            status.Text = result.Check.WholePackage ? (Passed ? L.Text("{0}检查通过。", result.Check.PackageLabel) : L.Text("{0}检查未通过，请重新解压完整包。", result.Check.PackageLabel)) :
+                (Passed ? L.Text("运行必需文件已齐全，可以正常使用。") : L.Text("修复尚未完成，请查看原因后重试。"));
             details.Text = result.Message;
             details.Select(0, 0);
         }
@@ -64,7 +64,7 @@ namespace AudioSwitch
         {
             if (cancellation != null) return;
             var cancel = new CancellationTokenSource(); cancellation = cancel; cancel.CancelAfter(90000);
-            retry.Enabled = false; close.Text = "取消";
+            retry.Enabled = false; close.Text = L.Text("取消");
             bool finish = false;
             try
             {
@@ -73,18 +73,18 @@ namespace AudioSwitch
                 RenderResult(result);
                 if (result.Payload != null && !cancel.IsCancellationRequested)
                 {
-                    handingOff = true; close.Enabled = false; status.Text = "修复文件已校验，正在准备重启…";
+                    handingOff = true; close.Enabled = false; status.Text = L.Text("修复文件已校验，正在准备重启…");
                     int parent = Process.GetCurrentProcess().Id;
                     await Task.Run(() => UpdateInstaller.LaunchRepair(result.Payload, parent));
                     Restarting = true; finish = true;
                 }
                 else if (startup && Passed && !closeRequested) finish = true;
             }
-            catch (Exception ex) { status.Text = "修复未完成，可重试或打开发布页。"; details.Text = ex.Message; }
+            catch (Exception ex) { status.Text = L.Text("修复未完成，可重试或打开发布页。"); details.Text = ex.Message; }
             finally
             {
                 handingOff = false; cancellation = null; cancel.Dispose();
-                retry.Enabled = true; close.Enabled = true; close.Text = "关闭";
+                retry.Enabled = true; close.Enabled = true; close.Text = L.Text("关闭");
             }
             if (finish || closeRequested) Close();
         }

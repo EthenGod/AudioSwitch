@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { CircleAlert, RefreshCw } from 'lucide-react'
 import { Button } from './ui/button'
 
@@ -8,6 +9,6 @@ export function ConnectionError({ title, message, retry, busy }: { title: string
       <h1>{title}</h1>
       <p>{message}</p>
     </div>
-    {retry && <Button variant="outline" pending={busy} onClick={retry}><RefreshCw className={busy ? 'spin' : ''} />重试</Button>}
+    {retry && <Button variant="outline" pending={busy} onClick={retry}><RefreshCw className={busy ? 'spin' : ''} />{t("重试")}</Button>}
   </section>
 }

@@ -37,16 +37,16 @@ namespace AudioSwitch
         internal static Version ParseVersion(string text)
         {
             if (text == null || !Regex.IsMatch(text, @"\Av?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z"))
-                throw new InvalidDataException("发布版本号应为 v主版本.次版本.修订号，例如 v0.11.0。");
+                throw new InvalidDataException(L.Text("发布版本号应为 v主版本.次版本.修订号，例如 v0.11.0。"));
             Version result;
             if (!Version.TryParse(text.TrimStart('v'), out result) || result.Major > 65534 || result.Minor > 65534 || result.Build > 65534)
-                throw new InvalidDataException("发布版本号超出支持范围。");
+                throw new InvalidDataException(L.Text("发布版本号超出支持范围。"));
             return result;
         }
         internal static UpdateRelease ParseRelease(string json, bool allowMigration = false, bool includePrerelease = false)
         {
             var root = new JavaScriptSerializer { MaxJsonLength = 1024 * 1024 }.DeserializeObject(json) as Dictionary<string, object>;
-            if (root == null || !(root["draft"] is bool) || !(root["prerelease"] is bool)) throw new InvalidDataException("发布信息格式不正确。");
+            if (root == null || !(root["draft"] is bool) || !(root["prerelease"] is bool)) throw new InvalidDataException(L.Text("发布信息格式不正确。"));
             if ((bool)root["draft"] || ((bool)root["prerelease"] && !includePrerelease)) return null;
             string tag = root["tag_name"] as string;
             var version = ParseVersion(tag);
@@ -59,19 +59,19 @@ namespace AudioSwitch
             if (version == ParseVersion(AppVersion.Number) && !desktop) return summary;
             int format = desktop ? UpdatePackage.Desktop : UpdatePackage.Legacy;
             string name = UpdatePackage.AssetName(version, format);
-            if (assets == null) throw new InvalidDataException("这个版本还没有可安装的 Windows 更新包。");
+            if (assets == null) throw new InvalidDataException(L.Text("这个版本还没有可安装的 Windows 更新包。"));
             var matches = assets.OfType<Dictionary<string, object>>().Where(a => a.ContainsKey("name") && (a["name"] as string) == name).ToArray();
-            if (matches.Length != 1) throw new InvalidDataException("这个版本缺少唯一的 Windows x64 更新包。请打开发布页查看。");
+            if (matches.Length != 1) throw new InvalidDataException(L.Text("这个版本缺少唯一的 Windows x64 更新包。请打开发布页查看。"));
             var asset = matches[0]; object digest;
             string hash = asset.TryGetValue("digest", out digest) ? digest as string : null;
-            if (hash == null || !Regex.IsMatch(hash, @"\Asha256:[a-fA-F0-9]{64}\z")) throw new InvalidDataException("发布包缺少 SHA-256 校验信息，请发布者重新上传附件。");
+            if (hash == null || !Regex.IsMatch(hash, @"\Asha256:[a-fA-F0-9]{64}\z")) throw new InvalidDataException(L.Text("发布包缺少 SHA-256 校验信息，请发布者重新上传附件。"));
             string url = asset["browser_download_url"] as string;
             string expected = ReleasesUrl + "/download/" + tag + "/" + name;
-            if (!String.Equals(url, expected, StringComparison.Ordinal)) throw new InvalidDataException("更新包地址不属于此项目的对应版本。");
+            if (!String.Equals(url, expected, StringComparison.Ordinal)) throw new InvalidDataException(L.Text("更新包地址不属于此项目的对应版本。"));
             object size = asset["size"];
-            if (!(size is int) && !(size is long)) throw new InvalidDataException("更新包大小无效。");
+            if (!(size is int) && !(size is long)) throw new InvalidDataException(L.Text("更新包大小无效。"));
             long length = Convert.ToInt64(size);
-            if (length <= 0 || length > MaxPackage) throw new InvalidDataException("更新包大小超出限制。");
+            if (length <= 0 || length > MaxPackage) throw new InvalidDataException(L.Text("更新包大小超出限制。"));
             return new UpdateRelease { Version = version, Tag = tag, Url = url, Digest = hash.Substring(7), Size = length, PackageFormat = format,
                 Prerelease = summary.Prerelease, Notes = summary.Notes };
         }
@@ -92,7 +92,7 @@ namespace AudioSwitch
             try
             {
                 var page = read(url, cancel);
-                if (page.Address.AbsoluteUri != url) throw new InvalidDataException("修复包页面地址已改变。");
+                if (page.Address.AbsoluteUri != url) throw new InvalidDataException(L.Text("修复包页面地址已改变。"));
                 ParseAssetPage(release, page.Text, UpdatePackage.IsDesktop(AppDomain.CurrentDomain.BaseDirectory) ? UpdatePackage.Desktop : UpdatePackage.Legacy);
                 return release;
             }
@@ -100,7 +100,7 @@ namespace AudioSwitch
             {
                 var status = Status(ex); if (ex.Response != null) ex.Response.Dispose();
                 cancel.ThrowIfCancellationRequested();
-                throw new IOException(status == HttpStatusCode.NotFound ? "当前版本 v" + AppVersion.Number + " 尚无可下载的修复包，请从发布页下载完整版本。" : "暂时无法下载修复包，请检查网络后重试。", ex);
+                throw new IOException(status == HttpStatusCode.NotFound ? L.Text("当前版本 v{0} 尚无可下载的修复包，请从发布页下载完整版本。", AppVersion.Number) : L.Text("暂时无法下载修复包，请检查网络后重试。"), ex);
             }
         }
         internal static UpdateRelease Check(CancellationToken cancel, Func<string, CancellationToken, UpdatePage> read, bool allowMigration = false, bool includePrerelease = false)
@@ -138,7 +138,7 @@ namespace AudioSwitch
             cancel.ThrowIfCancellationRequested();
             string assetsUrl = ReleasesUrl + "/expanded_assets/" + release.Tag;
             var assets = read(assetsUrl, cancel);
-            if (assets.Address.AbsoluteUri != assetsUrl) throw new InvalidDataException("附件页面地址已改变，请打开发布页查看。");
+            if (assets.Address.AbsoluteUri != assetsUrl) throw new InvalidDataException(L.Text("附件页面地址已改变，请打开发布页查看。"));
             ParseAssetPage(release, assets.Text, desktopObserved ? (int?)UpdatePackage.Desktop : null);
             return release;
         }
@@ -150,12 +150,12 @@ namespace AudioSwitch
                 cancel.ThrowIfCancellationRequested();
                 string url = ApiUrl.Substring(0, ApiUrl.Length - "/latest".Length) + "?per_page=100&page=" + page;
                 var response = read(url, cancel);
-                if (response.Address.AbsoluteUri != url) throw new InvalidDataException("更新列表地址已改变。");
+                if (response.Address.AbsoluteUri != url) throw new InvalidDataException(L.Text("更新列表地址已改变。"));
                 var releases = serializer.DeserializeObject(response.Text) as object[];
-                if (releases == null) throw new InvalidDataException("更新列表格式不正确。");
+                if (releases == null) throw new InvalidDataException(L.Text("更新列表格式不正确。"));
                 foreach (var item in releases) {
                     var entry = item as Dictionary<string, object>; object draft, prerelease, tag;
-                    if (entry == null || !entry.TryGetValue("draft", out draft) || !(draft is bool) || !entry.TryGetValue("prerelease", out prerelease) || !(prerelease is bool)) throw new InvalidDataException("发布信息格式不正确。");
+                    if (entry == null || !entry.TryGetValue("draft", out draft) || !(draft is bool) || !entry.TryGetValue("prerelease", out prerelease) || !(prerelease is bool)) throw new InvalidDataException(L.Text("发布信息格式不正确。"));
                     if ((bool)draft) continue;
                     Version version;
                     try { version = ParseVersion(entry.TryGetValue("tag_name", out tag) ? tag as string : null); }
@@ -167,7 +167,7 @@ namespace AudioSwitch
                     return newest == null ? null : ParseRelease(serializer.Serialize(newest), allowMigration, true);
                 }
             }
-            throw new InvalidDataException("更新列表过长，请从 GitHub 发布页查看完整版本。");
+            throw new InvalidDataException(L.Text("更新列表过长，请从 GitHub 发布页查看完整版本。"));
         }
         private static HttpStatusCode Status(WebException error)
         {
@@ -186,11 +186,11 @@ namespace AudioSwitch
         {
             string prefix = ReleasesUrl + "/tag/";
             if (page == null || page.Address == null || !page.Address.AbsoluteUri.StartsWith(prefix, StringComparison.Ordinal))
-                throw new InvalidDataException("没有取得本项目的正式版本信息，请打开发布页查看。");
+                throw new InvalidDataException(L.Text("没有取得本项目的正式版本信息，请打开发布页查看。"));
             string tag = page.Address.AbsoluteUri.Substring(prefix.Length);
             var version = ParseVersion(tag);
             // Preserve GitHub's rendered Markdown; the frontend sanitizes this untrusted HTML.
-            string notes = "请点击“打开发布页”查看完整更新说明。";
+            string notes = L.Text("请点击“打开发布页”查看完整更新说明。");
             string cleaned = Regex.Replace(page.Text ?? "", @"<(script|style)\b[^>]*>.*?</\1>|<!--.*?-->", "", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
             var body = Regex.Match(cleaned, @"<div\b[^>]*\bdata-test-selector\s*=\s*[""']body-content[""'][^>]*>", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
             if (body.Success) {
@@ -209,9 +209,9 @@ namespace AudioSwitch
             int format = requiredFormat ?? (AssetRows(rows, desktopUrl).Count > 0 ? UpdatePackage.Desktop : UpdatePackage.Legacy);
             string expected = ReleasesUrl + "/download/" + release.Tag + "/" + UpdatePackage.AssetName(release.Version, format);
             var matches = AssetRows(rows, expected);
-            if (matches.Count != 1) throw new InvalidDataException("这个版本缺少唯一的 Windows x64 更新包。请打开发布页查看。");
+            if (matches.Count != 1) throw new InvalidDataException(L.Text("这个版本缺少唯一的 Windows x64 更新包。请打开发布页查看。"));
             var hashes = Regex.Matches(matches[0], @"<clipboard-copy\b[^>]*\bvalue\s*=\s*[""']sha256:(?<hash>[a-fA-F0-9]{64})[""'][^>]*>", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-            if (hashes.Count != 1) throw new InvalidDataException("GitHub 附件页没有提供可验证的 SHA-256 信息，请打开发布页查看。");
+            if (hashes.Count != 1) throw new InvalidDataException(L.Text("GitHub 附件页没有提供可验证的 SHA-256 信息，请打开发布页查看。"));
             release.Url = expected; release.Digest = hashes[0].Groups["hash"].Value; release.PackageFormat = format;
             // The website rounds sizes. Trust only the digest and strict byte limit.
             release.Size = 0;
@@ -243,7 +243,7 @@ namespace AudioSwitch
             for (int redirect = 0; redirect < 6; redirect++)
             {
                 cancel.ThrowIfCancellationRequested();
-                if (!AllowedDownload(uri)) throw new InvalidDataException("下载被重定向到不受信任的地址。");
+                if (!AllowedDownload(uri)) throw new InvalidDataException(L.Text("下载被重定向到不受信任的地址。"));
                 var request = (HttpWebRequest)WebRequest.Create(uri);
                 request.UserAgent = "AudioSwitch/" + AppVersion.Number;
                 request.Accept = uri.Host == "api.github.com" ? "application/vnd.github+json" : "*/*";
@@ -253,12 +253,12 @@ namespace AudioSwitch
                 {
                     if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400)
                     { uri = new Uri(uri, response.Headers["Location"]); continue; }
-                    if (response.StatusCode != HttpStatusCode.OK || response.ContentLength > limit) throw new InvalidDataException("下载响应不正确或文件过大。");
+                    if (response.StatusCode != HttpStatusCode.OK || response.ContentLength > limit) throw new InvalidDataException(L.Text("下载响应不正确或文件过大。"));
                     using (var input = response.GetResponseStream()) CopyBounded(input, output, limit, cancel, progress);
                     return response.ResponseUri;
                 }
             }
-            throw new InvalidDataException("下载重定向次数过多，请稍后重试。");
+            throw new InvalidDataException(L.Text("下载重定向次数过多，请稍后重试。"));
         }
         internal static long CopyBounded(Stream input, Stream output, long limit, CancellationToken cancel, Action<long> progress)
         {
@@ -266,7 +266,7 @@ namespace AudioSwitch
             while ((count = input.Read(buffer, 0, buffer.Length)) != 0)
             {
                 cancel.ThrowIfCancellationRequested(); total += count;
-                if (total > limit) throw new InvalidDataException("文件大小超出限制。");
+                if (total > limit) throw new InvalidDataException(L.Text("文件大小超出限制。"));
                 output.Write(buffer, 0, count); if (progress != null) progress(total);
             }
             cancel.ThrowIfCancellationRequested(); return total;
@@ -287,7 +287,7 @@ namespace AudioSwitch
         {
             cancel.ThrowIfCancellationRequested();
             UpdateInstaller.RejectLinks(work);
-            if (File.Exists(Path.Combine(work, "install.json"))) throw new IOException("该缓存已交给安装助手，请重新检查更新。");
+            if (File.Exists(Path.Combine(work, "install.json"))) throw new IOException(L.Text("该缓存已交给安装助手，请重新检查更新。"));
             string root = Path.GetDirectoryName(work);
             // A retry replaces only this attempt's fixed files. Count all older cache towards the cap.
             long replaceable = 0;
@@ -298,7 +298,7 @@ namespace AudioSwitch
             }
             long helperSize = new FileInfo(typeof(AppUpdate).Assembly.Location).Length;
             long reserve = (release.Size > 0 ? release.Size : MaxPackage) + MaxPackage * 2 + helperSize + 256 * 1024;
-            UpdateStorage.Require(root, UpdateStorage.CacheLimit, Math.Max(0, reserve - replaceable), "更新缓存");
+            UpdateStorage.Require(root, UpdateStorage.CacheLimit, Math.Max(0, reserve - replaceable), L.Text("更新缓存"));
             Directory.CreateDirectory(work);
             string zip = Path.Combine(work, "package.zip");
             // A completed verified ZIP is reusable after cancellation during extraction.
@@ -306,7 +306,7 @@ namespace AudioSwitch
                 using (var output = new FileStream(zip, FileMode.Create, FileAccess.Write, FileShare.None))
                     Download(release.Url, output, release.Size > 0 ? release.Size : MaxPackage, cancel, progress);
             if ((release.Size > 0 && new FileInfo(zip).Length != release.Size) || !String.Equals(Hash(zip), release.Digest, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("更新包不完整或校验失败。原程序没有更改，请重新下载。");
+                throw new InvalidDataException(L.Text("更新包不完整或校验失败。原程序没有更改，请重新下载。"));
             string payload = Path.Combine(work, "payload");
             Extract(zip, payload, cancel, true, release.PackageFormat);
             ValidatePayload(payload, release.Version, release.PackageFormat);
@@ -329,13 +329,13 @@ namespace AudioSwitch
             {
                 // Only the fixed distribution files are allowed; no arbitrary paths, settings, or DLLs.
                 if (archive.Entries.Count != files.Length || files.Any(name => archive.Entries.Count(e => e.FullName == name) != 1))
-                    throw new InvalidDataException("更新包文件结构不正确，请使用此项目的 Windows x64 正式发布包。");
+                    throw new InvalidDataException(L.Text("更新包文件结构不正确，请使用此项目的 Windows x64 正式发布包。"));
                 long total = 0;
                 foreach (var name in files)
                 {
                     var entry = archive.GetEntry(name); total += entry.Length;
-                    if (entry.Length <= 0 || entry.Length > MaxPackage * 2 || total > MaxPackage * 2 || ((entry.ExternalAttributes >> 16) & 0xf000) == 0xa000 || (entry.ExternalAttributes & 0x400) != 0) throw new InvalidDataException("解压后的更新文件大小或属性无效。");
-                    if (name == "desktop-manifest.json" && entry.Length > 1024 * 1024) throw new InvalidDataException("桌面清单过大。");
+                    if (entry.Length <= 0 || entry.Length > MaxPackage * 2 || total > MaxPackage * 2 || ((entry.ExternalAttributes >> 16) & 0xf000) == 0xa000 || (entry.ExternalAttributes & 0x400) != 0) throw new InvalidDataException(L.Text("解压后的更新文件大小或属性无效。"));
+                    if (name == "desktop-manifest.json" && entry.Length > 1024 * 1024) throw new InvalidDataException(L.Text("桌面清单过大。"));
                     UpdateInstaller.RejectLinks(Path.Combine(destination, name));
                 }
                 // Check every entry before extracting any content.
@@ -346,20 +346,20 @@ namespace AudioSwitch
                     UpdateInstaller.RejectLinks(path);
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
                     using (var input = entry.Open()) using (var output = new FileStream(path, replaceAttempt ? FileMode.Create : FileMode.CreateNew))
-                        if (CopyBounded(input, output, entry.Length, cancel, null) != entry.Length) throw new InvalidDataException("更新文件不完整。");
+                        if (CopyBounded(input, output, entry.Length, cancel, null) != entry.Length) throw new InvalidDataException(L.Text("更新文件不完整。"));
                 }
             }
         }
         internal static void ValidatePayload(string directory, Version version, int format = UpdatePackage.Legacy)
         {
             UpdatePackage.RequireTarget(directory, format);
-            foreach (var name in UpdatePackage.Files(format)) if (!File.Exists(Path.Combine(directory, name))) throw new InvalidDataException("更新文件缺失：" + name);
+            foreach (var name in UpdatePackage.Files(format)) if (!File.Exists(Path.Combine(directory, name))) throw new InvalidDataException(L.Text("更新文件缺失：{0}", name));
             if (format == UpdatePackage.Desktop) PanelLaunch.Validate(directory, version.ToString(3));
             var assembly = AssemblyName.GetAssemblyName(Path.Combine(directory, "AudioSwitch.exe"));
             if (assembly.Name != "AudioSwitch" || assembly.ProcessorArchitecture != ProcessorArchitecture.Amd64 || assembly.Version.ToString(3) != version.ToString(3))
-                throw new InvalidDataException("程序版本或平台与发布信息不一致。");
+                throw new InvalidDataException(L.Text("程序版本或平台与发布信息不一致。"));
             if (Hash(Path.Combine(directory, "vendor/svcl/svcl.exe")) != SpatialAudio.HelperHash.ToLowerInvariant())
-                throw new InvalidDataException("空间音效组件校验失败，不能安装此更新包。");
+                throw new InvalidDataException(L.Text("空间音效组件校验失败，不能安装此更新包。"));
         }
     }
 }

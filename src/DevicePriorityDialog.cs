@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -30,31 +30,31 @@ namespace AudioSwitch
             DevicePriority.Remember(preferences, reply.State);
             devices = preferences.DeviceOrder.Where(d => d.Flow == flow).ToList();
             online = new HashSet<string>(reply.State.Devices.Select(d => d.Id));
-            Text = "设备优先级 · 声间"; BackColor = Palette.Background; ForeColor = Palette.Text;
+            Text = L.Text("设备优先级 · 声间"); BackColor = Palette.Background; ForeColor = Palette.Text;
             Shown += delegate { Palette.ChromeTree(this); };
             Font = new Font("Microsoft YaHei UI", 9F); AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(550, 430); FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
-            var title = Palette.Label(flow == 0 ? "声音输出优先级" : "麦克风输入优先级", 16, Palette.Text, true);
+            var title = Palette.Label(flow == 0 ? L.Text("声音输出优先级") : L.Text("麦克风输入优先级"), 16, Palette.Text, true);
             title.SetBounds(24, 20, 480, 34); Controls.Add(title);
-            var hint = Palette.Label("越靠上越优先 · 离线设备保留位置，连接后继续按此顺序选择", 9, Palette.Muted, false);
+            var hint = Palette.Label(L.Text("越靠上越优先 · 离线设备保留位置，连接后继续按此顺序选择"), 9, Palette.Muted, false);
             hint.SetBounds(24, 61, 505, 28); Controls.Add(hint);
             list = new PriorityList { Name = "priorityList", Location = new Point(24, 103), Size = new Size(402, 208),
                 BackColor = Palette.Card, ForeColor = Palette.Text, BorderStyle = BorderStyle.None, IntegralHeight = false,
-                DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 50, HorizontalScrollbar = false, AccessibleName = "设备优先级列表" };
+                DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 50, HorizontalScrollbar = false, AccessibleName = L.Text("设备优先级列表") };
             ((PriorityList)list).IsOnline = index => online.Contains(devices[index].Id);
             Controls.Add(list);
-            up = new FlatAction("上移 ↑", false) { Name = "moveUp", Location = new Point(440, 103), Size = new Size(86, 36) };
-            down = new FlatAction("下移 ↓", false) { Name = "moveDown", Location = new Point(440, 149), Size = new Size(86, 36) };
+            up = new FlatAction(L.Text("上移 ↑"), false) { Name = "moveUp", Location = new Point(440, 103), Size = new Size(86, 36) };
+            down = new FlatAction(L.Text("下移 ↓"), false) { Name = "moveDown", Location = new Point(440, 149), Size = new Size(86, 36) };
             up.Click += delegate { MoveSelected(-1); }; down.Click += delegate { MoveSelected(1); };
             list.SelectedIndexChanged += delegate { UpdateButtons(); };
             Controls.Add(up); Controls.Add(down);
-            var mode = Palette.Label(reply.Preferences.UseDevicePriority ? "已开启自动选择，保存后立即应用在线设备的最高优先级。" : "当前跟随系统选择；保存只调整排序，不会自动切换设备。", 8.5F, Palette.Muted, false);
+            var mode = Palette.Label(reply.Preferences.UseDevicePriority ? L.Text("已开启自动选择，保存后立即应用在线设备的最高优先级。") : L.Text("当前跟随系统选择；保存只调整排序，不会自动切换设备。"), 8.5F, Palette.Muted, false);
             mode.SetBounds(24, 321, 502, 30); Controls.Add(mode);
             error = Palette.Label("", 8.5F, Palette.Warning, false); error.SetBounds(24, 352, 502, 28); Controls.Add(error);
-            var cancel = new FlatAction("取消", false) { Name = "cancelOrder", Location = new Point(310, 383), Size = new Size(96, 32) };
+            var cancel = new FlatAction(L.Text("取消"), false) { Name = "cancelOrder", Location = new Point(310, 383), Size = new Size(96, 32) };
             cancel.Click += delegate { Close(); }; Controls.Add(cancel);
-            save = new FlatAction("保存排序", true) { Name = "saveOrder", Location = new Point(418, 383), Size = new Size(108, 32) };
+            save = new FlatAction(L.Text("保存排序"), true) { Name = "saveOrder", Location = new Point(418, 383), Size = new Size(108, 32) };
             save.Click += async delegate { await Save(); }; Controls.Add(save);
             FormClosing += delegate(object sender, FormClosingEventArgs e) { if (busy) e.Cancel = true; };
             RefreshList(devices.Count == 0 ? -1 : 0);

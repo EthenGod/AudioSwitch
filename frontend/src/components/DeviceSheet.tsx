@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { AliasInput } from './AliasInput'
 import { UpgradeScroll } from './UpgradeScroll'
 import { useEffect, useRef, useState } from 'react'
@@ -36,20 +37,20 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
     if (!desktop || readOnly || !device.Online) return
     let active = true
     gateway.readDevice(device.Id).then(value => { if (active) setDetails(value) })
-      .catch(error => { if (active) setReadError(error instanceof Error ? error.message : '读取失败，已保留原预设') })
+      .catch(error => { if (active) setReadError(error instanceof Error ? error.message : t("读取失败，已保留原预设")) })
       .finally(() => { if (active) setReading(false) })
     return () => { active = false }
   }, [gateway, desktop, device.Id, device.Online, readOnly])
   const volumeUnavailable = desktop && (!device.Online || !details || details.CurrentVolume === null || !!details.VolumeError)
   const spatialUnavailable = desktop && (!device.Online || !details?.Spatial?.Supported || !!details.SpatialError)
-  const options = desktop ? details?.Spatial?.Options ?? [] : [{ Id: SONIC_FORMAT, Name: 'Windows Sonic（示例选项）' }]
+  const options = desktop ? details?.Spatial?.Options ?? [] : [{ Id: SONIC_FORMAT, Name: t("Windows Sonic（示例选项）") }]
   const heading = useRef<HTMLHeadingElement>(null)
   const [useVolume, setUseVolume] = useState(initial.Volume !== null)
   const [volume, setVolume] = useState(initial.Volume ?? 50)
   const [spatial, setSpatial] = useState(initial.SpatialFormat === null ? 'keep' : initial.SpatialFormat === '' ? 'off' : initial.SpatialFormat)
   const [rule, setRule] = useState<DeviceRule>(snapshot.Preferences.DeviceRules[device.Id] ?? 0)
-  const spatialHelp = device.Flow === 1 ? '麦克风不支持空间音效' : readOnly ? '尚未检查设备支持情况' : desktop && spatialUnavailable ? details?.SpatialError || '当前无法检查空间音效；保留原预设' : ''
-  const volumeHelp = desktop && !readOnly ? volumeUnavailable ? `${details?.VolumeError || '当前音量不可读'}；保留原预设` : `当前音量 ${details?.CurrentVolume}%` : ''
+  const spatialHelp = device.Flow === 1 ? t("麦克风不支持空间音效") : readOnly ? t("尚未检查设备支持情况") : desktop && spatialUnavailable ? details?.SpatialError || t("当前无法检查空间音效；保留原预设") : ''
+  const volumeHelp = desktop && !readOnly ? volumeUnavailable ? t("{0}；保留原预设", details?.VolumeError || t('当前音量不可读')) : t("当前音量 {0}%", details?.CurrentVolume) : ''
   const knownSpatial = ['keep', 'off', ...options.map(o => o.Id)].includes(spatial)
   async function save() {
     const name = alias.trim()
@@ -59,22 +60,22 @@ export function DeviceSheet({ device, snapshot, busy, readOnly = false, gateway,
   }
   return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open && !busy) onClose() }}>
     <SheetContent initialFocus={heading} closeDisabled={busy}>
-      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">设备设置</SheetTitle><SheetDescription className="sr-only">音量、空间音效与接入规则</SheetDescription></header>
-      {(!desktop || readOnly) && <div className="sheet-preview"><Info size={14} />{readOnly ? '只读：已保存的预设，不代表当前音效状态' : '界面预览，操作不会改变系统设置'}</div>}
+      <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{t("设备设置")}</SheetTitle><SheetDescription className="sr-only">{t("音量、空间音效与接入规则")}</SheetDescription></header>
+      {(!desktop || readOnly) && <div className="sheet-preview"><Info size={14} />{readOnly ? t("只读：已保存的预设，不代表当前音效状态") : t("界面预览，操作不会改变系统设置")}</div>}
       <UpgradeScroll className="">
-        <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">离线</span>}</div>
-        {snapshot.CanRenameDevices && <section className="sheet-section device-alias"><h3><label htmlFor="device-alias">自定义名称</label></h3>
+        <div className="sheet-device"><DeviceIdentity device={device} />{!device.Online && <span className="role-badge">{t("离线")}</span>}</div>
+        {snapshot.CanRenameDevices && <section className="sheet-section device-alias"><h3><label htmlFor="device-alias">{t("自定义名称")}</label></h3>
           <AliasInput value={alias} onChange={setAlias} names={names} placeholder={device.SystemName ?? device.Name} disabled={busy || readOnly} />
         </section>}
-        {reading && <p role="status">正在读取当前音量和支持的空间音效…</p>}
-        {readError && <p role="alert" className="field-help">{readError} 未能读取的字段保留原值</p>}
+        {reading && <p role="status">{t("正在读取当前音量和支持的空间音效…")}</p>}
+        {readError && <p role="alert" className="field-help">{readError}{t("未能读取的字段保留原值")}</p>}
         {saveError && <p role="alert" className="field-help">{saveError}</p>}
-        <section className="sheet-section"><div className="volume-toggle"><h3><Volume2 size={16} /><label htmlFor="use-volume">使用指定音量</label></h3><Switch id="use-volume" checked={useVolume} disabled={busy || reading || readOnly || volumeUnavailable} onCheckedChange={setUseVolume} /></div><div className="volume-control"><Volume2 size={17} /><input type="range" aria-label="预设音量" min="0" max="100" value={volume} disabled={!useVolume || busy || reading || readOnly || volumeUnavailable} onChange={e => setVolume(Number(e.target.value))} /><output>{volume}<span>%</span></output></div><p className="field-help">{volumeHelp}{!useVolume ? '切换时保持当前音量' : ''}</p></section>
-        <section className="sheet-section"><h3><Headphones size={16} />Windows 空间音效</h3><Select id="spatial" label="空间音效预设" value={spatial} disabled={device.Flow === 1 || busy || reading || readOnly || spatialUnavailable} onValueChange={setSpatial} options={[{ value: 'keep', label: '保持不变' }, { value: 'off', label: '关闭空间音效' }, ...(!readOnly ? options.filter(o => o.Id !== '').map(o => ({ value: o.Id, label: o.Name })) : []), ...(((readOnly && !['keep', 'off'].includes(spatial)) || !knownSpatial) ? [{ value: spatial, label: '保留已有音效格式' }] : [])]} />{spatialHelp && <p className="field-help">{spatialHelp}</p>}</section>
-        <section className="sheet-section"><h3><Shield size={16} />接入规则</h3><Select id="device-rule" label="白名单规则" value={String(rule)} disabled={busy || readOnly} onValueChange={value => setRule(Number(value) as DeviceRule)} options={[{ value: '0', label: '使用全局设置' }, { value: '1', label: '接受系统选择，不弹窗' }, { value: '2', label: '接入时自动切换，不弹窗' }]} />{rule !== 0 && <p className="field-help">{rule === 1 ? '保持 Windows 的设备选择、音量和空间音效' : '应用此设备预设，优先于设备排序'}</p>}</section>
-        {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>Dolby 音效</strong></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>编辑 Dolby 方案</Button></div>}
+        <section className="sheet-section"><div className="volume-toggle"><h3><Volume2 size={16} /><label htmlFor="use-volume">{t("使用指定音量")}</label></h3><Switch id="use-volume" checked={useVolume} disabled={busy || reading || readOnly || volumeUnavailable} onCheckedChange={setUseVolume} /></div><div className="volume-control"><Volume2 size={17} /><input type="range" aria-label={t("预设音量")} min="0" max="100" value={volume} disabled={!useVolume || busy || reading || readOnly || volumeUnavailable} onChange={e => setVolume(Number(e.target.value))} /><output>{volume}<span>%</span></output></div><p className="field-help">{volumeHelp}{!useVolume ? t("切换时保持当前音量") : ''}</p></section>
+        <section className="sheet-section"><h3><Headphones size={16} />{t("Windows 空间音效")}</h3><Select id="spatial" label={t("空间音效预设")} value={spatial} disabled={device.Flow === 1 || busy || reading || readOnly || spatialUnavailable} onValueChange={setSpatial} options={[{ value: 'keep', label: t("保持不变") }, { value: 'off', label: t("关闭空间音效") }, ...(!readOnly ? options.filter(o => o.Id !== '').map(o => ({ value: o.Id, label: o.Name })) : []), ...(((readOnly && !['keep', 'off'].includes(spatial)) || !knownSpatial) ? [{ value: spatial, label: t("保留已有音效格式") }] : [])]} />{spatialHelp && <p className="field-help">{spatialHelp}</p>}</section>
+        <section className="sheet-section"><h3><Shield size={16} />{t("接入规则")}</h3><Select id="device-rule" label={t("白名单规则")} value={String(rule)} disabled={busy || readOnly} onValueChange={value => setRule(Number(value) as DeviceRule)} options={[{ value: '0', label: t("使用全局设置") }, { value: '1', label: t("接受系统选择，不弹窗") }, { value: '2', label: t("接入时自动切换，不弹窗") }]} />{rule !== 0 && <p className="field-help">{rule === 1 ? t("保持 Windows 的设备选择、音量和空间音效") : t("应用此设备预设，优先于设备排序")}</p>}</section>
+        {device.Flow === 0 && <div className="dolby-placeholder"><Sparkles size={17} /><div><strong>{t("Dolby 音效")}</strong></div><Button variant="outline" disabled={busy || reading} onClick={() => setDolbyOpen(true)}>{t("编辑 Dolby 方案")}</Button></div>}
       </UpgradeScroll>
-      <footer className="sheet-footer"><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? '关闭' : '取消'}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>}</div></footer>
+      <footer className="sheet-footer"><div><Button variant="outline" disabled={busy} onClick={onClose}>{readOnly ? t("关闭") : t("取消")}</Button>{!readOnly && <Button disabled={busy || reading} onClick={() => void save()}>{busy ? t("正在保存…") : desktop ? t("仅保存") : t("仅保存（模拟）")}</Button>}</div></footer>
       {dolbyOpen && <DolbySheet device={device} snapshot={snapshot} gateway={gateway} readOnly={readOnly} onClose={() => setDolbyOpen(false)} onSaved={onDolbySaved} onFailure={onDolbyFailure} onResult={onDolbyResult} />}
     </SheetContent>
   </Sheet>

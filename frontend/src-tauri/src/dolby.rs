@@ -21,18 +21,18 @@ impl Profile {
             || (self.ieq.is_some() && (self.main_profile != Some(0) || !matches!(self.ieq, Some(0) | Some(2))))
             || self.eq.as_ref().is_some_and(|eq| self.main_profile != Some(4) || eq.len() != 20 || eq.iter().any(|v| *v < -192 || *v > 192))
             || [self.surround_strength,self.dialog_strength,self.leveler_strength].iter().flatten().any(|v| !v.is_finite() || *v < 0.0 || *v > 1.0) {
-            return Err("Dolby 方案参数无效，请检查预设、强度与均衡器。".into());
+            return Err(crate::localization::text("Dolby 方案参数无效，请检查预设、强度与均衡器。").into());
         }
         Ok(())
     }
 }
 pub fn require_device(snapshot: &Value, id: &str, current: bool) -> Result<(), String> {
-    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 4 { return Err("当前后台不支持新 Dolby 编辑器，请使用新版后台。".into()); }
-    if id.is_empty() || id.len() > 2048 { return Err("无效的设备标识。".into()); }
+    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 4 { return Err(crate::localization::text("当前后台不支持新 Dolby 编辑器，请使用新版后台。").into()); }
+    if id.is_empty() || id.len() > 2048 { return Err(crate::localization::text("无效的设备标识。").into()); }
     let online = snapshot["State"]["Devices"].as_array().into_iter().flatten();
     let known = snapshot["Preferences"]["DeviceOrder"].as_array().into_iter().flatten();
-    if !online.chain(known).any(|d| d["Id"] == id && d["Flow"] == 0) { return Err("请选择已记录的输出设备。".into()); }
-    if current && (snapshot["State"]["Defaults"]["0:1"] != id || snapshot["DolbyApplying"] == true) { return Err("请等待音效应用完成，并选择当前输出设备再读取。".into()); }
+    if !online.chain(known).any(|d| d["Id"] == id && d["Flow"] == 0) { return Err(crate::localization::text("请选择已记录的输出设备。").into()); }
+    if current && (snapshot["State"]["Defaults"]["0:1"] != id || snapshot["DolbyApplying"] == true) { return Err(crate::localization::text("请等待音效应用完成，并选择当前输出设备再读取。").into()); }
     Ok(())
 }
 pub fn save_request(snapshot: &Value, id: &str, profile: &Option<Profile>, expected: &Option<Profile>) -> Result<Value, String> {

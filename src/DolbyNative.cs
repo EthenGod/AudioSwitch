@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 // Version-pinned local DAX RPC adapter. Used only inside the isolated worker process.
@@ -39,7 +39,7 @@ namespace AudioSwitch { internal sealed class DolbyNative : IDolbyAccess, IDispo
  static void Setup(string path) {
   byte[] raw=File.ReadAllBytes(path); string hash;
   using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(raw)).Replace("-","");
-  if(hash!="12BA6E99D2DED86929A247ABD0A7181E6956B395AADBCCED507F1E97AB582FB8")throw new Exception("当前 Dolby Access 版本尚未验证，已停止应用；原配置仍保留。");
+  if(hash!="12BA6E99D2DED86929A247ABD0A7181E6956B395AADBCCED507F1E97AB582FB8")throw new Exception(L.Text("当前 Dolby Access 版本尚未验证，已停止应用；原配置仍保留。"));
   int pe=BitConverter.ToInt32(raw,60),optional=pe+24,sections=optional+BitConverter.ToUInt16(raw,pe+20);
   mapped=new byte[BitConverter.ToInt32(raw,optional+56)];
   for(int i=0;i<BitConverter.ToUInt16(raw,pe+6);i++) {int s=sections+40*i;Buffer.BlockCopy(raw,BitConverter.ToInt32(raw,s+20),mapped,BitConverter.ToInt32(raw,s+12),BitConverter.ToInt32(raw,s+16));}
@@ -82,7 +82,7 @@ namespace AudioSwitch { internal sealed class DolbyNative : IDolbyAccess, IDispo
  static string ComponentPath() {
   uint count=0,length=0;
   int result=GetPackagesByPackageFamily("DolbyLaboratories.DolbyAccess_rz1tebttyb220",ref count,IntPtr.Zero,ref length,IntPtr.Zero);
-  if(result!=122 || count==0 || count>64 || length>65536)throw new InvalidOperationException("未找到当前用户安装的 Dolby Access。");
+  if(result!=122 || count==0 || count>64 || length>65536)throw new InvalidOperationException(L.Text("未找到当前用户安装的 Dolby Access。"));
   var names=Alloc(checked((int)count*8));var buffer=Alloc(checked((int)length*2));
   Check(GetPackagesByPackageFamily("DolbyLaboratories.DolbyAccess_rz1tebttyb220",ref count,names,ref length,buffer),"Package");
   for(int i=0;i<count;i++) {
@@ -93,7 +93,7 @@ namespace AudioSwitch { internal sealed class DolbyNative : IDolbyAccess, IDispo
    string file=Path.Combine(path.ToString(),"DAXRPCClient.dll");
    if(File.Exists(file))return file;
   }
-  throw new InvalidOperationException("未找到 Dolby 后台组件。");
+  throw new InvalidOperationException(L.Text("未找到 Dolby 后台组件。"));
  }
  internal DolbyNative(string deviceId) {
   try {
@@ -103,18 +103,18 @@ namespace AudioSwitch { internal sealed class DolbyNative : IDolbyAccess, IDispo
    Check(RpcBindingFromStringBinding(text,out binding),"Binding");
    Check(RpcBindingSetOption(binding,12,new IntPtr(1200)),"Timeout");
    storage=Alloc(8);Call(0,binding,storage,IntPtr.Zero);context=Marshal.ReadIntPtr(storage);
-   if(context==IntPtr.Zero)throw new InvalidOperationException("Dolby 服务未建立连接。");
+   if(context==IntPtr.Zero)throw new InvalidOperationException(L.Text("Dolby 服务未建立连接。"));
    var user=Marshal.StringToBSTR(Environment.UserName);var endpoint=Marshal.StringToBSTR(id);
    try {
     var output=Alloc(8);Call(4,context,user,output);
-    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException("Dolby 服务初始化失败。");
+    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException(L.Text("Dolby 服务初始化失败。"));
     // InitializeEx accepts unsupported GUIDs, so the explicit membership check is mandatory.
     Call(92,context,endpoint,output);
-    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException("此设备未被 Dolby 驱动识别，已保留当前音效。");
+    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException(L.Text("此设备未被 Dolby 驱动识别，已保留当前音效。"));
     int offset=BitConverter.ToUInt16(mapped,0x16170+91*2);
-    if(BitConverter.ToUInt16(mapped,0x168e2+offset+6)!=91)throw new InvalidOperationException("Dolby 协议版本不匹配。");
+    if(BitConverter.ToUInt16(mapped,0x168e2+offset+6)!=91)throw new InvalidOperationException(L.Text("Dolby 协议版本不匹配。"));
     NdrClientCall2(stub,IntPtr.Add(image,0x168e2+offset),context,user,endpoint,output,IntPtr.Zero);
-    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException("Dolby 无法绑定此设备。");
+    if(Marshal.ReadInt16(output)!=-1)throw new InvalidOperationException(L.Text("Dolby 无法绑定此设备。"));
    }finally{Marshal.FreeBSTR(user);Marshal.FreeBSTR(endpoint);}
   }catch{Dispose();throw;}
  }

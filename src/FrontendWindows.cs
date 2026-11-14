@@ -15,7 +15,7 @@ namespace AudioSwitch
     internal static class PanelLaunch
     {
         internal static readonly string[] Files = { "AudioSwitch.exe", "AudioSwitch.exe.config", "vendor/svcl/svcl.exe", "vendor/svcl/readme.txt", "vendor/svcl/svcl.chm", "LICENSE", "NOTICE.txt", "THIRD_PARTY.md", "audio-switch-panel.exe", "THIRD-PARTY-FRONTEND.txt", "THIRD-PARTY-RUST.txt", "THIRD-PARTY-RUST-STDLIB.html", "CANDIDATE-README.txt" };
-        internal const string LegacyUpdateBlocked = "此目录包含新界面候选文件，不能用旧格式更新或局部修复。请将完整候选包重新解压到独立目录；整包升级尚未接入。";
+        internal static string LegacyUpdateBlocked { get { return L.Text("此目录包含新界面候选文件，不能用旧格式更新或局部修复。请将完整候选包重新解压到独立目录；整包升级尚未接入。"); } }
         internal static bool IsCandidate(string directory)
         {
             if (UpdatePackage.Exists(directory, "candidate-manifest.json") || UpdatePackage.Exists(directory, "CANDIDATE-README.txt")) return true;
@@ -35,14 +35,14 @@ namespace AudioSwitch
         internal static void Validate(string directory, string version) { Validate(directory, version, ValidateExecutable, UpdatePackage.IsDesktop(directory)); }
         internal static ProcessStartInfo Select(string backend, bool prompt, int owner, bool browser = false)
         {
-            if (owner <= 0) throw new ArgumentException("后台进程无效。");
+            if (owner <= 0) throw new ArgumentException(L.Text("后台进程无效。"));
             string directory = Path.GetDirectoryName(Path.GetFullPath(backend));
             string panel = Path.Combine(directory, "audio-switch-panel.exe");
             bool modern = IsModern(directory);
-            if (browser && (prompt || !modern)) throw new InvalidOperationException("浏览器面板需要完整桌面包。");
+            if (browser && (prompt || !modern)) throw new InvalidOperationException(L.Text("浏览器面板需要完整桌面包。"));
             if (modern) {
                 try { Validate(directory, AppVersion.Number); }
-                catch (Exception ex) { throw new InvalidOperationException("新面板文件不完整或版本不匹配，请重新解压完整" + (UpdatePackage.IsDesktop(directory) ? "桌面" : "候选") + "包到独立目录后再试。" + Environment.NewLine + ex.Message, ex); }
+                catch (Exception ex) { throw new InvalidOperationException(L.Text("新面板文件不完整或版本不匹配，请重新解压完整{0}包到独立目录后再试。{1}{2}", (UpdatePackage.IsDesktop(directory) ? L.Text("桌面") : L.Text("候选")), Environment.NewLine, ex.Message), ex); }
                 if (!browser) WebViewRuntime.Require(UpdatePackage.Desktop);
             }
             return new ProcessStartInfo(modern ? panel : backend, (browser ? "--browser" : prompt ? "--prompt" : modern ? "" : "--ui") + " --owner=" + owner) {
@@ -51,28 +51,28 @@ namespace AudioSwitch
         }
         internal static void Validate(string directory, string version, Action<string, string> verifyExecutable, bool desktop = false)
         {
-            if (desktop && IsCandidate(directory)) throw new InvalidDataException("正式桌面包不能混入候选文件。");
+            if (desktop && IsCandidate(directory)) throw new InvalidDataException(L.Text("正式桌面包不能混入候选文件。"));
             var expectedFiles = desktop ? UpdatePackage.DesktopContent : Files;
             string path = Path.Combine(directory, desktop ? "desktop-manifest.json" : "candidate-manifest.json");
             RejectLinks(path);
-            if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("缺少有效的候选清单。");
+            if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException(L.Text("缺少有效的候选清单。"));
             var json = new JavaScriptSerializer { MaxJsonLength = 1024 * 1024, RecursionLimit = 20 };
             var manifest = json.DeserializeObject(File.ReadAllText(path, new UTF8Encoding(false, true))) as Dictionary<string, object>;
-            if (manifest == null || Text(manifest, "Format") != (desktop ? "AudioSwitch.Desktop" : "AudioSwitch.UI.Candidate") || Number(manifest, "FormatVersion") != 1 || Text(manifest, "AppVersion") != version || Text(manifest, "Platform") != "win-x64") throw new InvalidDataException("界面包清单版本或平台不匹配。");
-            object rows; if (!manifest.TryGetValue("Files", out rows) || !(rows is object[])) throw new InvalidDataException("候选文件清单无效。");
+            if (manifest == null || Text(manifest, "Format") != (desktop ? "AudioSwitch.Desktop" : "AudioSwitch.UI.Candidate") || Number(manifest, "FormatVersion") != 1 || Text(manifest, "AppVersion") != version || Text(manifest, "Platform") != "win-x64") throw new InvalidDataException(L.Text("界面包清单版本或平台不匹配。"));
+            object rows; if (!manifest.TryGetValue("Files", out rows) || !(rows is object[])) throw new InvalidDataException(L.Text("候选文件清单无效。"));
             var files = (object[])rows;
-            if (files.Length != expectedFiles.Length) throw new InvalidDataException("界面包文件数量不匹配。");
+            if (files.Length != expectedFiles.Length) throw new InvalidDataException(L.Text("界面包文件数量不匹配。"));
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var row in files) {
                 var item = row as Dictionary<string, object>;
-                if (item == null) throw new InvalidDataException("候选文件记录无效。");
+                if (item == null) throw new InvalidDataException(L.Text("候选文件记录无效。"));
                 string name = Text(item, "Path"), expected = Text(item, "Sha256");
                 long length = Number(item, "Length");
-                if (!expectedFiles.Contains(name, StringComparer.Ordinal) || !seen.Add(name) || length <= 0 || length > 64L * 1024 * 1024 || expected == null || expected.Length != 64 || expected.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f'))) throw new InvalidDataException("界面包文件路径、大小或摘要无效。");
+                if (!expectedFiles.Contains(name, StringComparer.Ordinal) || !seen.Add(name) || length <= 0 || length > 64L * 1024 * 1024 || expected == null || expected.Length != 64 || expected.Any(c => !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f'))) throw new InvalidDataException(L.Text("界面包文件路径、大小或摘要无效。"));
                 string file = Path.Combine(directory, name); RejectLinks(file);
                 using (var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
                 using (var sha = SHA256.Create()) {
-                    if (stream.Length != length || BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant() != expected) throw new InvalidDataException("文件校验失败：" + name);
+                    if (stream.Length != length || BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant() != expected) throw new InvalidDataException(L.Text("文件校验失败：{0}", name));
                 }
             }
             verifyExecutable(Path.Combine(directory, "audio-switch-panel.exe"), version);
@@ -82,20 +82,20 @@ namespace AudioSwitch
         private static void RejectLinks(string path)
         {
             for (var item = new FileInfo(Path.GetFullPath(path)); item != null; item = item.Directory == null ? null : new FileInfo(item.Directory.FullName)) {
-                if ((File.Exists(item.FullName) || Directory.Exists(item.FullName)) && (File.GetAttributes(item.FullName) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("候选路径不能包含链接。");
+                if ((File.Exists(item.FullName) || Directory.Exists(item.FullName)) && (File.GetAttributes(item.FullName) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException(L.Text("候选路径不能包含链接。"));
             }
         }
         private static void ValidateExecutable(string path, string version)
         {
             using (var reader = new BinaryReader(File.OpenRead(path))) {
-                if (reader.ReadUInt16() != 0x5a4d) throw new InvalidDataException("面板不是 Windows 程序。");
+                if (reader.ReadUInt16() != 0x5a4d) throw new InvalidDataException(L.Text("面板不是 Windows 程序。"));
                 reader.BaseStream.Position = 0x3c; int offset = reader.ReadInt32();
-                if (offset < 64 || offset > reader.BaseStream.Length - 26) throw new InvalidDataException("面板程序头无效。");
+                if (offset < 64 || offset > reader.BaseStream.Length - 26) throw new InvalidDataException(L.Text("面板程序头无效。"));
                 reader.BaseStream.Position = offset;
-                if (reader.ReadUInt32() != 0x4550 || reader.ReadUInt16() != 0x8664) throw new InvalidDataException("面板不是 x64 程序。");
+                if (reader.ReadUInt32() != 0x4550 || reader.ReadUInt16() != 0x8664) throw new InvalidDataException(L.Text("面板不是 x64 程序。"));
             }
             var info = FileVersionInfo.GetVersionInfo(path);
-            if (info.FileMajorPart + "." + info.FileMinorPart + "." + info.FileBuildPart != version) throw new InvalidDataException("面板版本与后台不同。");
+            if (info.FileMajorPart + "." + info.FileMinorPart + "." + info.FileBuildPart != version) throw new InvalidDataException(L.Text("面板版本与后台不同。"));
         }
     }
 
@@ -118,7 +118,7 @@ namespace AudioSwitch
         private int browserPort;
         internal static void ValidateBrowserPort(int value)
         {
-            if (value < 0 || value > 65535) throw new ArgumentOutOfRangeException("value", "浏览器端口应为 1–65535，或用 0 自动分配。");
+            if (value < 0 || value > 65535) throw new ArgumentOutOfRangeException("value", L.Text("浏览器端口应为 1–65535，或用 0 自动分配。"));
         }
         // A saved port applies to the next host. Never break the browser saving it.
         internal void SetBrowserPort(int value) { ValidateBrowserPort(value); browserPort = value; }
@@ -147,7 +147,7 @@ namespace AudioSwitch
         }
         private void StartBrowser(bool open)
         {
-            if (selectBrowser == null) throw new InvalidOperationException("浏览器面板不可用。");
+            if (selectBrowser == null) throw new InvalidOperationException(L.Text("浏览器面板不可用。"));
             var info = selectBrowser();
             info.Arguments += " --browser-port=" + browserPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (keepBrowserOpen) info.Arguments += " --keep-browser";
@@ -177,7 +177,7 @@ namespace AudioSwitch
         private sealed class BrowserFrontend : IBrowserFrontend
         {
             private readonly Process process;
-            internal BrowserFrontend(Process process) { if (process == null) throw new InvalidOperationException("无法打开浏览器面板。"); this.process = process; }
+            internal BrowserFrontend(Process process) { if (process == null) throw new InvalidOperationException(L.Text("无法打开浏览器面板。")); this.process = process; }
             public int Id { get { return process.Id; } }
             public bool Exited { get { return process.HasExited; } }
             public void Activate() { process.StandardInput.WriteLine("open"); process.StandardInput.Flush(); }
@@ -197,7 +197,7 @@ namespace AudioSwitch
             [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
             [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
             [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
-            internal NativeFrontend(Process process, bool modern, bool prompt) { if (process == null) throw new InvalidOperationException("无法启动界面。"); this.process = process; title = modern ? (prompt ? "声间 设备提示" : "声间 设备面板") : null; }
+            internal NativeFrontend(Process process, bool modern, bool prompt) { if (process == null) throw new InvalidOperationException(L.Text("无法启动界面。")); this.process = process; title = modern ? (prompt ? L.Text("声间 设备提示") : L.Text("声间 设备面板")) : null; }
             public int Id { get { return process.Id; } }
             public bool Exited { get { return process.HasExited; } }
             private IntPtr WindowHandle() {

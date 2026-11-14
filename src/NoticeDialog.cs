@@ -14,7 +14,7 @@ namespace AudioSwitch
         {
             SuspendLayout(); AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
             Font = new Font("Microsoft YaHei UI", 9F);
-            Text = "声间 " + title; FormBorderStyle = FormBorderStyle.FixedDialog;
+            Text = L.Text("声间 {0}", title); FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false; StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
             var glyph = new NoticeGlyph(error); glyph.SetBounds(24, 24, 24, 24); Controls.Add(glyph);
             var heading = Palette.Label(title, 15, Theme.Text, true); heading.SetBounds(60, 20, 474, 32); Controls.Add(heading);
@@ -25,15 +25,15 @@ namespace AudioSwitch
             int footer = card.Bottom + 16; ClientSize = new Size(560, footer + 56);
             var status = Palette.Label("", 9, Theme.Muted, false); status.AccessibleRole = AccessibleRole.StatusBar;
             status.SetBounds(142, footer, confirm ? 152 : 270, 36); Controls.Add(status);
-            var copy = new FlatAction("复制详情", false) { Name = "copyDetails" }; copy.SetBounds(24, footer, 106, 36); Controls.Add(copy);
+            var copy = new FlatAction(L.Text("复制详情"), false) { Name = "copyDetails" }; copy.SetBounds(24, footer, 106, 36); Controls.Add(copy);
             copy.Click += delegate {
-                try { Clipboard.SetText(message ?? ""); status.Text = "详情已复制"; }
-                catch { status.Text = "暂时无法复制，请重试。"; }
+                try { Clipboard.SetText(message ?? ""); status.Text = L.Text("详情已复制"); }
+                catch { status.Text = L.Text("暂时无法复制，请重试。"); }
             };
-            var accept = new FlatAction(confirm ? "确认导入" : "知道了", true) { Name = "noticeAccept", DialogResult = DialogResult.OK };
+            var accept = new FlatAction(confirm ? L.Text("确认导入") : L.Text("知道了"), true) { Name = "noticeAccept", DialogResult = DialogResult.OK };
             accept.SetBounds(424, footer, 112, 36); Controls.Add(accept); AcceptButton = accept;
             if (confirm) {
-                var cancel = new FlatAction("取消", false) { Name = "noticeCancel", DialogResult = DialogResult.Cancel };
+                var cancel = new FlatAction(L.Text("取消"), false) { Name = "noticeCancel", DialogResult = DialogResult.Cancel };
                 cancel.SetBounds(306, footer, 106, 36); Controls.Add(cancel); CancelButton = cancel;
                 ActiveControl = cancel; // Enter must not confirm a replacement accidentally.
             } else { CancelButton = accept; ActiveControl = accept; }
@@ -53,7 +53,7 @@ namespace AudioSwitch
             internal NoticeBody(string message)
             {
                 BackColor = Palette.Card;
-                string visible = message.Length > 24000 ? message.Substring(0, 24000) + "\n\n内容较长，请复制详情查看完整内容。" : message;
+                string visible = message.Length > 24000 ? L.Text("{0}\n\n内容较长，请复制详情查看完整内容。", message.Substring(0, 24000)) : message;
                 var label = Palette.Label(visible, 9, Palette.Text, false); label.AutoEllipsis = false; label.UseMnemonic = false;
                 MessageHeight = TextRenderer.MeasureText(visible, label.Font, new Size(454, Int32.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix | TextFormatFlags.TextBoxControl).Height + 8;
                 label.SetBounds(0, 0, 454, MessageHeight); Canvas.Controls.Add(label);

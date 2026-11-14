@@ -13,7 +13,7 @@ namespace AudioSwitch
         internal static readonly string[] DesktopFiles = DesktopContent.Concat(new[] { "desktop-manifest.json" }).ToArray();
         internal static string[] Files(int format)
         {
-            if (format != Legacy && format != Desktop) throw new InvalidDataException("不支持的更新包格式。");
+            if (format != Legacy && format != Desktop) throw new InvalidDataException(L.Text("不支持的更新包格式。"));
             return format == Desktop ? DesktopFiles : AppUpdate.Files;
         }
         internal static bool Exists(string directory, string name) { string path = Path.Combine(directory, name); return File.Exists(path) || Directory.Exists(path); }
@@ -23,7 +23,7 @@ namespace AudioSwitch
         {
             Files(format);
             if (PanelLaunch.IsCandidate(directory)) throw new InvalidDataException(PanelLaunch.LegacyUpdateBlocked);
-            if (format == Legacy && IsDesktop(directory)) throw new InvalidDataException("新界面目录必须使用完整桌面包，不能安装旧格式包或局部修复。");
+            if (format == Legacy && IsDesktop(directory)) throw new InvalidDataException(L.Text("新界面目录必须使用完整桌面包，不能安装旧格式包或局部修复。"));
         }
         internal static void RequirePayload(string directory, int format)
         {

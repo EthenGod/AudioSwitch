@@ -94,7 +94,7 @@ namespace AudioSwitch
                             Token = Guid.NewGuid().ToString("N"), Flow = group.Key,
                             NewDevices = new List<Endpoint>(),
                             PreviousDefaults = new Dictionary<string, string>(Current.Defaults),
-                            PreviousName = old == null ? "之前没有可用的默认设备" : old.Name
+                            PreviousName = old == null ? L.Text("之前没有可用的默认设备") : old.Name
                         };
                         Pending.Add(pending);
                     }
@@ -129,6 +129,7 @@ namespace AudioSwitch
         internal bool AutomaticUpdatesAllowed { get { return AutoUpdateEnabled && !GameMode; } }
         public bool DarkMode { get; set; }
         public string UiStyle { get; set; }
+        public string Language { get; set; }
         public bool AskOnConnect { get; set; }
         public bool IncludeCommunications { get; set; }
         public Dictionary<string, DeviceProfile> DeviceProfiles { get; set; }
@@ -152,6 +153,7 @@ namespace AudioSwitch
         public bool Value { get; set; }
         public int? BrowserPort { get; set; }
         public string UiStyle { get; set; }
+        public string Language { get; set; }
         public DeviceProfile Profile { get; set; }
         // Optimistic check for the basic editor; Dolby remains owned by the backend.
         public string DeviceAlias { get; set; }
@@ -172,6 +174,7 @@ namespace AudioSwitch
     {
         public PanelDolbyOperation DolbyOperation { get; set; }
         public int PanelApiVersion { get; set; }
+        public string ResolvedLanguage { get; set; }
         public string OperationError { get; set; }
         public bool PreferencesSaved { get; set; }
         public BackgroundUpdateState Update { get; set; }

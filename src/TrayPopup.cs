@@ -106,8 +106,8 @@ namespace AudioSwitch
         private void Dispatch(TrayCommand command, Action<IList<TrayCommand>, string> complete)
         {
             lock (sync) {
-                if (disposed) { complete(null, "声间正在退出。"); return; }
-                if (commandPending) { complete(null, "请等待上一次操作完成。"); return; }
+                if (disposed) { complete(null, L.Text("声间正在退出。")); return; }
+                if (commandPending) { complete(null, L.Text("请等待上一次操作完成。")); return; }
                 commandPending = true;
             }
             try { post(() => {
@@ -115,7 +115,7 @@ namespace AudioSwitch
                 try { command.Execute(); } catch (Exception ex) { message = ex.Message; }
                 try { if (snapshot != null) next = snapshot(); } catch (Exception ex) { message = message ?? ex.Message; }
                 lock (sync) commandPending = false;
-                complete(next, message ?? (next == null ? "状态未能刷新，请重新打开菜单。" : null));
+                complete(next, message ?? (next == null ? L.Text("状态未能刷新，请重新打开菜单。") : null));
             }); } catch (Exception ex) { lock (sync) commandPending = false; complete(null, ex.Message); }
         }
         private void CloseCurrent()
@@ -153,7 +153,7 @@ namespace AudioSwitch
         private double pageAmount = 1, pageDuration = 250;
         private int pageDistance;
         private Rectangle pageBoundsFrom, pageBoundsTo;
-        private int pageHeader, pageFooter, pageListHeight, pageContentHeight;
+        private int pageHeader, pageFooter, pageListHeight, pageContentHeight, contentWidth;
         private bool closing, shown;
         private int topColumn;
         private int navigationVersion;
@@ -177,7 +177,7 @@ namespace AudioSwitch
             regular = new Font("Microsoft YaHei UI", 10.5F * textScale);
             strong = new Font(regular, FontStyle.Bold); caption = new Font("Microsoft YaHei UI", 9F * textScale);
             Font = regular; AutoScaleMode = AutoScaleMode.None;
-            Text = "声间 快捷菜单"; AccessibleName = Text;
+            Text = L.Text("声间 快捷菜单"); AccessibleName = Text;
             FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
             BackColor = theme.Card; ForeColor = theme.Text; KeyPreview = true;
             DoubleBuffered = true;
@@ -186,8 +186,8 @@ namespace AudioSwitch
             motion = animations ?? (SystemInformation.IsMenuAnimationEnabled && SystemParametersInfo(0x1042, 0, out enabled, 0) && enabled != 0);
             list = new PopupViewport(theme, scale);
             presentationOpacity = motion ? 0 : 1;
-            back = new PopupRow(this, new TrayCommand("返回快捷菜单", TrayGlyph.Back), theme, regular, caption, scale, false, true);
-            back.TabIndex = 0; Controls.Add(back); tooltips.SetToolTip(back, "返回");
+            back = new PopupRow(this, new TrayCommand(L.Text("返回快捷菜单"), TrayGlyph.Back), theme, regular, caption, scale, false, true);
+            back.TabIndex = 0; Controls.Add(back); tooltips.SetToolTip(back, L.Text("返回"));
             Controls.Add(list);
             status.Font = caption; status.ForeColor = theme.Danger; status.AccessibleRole = AccessibleRole.Alert;
             status.Visible = false; Controls.Add(status);
@@ -213,10 +213,13 @@ namespace AudioSwitch
         internal void UpdateSnapshot(IList<TrayCommand> commands)
         {
             if (commands == null || IsDisposed) return;
+            Text = L.Text("声间 快捷菜单"); AccessibleName = Text;
+            back.UpdateCommand(new TrayCommand(L.Text("返回快捷菜单"), TrayGlyph.Back));
+            tooltips.SetToolTip(back, L.Text("返回"));
             string pageKey = page == null ? null : page.Key;
             var nextPage = pageKey == null ? null : commands.FirstOrDefault(c => c.Key == pageKey);
             var next = nextPage == null ? commands : nextPage.Children;
-            bool sameRows = (page == null) == (nextPage == null) && rows.Count == next.Count && rows.Select(r => r.Command.Key).SequenceEqual(next.Select(c => c.Key));
+            bool sameRows = (page == null) == (nextPage == null) && rows.Count == next.Count && rows.Select(r => r.Command.Key).SequenceEqual(next.Select(c => c.Key)) && contentWidth == MeasureContentWidth(commands);
             var focus = rows.FirstOrDefault(r => r.Focused); string focusKey = focus == null ? null : focus.Command.Key;
             int offset = list.Offset;
             home = commands; page = nextPage;
@@ -253,7 +256,10 @@ namespace AudioSwitch
             list.SuspendLayout();
             foreach (var row in rows) { tooltips.SetToolTip(row, null); list.Content.Controls.Remove(row); row.Dispose(); }
             rows.Clear(); list.ScrollTo(0);
-            int width = S(288), y = 0;
+            // Translations can need wider shortcut tiles. Keep a common width on
+            // both pages so navigation does not resize the horizontal frame.
+            contentWidth = MeasureContentWidth(home);
+            int width = contentWidth, y = 0;
             var entries = page == null ? home : page.Children;
             for (int i = 0; i < entries.Count; i++) {
                 var item = entries[i];
@@ -270,6 +276,11 @@ namespace AudioSwitch
             list.Content.ResumeLayout(false); list.ResumeLayout(false); ResumeLayout(false);
             RepaintSurface();
         }
+        private int MeasureContentWidth(IList<TrayCommand> commands)
+        {
+            int shortcut = commands.Take(2).Select(item => TextRenderer.MeasureText(item.Text, regular).Width).DefaultIfEmpty(0).Max();
+            return Math.Min(Screen.FromPoint(anchor).WorkingArea.Width - S(24), Math.Max(S(288), (shortcut + S(46)) * 2 + S(6)));
+        }
         private void RepaintSurface()
         {
             // Layered windows retain a composited surface: repaint every child after resizing,
@@ -279,7 +290,7 @@ namespace AudioSwitch
         }
         private void LayoutPage()
         {
-            int width = S(288), y = rows.Count == 0 ? 0 : rows.Max(r => r.Bottom);
+            int width = contentWidth, y = rows.Count == 0 ? 0 : rows.Max(r => r.Bottom);
             var area = Screen.FromPoint(anchor).WorkingArea;
             int statusHeight = String.IsNullOrEmpty(status.Text) ? 0 : Math.Min(S(84), TextRenderer.MeasureText(status.Text, caption, new Size(width, 0), TextFormatFlags.WordBreak).Height) + S(8);
             int header = S(page == null ? 6 : 40), footer = S(6) + statusHeight, available = Math.Max(S(90), area.Height - S(24) - header - footer);
@@ -301,9 +312,9 @@ namespace AudioSwitch
         {
             // Keep the content clipped inside the currently visible border throughout a resize.
             // Use the destination's scroll state so a short page does not flash a temporary rail.
-            list.Bounds = new Rectangle(S(6), pageHeader, S(288), Math.Max(0, Math.Min(pageListHeight, Height - pageHeader - pageFooter)));
+            list.Bounds = new Rectangle(S(6), pageHeader, contentWidth, Math.Max(0, Math.Min(pageListHeight, Height - pageHeader - pageFooter)));
             list.Configure(pageContentHeight, pageContentHeight > pageListHeight);
-            status.SetBounds(S(6), Height - pageFooter + S(4), S(288), Math.Max(0, pageFooter - S(10)));
+            status.SetBounds(S(6), Height - pageFooter + S(4), contentWidth, Math.Max(0, pageFooter - S(10)));
         }
         private void AdvancePageBounds(double t)
         {
@@ -389,7 +400,7 @@ namespace AudioSwitch
             if (command.Execute == null) return;
             if (command.KeepOpen) {
                 if (Busy) return;
-                if (dispatch == null) { SetStatus("当前菜单未连接后台，请重新打开。"); return; }
+                if (dispatch == null) { SetStatus(L.Text("当前菜单未连接后台，请重新打开。")); return; }
                 pendingKey = command.Key; SetStatus(null);
                 int version = navigationVersion;
                 foreach (var row in rows) row.UpdateCommand(row.Command);
@@ -567,7 +578,7 @@ namespace AudioSwitch
                 {
                     this.viewport = viewport; this.theme = theme; this.scale = scale; BackColor = theme.Card;
                     SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
-                    AccessibleRole = AccessibleRole.ScrollBar; AccessibleName = "设备列表滚动条"; TabStop = false;
+                    AccessibleRole = AccessibleRole.ScrollBar; AccessibleName = L.Text("设备列表滚动条"); TabStop = false;
                 }
                 internal void UpdateTheme(PopupTheme value) { theme = value; BackColor = theme.Card; Invalidate(); }
                 private RectangleF Thumb()
@@ -723,7 +734,7 @@ namespace AudioSwitch
                 internal RowAccessibility(PopupRow row) : base(row) { this.row = row; }
                 public override AccessibleRole Role { get { return row.Command.Toggle ? AccessibleRole.CheckButton : AccessibleRole.PushButton; } }
                 public override AccessibleStates State { get { return base.State | (row.Command.Checked ? AccessibleStates.Checked : AccessibleStates.None) | (row.owner.IsClosing || (row.owner.Busy && row.Command.KeepOpen) ? AccessibleStates.Unavailable : AccessibleStates.None); } }
-                public override string DefaultAction { get { return row.Command.Children != null ? "打开" : "选择"; } }
+                public override string DefaultAction { get { return row.Command.Children != null ? L.Text("打开") : L.Text("选择"); } }
                 public override void DoDefaultAction() { if (row.Enabled) row.PerformClick(); }
             }
             protected override void Dispose(bool disposing) { if (disposing) icon.Dispose(); base.Dispose(disposing); }

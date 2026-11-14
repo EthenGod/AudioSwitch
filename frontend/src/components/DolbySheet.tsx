@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import type { Device, Snapshot, UiGateway } from '@/data/types'
 import { dolbyProfile, emptyDolby, frequencies, toTen, toTwenty, type DolbyProfile, type DolbyRead } from '@/data/dolby'
@@ -14,7 +15,7 @@ import { UpgradeScroll } from './UpgradeScroll'
 function NumberField({ value, onValue, min, max, step, label, description, disabled = false }: { value: number | null; onValue: (v: number) => void; min: number; max: number; step: number; label: string; description?: string; disabled?: boolean }) {
   const [text, setText] = useState(value === null ? '' : String(value))
   useEffect(() => { setText(value === null ? '' : String(value)) }, [value])
-  return <input aria-label={label} aria-description={description} type="number" min={min} max={max} step={step} disabled={disabled} placeholder={value === null ? '保持不变' : undefined} value={text} onChange={e => {
+  return <input aria-label={label} aria-description={description} type="number" min={min} max={max} step={step} disabled={disabled} placeholder={value === null ? t("保持不变") : undefined} value={text} onChange={e => {
     setText(e.target.value); const n = e.target.valueAsNumber
     if (Number.isFinite(n) && n >= min && n <= max && (step !== 1 || Number.isInteger(n))) onValue(n)
   }} onBlur={() => setText(value === null ? '' : String(value))} />
@@ -50,10 +51,10 @@ function StrengthValue({ label, value, disabled, onValue }: { label: string; val
   return <div className="dolby-strength-value" data-visible={visible} aria-hidden={!visible || undefined} inert={!visible}>
     <Tooltip.Root disabled={disabled || !visible} open={helpOpen && visible && !disabled} onOpenChange={next => setHelpOpen(next && !focused())}>
       <Tooltip.Trigger render={<div ref={inputArea} />} className="strength-input" delay={250} closeDelay={150} onPointerDown={closeHelp} onFocusCapture={closeHelp}>
-        <NumberField label={`${label}百分比`} description="实际强度可能按驱动档位取整" min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
+        <NumberField label={t("{0}百分比", label)} description={t("实际强度可能按驱动档位取整")} min={0} max={100} step={0.01} disabled={disabled || !visible} value={Number((last.current * 100).toFixed(8))} onValue={onValue} />
       </Tooltip.Trigger>
       <Tooltip.Portal><Tooltip.Positioner className="strength-help-positioner" side="top" align="end" sideOffset={8}>
-        <Tooltip.Popup role="tooltip" className="strength-help-popup">实际强度可能按驱动档位取整</Tooltip.Popup>
+        <Tooltip.Popup role="tooltip" className="strength-help-popup">{t("实际强度可能按驱动档位取整")}</Tooltip.Popup>
       </Tooltip.Positioner></Tooltip.Portal>
     </Tooltip.Root>
     <span className="strength-unit">%</span>
@@ -70,20 +71,20 @@ export function DolbyFields({ value: p, onChange, disabled = false }: { value: D
     const next = [...ten]; next[index] = value; change('Eq', toTwenty(next))
   }
   return <div className="dolby-fields">
-    <div className="dolby-preset-label"><label htmlFor="dolby-preset">Dolby 预设</label>{custom && <span className="role-badge">设备共享</span>}</div><Select disabled={disabled} id="dolby-preset" label="Dolby 预设" value={p.MainProfile === 0 ? 'movie' : custom ? String(p.SubProfile) : 'keep'} onValueChange={preset => {
+    <div className="dolby-preset-label"><label htmlFor="dolby-preset">{t("Dolby 预设")}</label>{custom && <span className="role-badge">{t("设备共享")}</span>}</div><Select disabled={disabled} id="dolby-preset" label={t("Dolby 预设")} value={p.MainProfile === 0 ? 'movie' : custom ? String(p.SubProfile) : 'keep'} onValueChange={preset => {
       onChange({ ...p, MainProfile:preset === 'movie' ? 0 : preset === 'keep' ? null : 4, SubProfile:preset === '4' ? 4 : preset === '5' ? 5 : null, Ieq:preset === 'movie' ? p.Ieq : null, Eq:preset === '4' || preset === '5' ? p.Eq : null })
-    }} options={[{ value: 'keep', label: '保持当前预设' }, { value: 'movie', label: '电影' }, { value: '4', label: '自定义 1' }, { value: '5', label: '自定义 2' }]} />
-    <div className="dolby-grid">{([['Enabled','Dolby 总开关'],['Surround','环绕虚拟化'],['Dialog','人声增强'],['Leveler','音量平衡'],['AutoSwitch','内容自动切换']] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: '保持不变' }, { value: 'on', label: '开启' }, { value: 'off', label: '关闭' }]} /></div>)}</div>
-    <div className="dolby-strengths">{([['SurroundStrength','环绕强度'],['DialogStrength','人声强度'],['LevelerStrength','音量平衡强度']] as const).map(([key,label]) => <div key={key} className="dolby-strength"><span className="dolby-strength-label" id={`dolby-${key}-label`}>{label}</span><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} aria-labelledby={`dolby-${key}-label`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
-    <label htmlFor="dolby-ieq">智能均衡器（电影）</label><Select id="dolby-ieq" label="智能均衡器（电影）" disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: '保持不变' }, { value: '0', label: '关闭' }, { value: '2', label: '平衡' }]} />
-    <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">均衡器（自定义预设）</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
-      <div className="dolby-eq-toolbar"><div className="segmented dolby-views" aria-label="均衡器视图"><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>10 点 dB</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>20 段原始值</Button></div><span className="dolby-eq-range">{advanced ? '−192～192 驱动单位' : '−12～12 dB'}</span></div>
+    }} options={[{ value: 'keep', label: t("保持当前预设") }, { value: 'movie', label: t("电影") }, { value: '4', label: t("自定义 1") }, { value: '5', label: t("自定义 2") }]} />
+    <div className="dolby-grid">{([['Enabled',t("Dolby 总开关")],['Surround',t("环绕虚拟化")],['Dialog',t("人声增强")],['Leveler',t("音量平衡")],['AutoSwitch',t("内容自动切换")]] as const).map(([key,label]) => <div className="dolby-field" key={key}><label htmlFor={`dolby-${key}`}>{label}</label><Select disabled={disabled} id={`dolby-${key}`} label={label} value={p[key] === null ? 'keep' : p[key] ? 'on' : 'off'} onValueChange={value => change(key, value === 'keep' ? null : value === 'on')} options={[{ value: 'keep', label: t("保持不变") }, { value: 'on', label: t("开启") }, { value: 'off', label: t("关闭开关") }]} /></div>)}</div>
+    <div className="dolby-strengths">{([['SurroundStrength',t("环绕强度")],['DialogStrength',t("人声强度")],['LevelerStrength',t("音量平衡强度")]] as const).map(([key,label]) => <div key={key} className="dolby-strength"><span className="dolby-strength-label" id={`dolby-${key}-label`}>{label}</span><StrengthValue label={label} value={p[key]} disabled={disabled} onValue={n => change(key, n / 100)} /><Switch disabled={disabled} id={`dolby-${key}`} aria-labelledby={`dolby-${key}-label`} checked={p[key] !== null} onCheckedChange={checked => change(key, checked ? 0.5 : null)} /></div>)}</div>
+    <label htmlFor="dolby-ieq">{t("智能均衡器（电影）")}</label><Select id="dolby-ieq" label={t("智能均衡器（电影）")} disabled={disabled || p.MainProfile !== 0} value={String(p.Ieq ?? 'keep')} onValueChange={value => change('Ieq', value === 'keep' ? null : Number(value) as 0 | 2)} options={[{ value: 'keep', label: t("保持不变") }, { value: '0', label: t("关闭开关") }, { value: '2', label: t("平衡") }]} />
+    <section className="sheet-section"><div className="volume-toggle"><label htmlFor="dolby-eq-enabled">{t("均衡器（自定义预设）")}</label><Switch id="dolby-eq-enabled" disabled={disabled || !custom} checked={p.Eq !== null} onCheckedChange={checked => change('Eq', checked ? [...rememberedEq.current] : null)} /></div>
+      <div className="dolby-eq-toolbar"><div className="segmented dolby-views" aria-label={t("均衡器视图")}><Button type="button" variant="ghost" aria-pressed={!advanced} onClick={() => setAdvanced(false)}>{t("10 点 dB")}</Button><Button type="button" variant="ghost" aria-pressed={advanced} onClick={() => setAdvanced(true)}>{t("20 段原始值")}</Button></div><span className="dolby-eq-range">{advanced ? t("−192～192 驱动单位") : '−12～12 dB'}</span></div>
       <Crossfade value={advanced ? 'raw' : 'curve'} panes={[
-        { key: 'curve', render: () => <fieldset className="dolby-eq dolby-eq-curve" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
-          {ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={`${frequencies[i]} dB 滑块`} value={v} onValue={n => editTen(i,n)} /></label>)}
+        { key: 'curve', render: () => <fieldset className="dolby-eq dolby-eq-curve" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">{t("均衡器数值")}</legend>
+          {ten.map((v,i) => <label key={i}><span>{frequencies[i]}</span><NumberField label={`${frequencies[i]} dB`} min={-12} max={12} step={0.01} value={v} onValue={n => editTen(i,n)} /><EqSlider label={t("{0} dB 滑块", frequencies[i])} value={v} onValue={n => editTen(i,n)} /></label>)}
         </fieldset> },
-        { key: 'raw', render: () => <fieldset className="dolby-eq" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">均衡器数值</legend>
-          {raw.map((v,i) => <label key={i}>第 {i+1} 段<NumberField label={`第 ${i+1} 段原始值`} min={-192} max={192} step={1} value={v} onValue={n => { if (!advanced) return; const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>)}
+        { key: 'raw', render: () => <fieldset className="dolby-eq" disabled={disabled || !custom || p.Eq === null}><legend className="sr-only">{t("均衡器数值")}</legend>
+          {raw.map((v,i) => <label key={i}>{t("第 {0} 段", i+1)}<NumberField label={t("第 {0} 段原始值", i+1)} min={-192} max={192} step={1} value={v} onValue={n => { if (!advanced) return; const next = [...raw]; next[i] = n; change('Eq', next) }} /></label>)}
         </fieldset> },
       ]} />
     </section>
@@ -109,14 +110,14 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
   function accept(value: DolbyRead, fill = true) {
     current.current = value
     if (!alive.current) return
-    setJob(value); setMessage(!fill && value.Status === 'ready' ? '读取已经结束；本次未替换编辑草稿。' : value.Message)
+    setJob(value); setMessage(!fill && value.Status === 'ready' ? t("读取已经结束；本次未替换编辑草稿。") : value.Message)
     if (fill && !cancelling.current && !closeRequested.current && value.Status === 'ready' && value.Profile) { setDraft(value.Profile); setEnabled(true) }
   }
   useEffect(() => { alive.current = true; return () => { alive.current = false; if (current.current?.Status === 'running') void gateway.cancelDolbyRead(current.current.Token).catch(() => {}) } }, [gateway])
   useEffect(() => {
     if (!job || !running || closing || error) return
     let active = true
-    const timer = setTimeout(() => { gateway.readDolby(job.Token).then(value => { if (active) accept(value) }).catch(e => { if (active) setError(e instanceof Error ? e.message : '读取失败，原草稿已保留。') }) }, 250)
+    const timer = setTimeout(() => { gateway.readDolby(job.Token).then(value => { if (active) accept(value) }).catch(e => { if (active) setError(e instanceof Error ? e.message : t("读取失败，原草稿已保留。")) }) }, 250)
     return () => { active = false; clearTimeout(timer) }
   }, [job, running, closing, error, gateway])
   async function stop(close: boolean) {
@@ -126,7 +127,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
     if (lock.current) { if (close) { closeRequested.current = true; setClosing(true) }; return }
     lock.current = true; setClosing(true); setError('')
     try { if (current.current?.Status === 'running') accept(await gateway.cancelDolbyRead(current.current.Token), false); if (close && alive.current) onClose() }
-    catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '尚未确认读取停止，请重试。') }
+    catch (e) { if (alive.current) setError(e instanceof Error ? e.message : t("尚未确认读取停止，请重试。")) }
     finally { lock.current = false; closeRequested.current = false; cancelling.current = false; if (alive.current) setClosing(false) }
   }
   async function start() {
@@ -138,7 +139,7 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
         if (value.Status === 'running') accept(await gateway.cancelDolbyRead(value.Token), false)
         if (alive.current && closeRequested.current) onClose()
       }
-    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '读取失败，原草稿已保留。') }
+    } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : t("读取失败，原草稿已保留。")) }
     finally { lock.current = false; closeRequested.current = false; cancelling.current = false; if (alive.current) { setStarting(false); setClosing(false) } }
   }
   async function save() {
@@ -146,35 +147,35 @@ export function DolbySheet({ device, snapshot, gateway, readOnly, onClose: finis
     lock.current = saveLock.current = true; setSaving(true); setError('')
     try { const next = await gateway.saveDolby(device.Id, enabled ? dolbyProfile(draft) : null, baseline); onSaved(next); onClose() }
     catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败，草稿已保留。')
+      setError(e instanceof Error ? e.message : t("保存失败，草稿已保留。"))
       if (e instanceof OperationFailure) { if (e.requiresRefresh) setUncertain(true); onFailure(e) }
     } finally { lock.current = saveLock.current = false; setSaving(false) }
   }
-  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent nested className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel="关闭 Dolby 编辑器">
-    <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">Dolby 方案</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? '（离线）' : ''}</SheetDescription></header>
-    {!desktop && <div className="sheet-preview">界面预览，操作不会改变系统设置</div>}
+  return <Sheet open={open} onOpenChangeComplete={value => { if (!value) finishClose() }} onOpenChange={open => { if (!open) void stop(true) }}><SheetContent nested className="dolby-sheet" initialFocus={heading} closeDisabled={saving || closing} closeLabel={t("关闭 Dolby 编辑器")}>
+    <header className="sheet-header"><SheetTitle ref={heading} tabIndex={-1} className="sheet-title">{t("Dolby 方案")}</SheetTitle><SheetDescription className="sheet-description">{device.Name}{!device.Online ? t("（离线）") : ''}</SheetDescription></header>
+    {!desktop && <div className="sheet-preview">{t("界面预览，操作不会改变系统设置")}</div>}
     <UpgradeScroll className="dolby-scroll">
-      {!supported && <p role="status">当前后台暂不支持新 Dolby 编辑器，请使用新版后台</p>}
-      <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? '读取当前 Dolby 并填入' : '模拟读取 Dolby 并填入'}</Button>
-      {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">切换到此设备后才能读取或立即应用</p>}
-      {(starting || running || closing) && <p role="status">{closing ? '正在取消并等待读取退出…' : '正在读取 Dolby…'}</p>}
+      {!supported && <p role="status">{t("当前后台暂不支持新 Dolby 编辑器，请使用新版后台")}</p>}
+      <Button variant="outline" disabled={blocked || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying} onClick={() => void start()}>{desktop ? t("读取当前 Dolby 并填入") : t("模拟读取 Dolby 并填入")}</Button>
+      {snapshot.Defaults['0:1'] !== device.Id && <p className="field-help">{t("切换到此设备后才能读取或立即应用")}</p>}
+      {(starting || running || closing) && <p role="status">{closing ? t("正在取消并等待读取退出…") : t("正在读取 Dolby…")}</p>}
       {message && <p role={job?.Status === 'error' ? 'alert' : 'status'}>{message}</p>}
       {error && <p role="alert" className="field-help">{error}</p>}
-      {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>重新读取状态</Button>}
-      <div className="volume-toggle"><label htmlFor="use-dolby">成为输出时自动应用此方案</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
-      <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">Dolby 参数</legend><DolbyFields value={draft} onChange={setDraft} disabled={blocked || !enabled} /></fieldset>
+      {running && error && <Button variant="outline" disabled={closing} onClick={() => setError('')}>{t("重新读取状态")}</Button>}
+      <div className="volume-toggle"><label htmlFor="use-dolby">{t("成为输出时自动应用此方案")}</label><Switch id="use-dolby" checked={enabled} disabled={blocked} onCheckedChange={setEnabled} /></div>
+      <fieldset className="dolby-controls" disabled={blocked || !enabled}><legend className="sr-only">{t("Dolby 参数")}</legend><DolbyFields value={draft} onChange={setDraft} disabled={blocked || !enabled} /></fieldset>
     </UpgradeScroll>
     <footer className="sheet-footer">
       {application.job && <p role={['error','warning','cancelled'].includes(application.job.Status) ? 'alert' : 'status'}>{application.job.Message}</p>}
       {application.error && <p role="alert">{application.error}</p>}
-      <div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>{application.job ? '关闭' : '取消'}</Button>
-        {running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>取消读取</Button>}
-        {application.busy && <Button variant="outline" onClick={() => void application.cancel()}>取消应用</Button>}
-        {application.error && application.busy && <Button variant="outline" onClick={application.retry}>检查本次应用</Button>}
-        <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? '正在保存…' : desktop ? '仅保存' : '仅保存（模拟）'}</Button>
-        <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? '保存并应用' : '保存并应用（模拟）'}</Button>
+      <div><Button variant="outline" disabled={saving || closing} onClick={() => void stop(true)}>{application.job ? t("关闭") : t("取消")}</Button>
+        {running && <Button variant="outline" disabled={closing} onClick={() => void stop(false)}>{t("取消读取")}</Button>}
+        {application.busy && <Button variant="outline" onClick={() => void application.cancel()}>{t("取消应用")}</Button>}
+        {application.error && application.busy && <Button variant="outline" onClick={application.retry}>{t("检查本次应用")}</Button>}
+        <Button variant="outline" disabled={blocked} onClick={() => void save()}>{saving ? t("正在保存…") : desktop ? t("仅保存") : t("仅保存（模拟）")}</Button>
+        <Button disabled={blocked || !enabled || !device.Online || snapshot.Defaults['0:1'] !== device.Id || !!snapshot.DolbyApplying || (desktop && !snapshot.CanApplyDolby)} onClick={() => { const p = dolbyProfile(draft); if (p) void application.start(p, baseline) }}>{desktop ? t("保存并应用") : t("保存并应用（模拟）")}</Button>
       </div>
-      {desktop && !snapshot.CanApplyDolby && <p>当前后台不支持此处立即应用，可继续仅保存</p>}
+      {desktop && !snapshot.CanApplyDolby && <p>{t("当前后台不支持此处立即应用，可继续仅保存")}</p>}
     </footer>
   </SheetContent></Sheet>
 }

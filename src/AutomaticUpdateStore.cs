@@ -41,7 +41,7 @@ namespace AudioSwitch
         {
             if (!File.Exists(PathName)) return null;
             UpdateInstaller.RejectLinks(PathName);
-            if (new FileInfo(PathName).Length > 65536) throw new InvalidDataException("待安装更新记录过大。");
+            if (new FileInfo(PathName).Length > 65536) throw new InvalidDataException(L.Text("待安装更新记录过大。"));
             var item = Wire.Decode<PendingUpdate>(File.ReadAllText(PathName, Encoding.UTF8));
             if (item == null || !((item.Format == 1 && item.PackageFormat == UpdatePackage.Legacy) || (item.Format == 2 && item.PackageFormat == UpdatePackage.Desktop)) || item.Target == null || !UpdateInstaller.SamePath(item.Target, target) ||
                 item.Tag != "v" + AppUpdate.ParseVersion(item.Version).ToString(3) ||
@@ -49,7 +49,7 @@ namespace AudioSwitch
                 item.WorkId == null || !Regex.IsMatch(item.WorkId, "\\A[a-fA-F0-9]{32}\\z") ||
                 item.Hashes == null || item.Hashes.Count != UpdatePackage.Files(item.PackageFormat).Length ||
                 UpdatePackage.Files(item.PackageFormat).Any(name => !item.Hashes.ContainsKey(name) || item.Hashes[name] == null || !Regex.IsMatch(item.Hashes[name], "\\A[a-fA-F0-9]{64}\\z")))
-                throw new InvalidDataException("待安装更新记录无效，请在面板中重新检查更新。");
+                throw new InvalidDataException(L.Text("待安装更新记录无效，请在面板中重新检查更新。"));
             return item;
         }
         internal string Payload(PendingUpdate item) { return Path.Combine(dataRoot, "updates", item.WorkId, "payload"); }
@@ -75,25 +75,25 @@ namespace AudioSwitch
             string payload = Payload(item), zip = Path.Combine(Path.GetDirectoryName(payload), "package.zip");
             UpdateInstaller.RejectLinks(zip); UpdateInstaller.RejectLinks(payload);
             if (new FileInfo(zip).Length > AppUpdate.MaxPackage || !String.Equals(AppUpdate.Hash(zip), item.Digest, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("已下载的更新包发生变化，请在面板中重新下载。");
+                throw new InvalidDataException(L.Text("已下载的更新包发生变化，请在面板中重新下载。"));
             UpdatePackage.RequireTarget(Path.GetDirectoryName(target), item.PackageFormat);
             AppUpdate.ValidatePayload(payload, AppUpdate.ParseVersion(item.Version), item.PackageFormat);
             foreach (string name in UpdatePackage.Files(item.PackageFormat))
             {
                 string path = Path.Combine(payload, name); UpdateInstaller.RejectLinks(path);
                 if (new FileInfo(path).Length > AppUpdate.MaxPackage * 2 || !String.Equals(AppUpdate.Hash(path), item.Hashes[name], StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("待安装更新文件校验失败：" + name);
+                    throw new InvalidDataException(L.Text("待安装更新文件校验失败：{0}", name));
             }
         }
         internal void Stage(UpdateRelease release, string payload)
         {
             UpdatePackage.RequireTarget(Path.GetDirectoryName(target), release.PackageFormat);
             UpdatePackage.RequireTarget(payload, release.PackageFormat);
-            if (!UpdatePackage.CanInstall(release.Version, release.PackageFormat, Path.GetDirectoryName(target))) throw new InvalidDataException("不能缓存相同或旧版本。");
+            if (!UpdatePackage.CanInstall(release.Version, release.PackageFormat, Path.GetDirectoryName(target))) throw new InvalidDataException(L.Text("不能缓存相同或旧版本。"));
             string id = new DirectoryInfo(Path.GetDirectoryName(payload)).Name;
             var item = new PendingUpdate { Format = release.PackageFormat == UpdatePackage.Desktop ? 2 : 1, PackageFormat = release.PackageFormat, Target = target, Version = release.Version.ToString(3), Tag = release.Tag,
                 Digest = release.Digest, Prerelease = release.Prerelease, WorkId = id, Hashes = UpdatePackage.Files(release.PackageFormat).ToDictionary(name => name, name => AppUpdate.Hash(Path.Combine(payload, name))) };
-            if (!Regex.IsMatch(id, "\\A[a-fA-F0-9]{32}\\z") || !UpdateInstaller.SamePath(Payload(item), payload)) throw new InvalidDataException("更新缓存目录不正确。");
+            if (!Regex.IsMatch(id, "\\A[a-fA-F0-9]{32}\\z") || !UpdateInstaller.SamePath(Payload(item), payload)) throw new InvalidDataException(L.Text("更新缓存目录不正确。"));
             Validate(item); Save(item);
         }
         internal void Save(PendingUpdate item)
@@ -102,7 +102,7 @@ namespace AudioSwitch
         }
         private void SaveLocked(PendingUpdate item)
         {
-            UpdateStorage.Require(Path.Combine(dataRoot, "updates"), UpdateStorage.CacheLimit, 128 * 1024, "更新缓存");
+            UpdateStorage.Require(Path.Combine(dataRoot, "updates"), UpdateStorage.CacheLimit, 128 * 1024, L.Text("更新缓存"));
             UpdateInstaller.RejectLinks(PathName);
             Directory.CreateDirectory(Path.GetDirectoryName(PathName));
             string temporary = PathName + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -127,7 +127,7 @@ namespace AudioSwitch
                 var item = Read();
                 if (item == null || !UpdatePackage.CanInstall(AppUpdate.ParseVersion(item.Version), item.PackageFormat, Path.GetDirectoryName(target))) return false;
                 if (item.Prerelease && !includePrerelease) return false;
-                if (item.Attempted) { issue = item.Failure ?? "上次自动更新未完成，请在面板中手动重试。"; return false; }
+                if (item.Attempted) { issue = item.Failure ?? L.Text("上次自动更新未完成，请在面板中手动重试。"); return false; }
                 Validate(item);
                 (requireRuntime ?? WebViewRuntime.Require)(item.PackageFormat);
                 // Persist before handing off: a failed installation must not repeat at every login.
@@ -141,13 +141,13 @@ namespace AudioSwitch
                 // Either local preflight failed, or the helper exited before signaling readiness.
                 if (marked != null) {
                     marked.Attempted = false;
-                    try { Save(marked); } catch (Exception save) { issue += "\r\n无法恢复自动重试记录，请在面板手动重试：" + save.Message; }
+                    try { Save(marked); } catch (Exception save) { issue += L.Text("\r\n无法恢复自动重试记录，请在面板手动重试：{0}", save.Message); }
                 }
                 return false;
             }
             catch (Exception ex)
             {
-                issue = "启动更新未完成：" + ex.Message;
+                issue = L.Text("启动更新未完成：{0}", ex.Message);
                 try { Fail(issue); } catch { }
                 return false;
             }

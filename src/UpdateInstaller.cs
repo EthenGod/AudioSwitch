@@ -44,7 +44,7 @@ namespace AudioSwitch
         }
         internal static string Quote(string value)
         {
-            if (String.IsNullOrEmpty(value) || value.IndexOfAny(new[] { '"', '\r', '\n' }) >= 0 || value.EndsWith("\\")) throw new InvalidDataException("更新路径无效。");
+            if (String.IsNullOrEmpty(value) || value.IndexOfAny(new[] { '"', '\r', '\n' }) >= 0 || value.EndsWith("\\")) throw new InvalidDataException(L.Text("更新路径无效。"));
             return "\"" + value + "\"";
         }
         internal static bool SamePath(string first, string second)
@@ -55,7 +55,7 @@ namespace AudioSwitch
         {
             for (string current = Path.GetFullPath(path); !String.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
                 if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    throw new IOException("更新目录包含链接，请把程序解压到普通文件夹后重试。");
+                    throw new IOException(L.Text("更新目录包含链接，请把程序解压到普通文件夹后重试。"));
         }
         internal static void ValidateBackupPaths(string targetDirectory, string backup, int format = UpdatePackage.Legacy)
         {
@@ -63,7 +63,7 @@ namespace AudioSwitch
             {
                 foreach (string path in new[] { Path.Combine(targetDirectory, name), Path.Combine(backup, name), Path.Combine(backup, "incomplete", name) })
                 {
-                    if (path.Length >= 248) throw new IOException("程序目录太深，旧版备份路径会超过 Windows 的长度限制。请先把程序移到较短的目录后重试；原程序尚未退出。");
+                    if (path.Length >= 248) throw new IOException(L.Text("程序目录太深，旧版备份路径会超过 Windows 的长度限制。请先把程序移到较短的目录后重试；原程序尚未退出。"));
                     RejectLinks(path);
                 }
             }
@@ -90,7 +90,7 @@ namespace AudioSwitch
             {
                 string source = repair ? Path.Combine(payload, "AudioSwitch.exe") : target;
                 string config = repair ? Path.Combine(payload, "AudioSwitch.exe.config") : target + ".config";
-                UpdateStorage.Require(Path.GetDirectoryName(work), UpdateStorage.CacheLimit, new FileInfo(source).Length + new FileInfo(config).Length + 131072, "更新缓存");
+                UpdateStorage.Require(Path.GetDirectoryName(work), UpdateStorage.CacheLimit, new FileInfo(source).Length + new FileInfo(config).Length + 131072, L.Text("更新缓存"));
                 // A damaged running executable must never be used as the repair helper.
                 PrepareHelper(work, source, config, plan, out helper, out planFile);
             }
@@ -119,9 +119,9 @@ namespace AudioSwitch
                 bool exited = helper.HasExited;
                 if (exited && ready.WaitOne(0)) return;
                 if (exited && helper.ExitCode == RuntimeUnavailableExitCode)
-                    throw new WebViewRequirementException("更新助手无法使用 Microsoft Edge WebView2 Runtime，尚未退出原程序或替换文件。请安装或修复 Evergreen Runtime 后重试。\r\n" + WebViewRuntime.DownloadUrl);
+                    throw new WebViewRequirementException(L.Text("更新助手无法使用 Microsoft Edge WebView2 Runtime，尚未退出原程序或替换文件。请安装或修复 Evergreen Runtime 后重试。\r\n{0}", WebViewRuntime.DownloadUrl));
                 if (exited || watch.ElapsedMilliseconds > timeoutMilliseconds)
-                    throw new IOException("更新助手未能准备就绪。当前程序仍在运行，请稍后重试。");
+                    throw new IOException(L.Text("更新助手未能准备就绪。当前程序仍在运行，请稍后重试。"));
             }
         }
         internal static bool CheckRuntimeBeforeReady(int format, string resultPath, Action<int> requireRuntime = null)
@@ -136,35 +136,35 @@ namespace AudioSwitch
         private static void ValidatePlan(UpdatePlan plan)
         {
             if (plan == null || plan.ParentPid <= 0 || plan.ReadyEvent == null || !plan.ReadyEvent.StartsWith("Local\\AudioSwitch-Update-Ready-", StringComparison.Ordinal))
-                throw new InvalidDataException("更新任务无效。");
-            if (plan.Automatic && plan.Repair) throw new InvalidDataException("自动更新不能作为同版本修复运行。");
-            if (Path.GetFileName(plan.Target) != "AudioSwitch.exe" || (!plan.Repair && !File.Exists(plan.Target))) throw new InvalidDataException("找不到原程序。");
-            if (!SamePath(plan.Payload, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "payload"))) throw new InvalidDataException("更新文件目录无效。");
-            if (SamePath(Path.GetDirectoryName(plan.Target), plan.Payload)) throw new InvalidDataException("不能覆盖更新来源。");
+                throw new InvalidDataException(L.Text("更新任务无效。"));
+            if (plan.Automatic && plan.Repair) throw new InvalidDataException(L.Text("自动更新不能作为同版本修复运行。"));
+            if (Path.GetFileName(plan.Target) != "AudioSwitch.exe" || (!plan.Repair && !File.Exists(plan.Target))) throw new InvalidDataException(L.Text("找不到原程序。"));
+            if (!SamePath(plan.Payload, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "payload"))) throw new InvalidDataException(L.Text("更新文件目录无效。"));
+            if (SamePath(Path.GetDirectoryName(plan.Target), plan.Payload)) throw new InvalidDataException(L.Text("不能覆盖更新来源。"));
             RejectLinks(plan.Target); RejectLinks(plan.Payload);
             UpdatePackage.RequireTarget(Path.GetDirectoryName(plan.Target), plan.PackageFormat);
             UpdatePackage.RequireTarget(plan.Payload, plan.PackageFormat);
             var version = AppUpdate.ParseVersion(plan.Version);
             ValidateVersion(version, plan.Repair, plan.PackageFormat, Path.GetDirectoryName(plan.Target));
-            if (plan.Repair && plan.PackageFormat == UpdatePackage.Legacy) { if (!FileIntegrity.Check(plan.Payload).Passed) throw new InvalidDataException("修复包的必要文件校验失败。"); }
+            if (plan.Repair && plan.PackageFormat == UpdatePackage.Legacy) { if (!FileIntegrity.Check(plan.Payload).Passed) throw new InvalidDataException(L.Text("修复包的必要文件校验失败。")); }
             else AppUpdate.ValidatePayload(plan.Payload, version, plan.PackageFormat);
             var files = PlanFiles(plan);
-            if (plan.Hashes == null || plan.Hashes.Count != files.Length) throw new InvalidDataException("更新校验信息不完整。");
+            if (plan.Hashes == null || plan.Hashes.Count != files.Length) throw new InvalidDataException(L.Text("更新校验信息不完整。"));
             foreach (string name in files)
             {
                 string hash;
                 RejectLinks(Path.Combine(plan.Payload, name)); RejectLinks(Path.Combine(Path.GetDirectoryName(plan.Target), name));
-                if (!plan.Hashes.TryGetValue(name, out hash) || AppUpdate.Hash(Path.Combine(plan.Payload, name)) != hash) throw new InvalidDataException("准备好的更新文件发生变化，请重新下载。");
+                if (!plan.Hashes.TryGetValue(name, out hash) || AppUpdate.Hash(Path.Combine(plan.Payload, name)) != hash) throw new InvalidDataException(L.Text("准备好的更新文件发生变化，请重新下载。"));
             }
             using (var parent = Process.GetProcessById(plan.ParentPid))
-                if (!Matches(parent, plan.Target)) throw new InvalidDataException("发起更新的程序已退出或路径不一致。");
+                if (!Matches(parent, plan.Target)) throw new InvalidDataException(L.Text("发起更新的程序已退出或路径不一致。"));
         }
         private static string[] PlanFiles(UpdatePlan plan) { return plan.Repair && plan.PackageFormat == UpdatePackage.Legacy ? FileIntegrity.RequiredFiles : UpdatePackage.Files(plan.PackageFormat); }
         internal static void ValidateVersion(Version version, bool repair, int format = UpdatePackage.Legacy, string targetDirectory = null)
         {
             UpdatePackage.Files(format);
             if (repair ? version != AppUpdate.ParseVersion(AppVersion.Number) : !UpdatePackage.CanInstall(version, format, targetDirectory ?? AppDomain.CurrentDomain.BaseDirectory))
-                throw new InvalidDataException(repair ? "只能使用当前版本的修复包。" : "不能安装相同或更旧的版本。");
+                throw new InvalidDataException(repair ? L.Text("只能使用当前版本的修复包。") : L.Text("不能安装相同或更旧的版本。"));
         }
         internal static List<Process> RunningCopies(string target)
         {
@@ -187,7 +187,7 @@ namespace AudioSwitch
             var watch = Stopwatch.StartNew();
             foreach (var process in processes)
                 if (!process.WaitForExit(Math.Max(0, timeout - (int)watch.ElapsedMilliseconds)))
-                    throw new IOException("程序仍被面板或音效任务占用，尚未替换文件。请关闭相关窗口后重试。");
+                    throw new IOException(L.Text("程序仍被面板或音效任务占用，尚未替换文件。请关闭相关窗口后重试。"));
         }
         internal static void ApplyFiles(string payload, string targetDirectory, string backup, Action<string> afterWrite = null)
         { ApplySelectedFiles(payload, targetDirectory, backup, AppUpdate.Files, afterWrite); }
@@ -196,7 +196,7 @@ namespace AudioSwitch
             PanelLaunch.RequireLegacyDirectory(targetDirectory);
             PanelLaunch.RequireLegacyDirectory(payload);
             if (files == null || files.Length == 0 || files.Distinct().Count() != files.Length || files.Any(name => !AppUpdate.Files.Contains(name)))
-                throw new InvalidDataException("待替换文件清单无效。");
+                throw new InvalidDataException(L.Text("待替换文件清单无效。"));
             ApplyTransaction(payload, targetDirectory, backup, files, afterWrite, null);
         }
         internal static void ApplyPackage(string payload, string targetDirectory, string backup, Version version, int format, Action<string> afterWrite = null)
@@ -225,25 +225,25 @@ namespace AudioSwitch
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(saved));
                         string hash = AppUpdate.Hash(target); File.Copy(target, saved, false);
-                        if (AppUpdate.Hash(saved) != hash) throw new IOException("原程序备份校验失败。");
+                        if (AppUpdate.Hash(saved) != hash) throw new IOException(L.Text("原程序备份校验失败。"));
                         originals.Add(name, hash);
                     }
                 }
             }
-            catch (Exception ex) { throw new UpdateTransactionException("备份未完成，原程序未改动：" + ex.Message, ex, true); }
+            catch (Exception ex) { throw new UpdateTransactionException(L.Text("备份未完成，原程序未改动：{0}", ex.Message), ex, true); }
             try
             {
                 foreach (string name in files)
                 {
                     string target = Path.Combine(targetDirectory, name), source = Path.Combine(payload, name);
-                    if (AppUpdate.Hash(source) != expected[name]) throw new IOException("准备好的文件发生变化，停止安装。");
+                    if (AppUpdate.Hash(source) != expected[name]) throw new IOException(L.Text("准备好的文件发生变化，停止安装。"));
                     Directory.CreateDirectory(Path.GetDirectoryName(target));
                     attempted.Add(name); // A failed Copy can already have truncated the destination.
                     File.Copy(source, target, true);
                     if (afterWrite != null) afterWrite(name);
-                    if (AppUpdate.Hash(target) != expected[name]) throw new IOException("新程序写入后校验失败。");
+                    if (AppUpdate.Hash(target) != expected[name]) throw new IOException(L.Text("新程序写入后校验失败。"));
                 }
-                foreach (string name in files) if (AppUpdate.Hash(Path.Combine(targetDirectory, name)) != expected[name]) throw new IOException("安装完成后的文件校验失败：" + name);
+                foreach (string name in files) if (AppUpdate.Hash(Path.Combine(targetDirectory, name)) != expected[name]) throw new IOException(L.Text("安装完成后的文件校验失败：{0}", name));
                 if (verify != null) verify();
             }
             catch (Exception ex)
@@ -257,18 +257,18 @@ namespace AudioSwitch
                         if (originals.ContainsKey(name))
                         {
                             if (!File.Exists(target) || AppUpdate.Hash(target) != originals[name]) File.Copy(saved, target, true);
-                            if (AppUpdate.Hash(target) != originals[name]) throw new IOException("恢复校验失败");
+                            if (AppUpdate.Hash(target) != originals[name]) throw new IOException(L.Text("恢复校验失败"));
                         }
                         else if (File.Exists(target))
                         {
                             string failed = Path.Combine(backup, "incomplete", name);
                             Directory.CreateDirectory(Path.GetDirectoryName(failed)); File.Move(target, failed);
-                            if (File.Exists(target)) throw new IOException("新增文件未能移出安装目录");
+                            if (File.Exists(target)) throw new IOException(L.Text("新增文件未能移出安装目录"));
                         }
                     }
                     catch (Exception recovery) { failures.Add(name + "：" + recovery.Message); }
                 }
-                throw new UpdateTransactionException("更新失败：" + ex.Message + (failures.Count == 0 ? "\n已核验恢复原程序。" : "\n部分文件未能恢复，请退出程序后从备份恢复：\n" + String.Join("\n", failures)) + "\n备份位置：" + backup, ex, failures.Count == 0);
+                throw new UpdateTransactionException(L.Text("更新失败：{0}{1}\n备份位置：{2}", ex.Message, (failures.Count == 0 ? L.Text("\n已核验恢复原程序。") : L.Text("\n部分文件未能恢复，请退出程序后从备份恢复：\n{0}", String.Join("\n", failures))), backup), ex, failures.Count == 0);
             }
         }
         internal static void Run(string planFile, bool automatic = false)
@@ -280,10 +280,10 @@ namespace AudioSwitch
                 try
                 {
                     try { held = mutex.WaitOne(0); } catch (AbandonedMutexException) { held = true; }
-                    if (!held) throw new IOException("已有更新正在进行，请等待完成。");
-                    if (new FileInfo(planFile).Length > 65536) throw new InvalidDataException("更新任务文件过大。");
+                    if (!held) throw new IOException(L.Text("已有更新正在进行，请等待完成。"));
+                    if (new FileInfo(planFile).Length > 65536) throw new InvalidDataException(L.Text("更新任务文件过大。"));
                     plan = Wire.Decode<UpdatePlan>(File.ReadAllText(planFile));
-                    if (plan != null && plan.Automatic != automatic) throw new InvalidDataException("更新启动方式不一致。");
+                    if (plan != null && plan.Automatic != automatic) throw new InvalidDataException(L.Text("更新启动方式不一致。"));
                     ValidatePlan(plan);
                     if (!CheckRuntimeBeforeReady(plan.PackageFormat, resultPath)) return;
                     string directory = Path.GetDirectoryName(plan.Target);
@@ -294,7 +294,7 @@ namespace AudioSwitch
                     File.WriteAllText(Path.Combine(backup, "update.txt"), "Target version: " + plan.Version);
                     using (var parent = Process.GetProcessById(plan.ParentPid))
                     {
-                        if (!Matches(parent, plan.Target)) throw new IOException("原程序已改变。");
+                        if (!Matches(parent, plan.Target)) throw new IOException(L.Text("原程序已改变。"));
                         using (var ready = EventWaitHandle.OpenExisting(plan.ReadyEvent)) ready.Set();
                         WaitForExit(new[] { parent }, 20000);
                         parentExited = true;
@@ -306,11 +306,11 @@ namespace AudioSwitch
                         if (Mutex.TryOpenExisting("Local\\AudioSwitch-Host-" + Wire.Identity, out host))
                         {
                             host.Dispose();
-                            if (plan.Automatic) throw new IOException("已有后台正在使用，将保留当前版本，请稍后在面板中重试更新。");
+                            if (plan.Automatic) throw new IOException(L.Text("已有后台正在使用，将保留当前版本，请稍后在面板中重试更新。"));
                             var snapshot = Wire.Send(new Request { Action = "snapshot" });
                             using (var backend = Process.GetProcessById(snapshot.BackendPid))
                             {
-                                if (!Matches(backend, plan.Target)) throw new IOException("另一文件夹的声间正在运行，请先退出它再更新。");
+                                if (!Matches(backend, plan.Target)) throw new IOException(L.Text("另一文件夹的声间正在运行，请先退出它再更新。"));
                                 try {
                                     var reply = Wire.Send(new Request { Action = "exitForUpdate", UpdatePath = plan.Target });
                                     if (reply.Error != null) throw new InvalidOperationException(reply.Error);
@@ -327,19 +327,19 @@ namespace AudioSwitch
                     }
                     finally { foreach (var process in running) process.Dispose(); }
                     foreach (var item in plan.Hashes)
-                        if (AppUpdate.Hash(Path.Combine(plan.Payload, item.Key)) != item.Value) throw new InvalidDataException("等待退出期间更新文件发生变化，尚未替换原程序。");
+                        if (AppUpdate.Hash(Path.Combine(plan.Payload, item.Key)) != item.Value) throw new InvalidDataException(L.Text("等待退出期间更新文件发生变化，尚未替换原程序。"));
                     applyingFiles = true;
                     if (plan.Repair && plan.PackageFormat == UpdatePackage.Legacy) ApplySelectedFiles(plan.Payload, directory, backup, FileIntegrity.RequiredFiles);
                     else ApplyPackage(plan.Payload, directory, backup, AppUpdate.ParseVersion(plan.Version), plan.PackageFormat);
                     installed = true;
-                    File.WriteAllText(resultPath, "已安装 " + plan.Version + "\r\n原程序备份：" + backup);
+                    File.WriteAllText(resultPath, L.Text("已安装 {0}\r\n原程序备份：{1}", plan.Version, backup));
                     mutex.ReleaseMutex(); held = false;
                     // A separate event confirms the new tray host initialized; a live unresponsive process is never overwritten.
                     string readyName = "Local\\AudioSwitch-Update-Started-" + Guid.NewGuid().ToString("N");
                     using (var ready = new EventWaitHandle(false, EventResetMode.ManualReset, readyName))
                     using (var process = Process.Start(new ProcessStartInfo(plan.Target, RestartArguments(plan, readyName)) { UseShellExecute = false, WorkingDirectory = directory }))
                     {
-                        if (!ready.WaitOne(20000)) throw new IOException("新文件已安装，但未确认启动完成。请重新打开声间；如仍无法启动，可退出程序后从这里恢复旧版：\n" + backup);
+                        if (!ready.WaitOne(20000)) throw new IOException(L.Text("新文件已安装，但未确认启动完成。请重新打开声间；如仍无法启动，可退出程序后从这里恢复旧版：\n{0}", backup));
                     }
                 }
                 catch (Exception ex)
@@ -351,7 +351,7 @@ namespace AudioSwitch
                     if (automatic)
                     {
                         if (plan == null) return; // Even an unreadable automatic task must remain silent.
-                        try { new AutomaticUpdateStore(Program.DataDirectory, plan.Target).Fail("自动安装未完成：" + ex.Message); } catch { }
+                        try { new AutomaticUpdateStore(Program.DataDirectory, plan.Target).Fail(L.Text("自动安装未完成：{0}", ex.Message)); } catch { }
                         var transaction = ex as UpdateTransactionException;
                         if (parentExited && !installed && (!applyingFiles || (transaction != null && transaction.Restored)))
                         {
@@ -361,7 +361,7 @@ namespace AudioSwitch
                             } catch { }
                         }
                     }
-                    else NoticeDialog.ShowNotice(null, installed ? "更新后的启动需要检查" : "更新未完成", ex.Message + "\n\n" + (stopped ? "托盘已退出，请处理后重新打开声间。" : "原程序未被强行结束。"), true);
+                    else NoticeDialog.ShowNotice(null, installed ? L.Text("更新后的启动需要检查") : L.Text("更新未完成"), L.Text("{0}{1}", ex.Message + "\n\n", (stopped ? L.Text("托盘已退出，请处理后重新打开声间。") : L.Text("原程序未被强行结束。"))), true);
                 }
                 finally { if (held) mutex.ReleaseMutex(); }
             }

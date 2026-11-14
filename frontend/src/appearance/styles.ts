@@ -1,6 +1,7 @@
+import { t } from '../i18n'
 /** Stable IDs and semantic tokens only. Native tray palettes live in src/PopupTheme.cs. */
 export const DEFAULT_UI_STYLE = 'classic'
-const classic = { id: DEFAULT_UI_STYLE, label: '经典' }
+const classic = { id: DEFAULT_UI_STYLE, get label() { return t('经典') } }
 export const UI_STYLES: readonly { readonly id: string; readonly label: string }[] = [
   classic,
 ]

@@ -13,7 +13,7 @@ namespace AudioSwitch
             return String.Join("\r\n\r\n", new[] { "NOTICE.txt", "THIRD_PARTY.md", "vendor/svcl/readme.txt", "LICENSE" }.Select(name => {
                 using (var stream = typeof(DistributionNotices).Assembly.GetManifestResourceStream("AudioSwitch.Distribution." + name))
                 {
-                    if (stream == null) throw new InvalidDataException("内置许可说明缺失：" + name);
+                    if (stream == null) throw new InvalidDataException(L.Text("内置许可说明缺失：{0}", name));
                     using (var reader = new StreamReader(stream)) return name + "\r\n\r\n" + reader.ReadToEnd();
                 }
             }));

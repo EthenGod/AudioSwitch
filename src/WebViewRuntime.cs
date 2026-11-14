@@ -45,10 +45,8 @@ namespace AudioSwitch
             }
             bool available = best != null;
             return new WebViewRuntimeStatus { Available = available, Unknown = !available && unknown, Version = available ? best.ToString() : null,
-                Message = available ? "已检测到 Microsoft Edge WebView2 Runtime " + best + "。" :
-                    (unknown ? "无法确认 WebView2 Runtime 是否可用。" : "未检测到 Microsoft Edge WebView2 Runtime。") +
-                    "新界面需要此组件，请从微软官网下载并安装 Evergreen Runtime 后重试；如已安装，请检查系统读取权限。\r\n" + DownloadUrl +
-                    "\r\n本次不会安装组件或替换程序文件。" };
+                Message = available ? L.Text("已检测到 Microsoft Edge WebView2 Runtime {0}。", best) :
+                    L.Text("{0}新界面需要此组件，请从微软官网下载并安装 Evergreen Runtime 后重试；如已安装，请检查系统读取权限。\r\n{1}\r\n本次不会安装组件或替换程序文件。", (unknown ? L.Text("无法确认 WebView2 Runtime 是否可用。") : L.Text("未检测到 Microsoft Edge WebView2 Runtime。")), DownloadUrl) };
         }
         internal static void Require(int format) { Require(format, () => Check()); }
         internal static void Require(int format, Func<WebViewRuntimeStatus> check)

@@ -40,10 +40,10 @@ namespace AudioSwitch
                 while (true)
                 {
                     int count = await stream.ReadAsync(buffer, 0, Math.Min(buffer.Length, limit + 1 - (int)message.Length)).ConfigureAwait(false);
-                    if (count == 0) throw new IOException("后台连接已中断，未收到完整消息。");
+                    if (count == 0) throw new IOException(L.Text("后台连接已中断，未收到完整消息。"));
                     int end = Array.IndexOf(buffer, (byte)'\n', 0, count);
                     int length = end < 0 ? count : end + 1;
-                    if (message.Length + length > limit) throw new InvalidDataException("消息过大，已停止读取。");
+                    if (message.Length + length > limit) throw new InvalidDataException(L.Text("消息过大，已停止读取。"));
                     message.Write(buffer, 0, length);
                     if (end < 0) continue;
                     var bytes = message.GetBuffer();
@@ -63,7 +63,7 @@ namespace AudioSwitch
                 writer.WriteLine(Encode(request));
                 var response = ReadMessageAsync(pipe);
                 bool appliesSettings = request.Action == "switch" || request.Action == "new" || request.Action == "old" || request.Action == "alternative" || request.Action == "saveDeviceSettings" || request.Action == "saveBasicDeviceSettings" || request.Action == "priority" || request.Action == "deviceOrder" || request.Action == "refresh";
-                if (!response.Wait(appliesSettings ? 20000 : 4000)) throw new TimeoutException("后台响应超时，请稍后重试。");
+                if (!response.Wait(appliesSettings ? 20000 : 4000)) throw new TimeoutException(L.Text("后台响应超时，请稍后重试。"));
                 return Decode<Reply>(response.Result);
             }
         }

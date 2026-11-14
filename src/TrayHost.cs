@@ -41,6 +41,7 @@ namespace AudioSwitch
         {
             var handle = dispatcher.Handle;
             preferences = startupPreferences ?? PreferenceStore.Load(PreferenceStore.SettingsPath);
+            L.SetLanguage(preferences.Language);
             preferences.RecentDeviceAliases = DeviceAliasCache.Load(Program.DataDirectory, preferences.RecentDeviceAliases);
             Palette.Apply(preferences.DarkMode);
             audio = new AudioService();
@@ -50,20 +51,20 @@ namespace AudioSwitch
                 if (result.Error == null && result.Warning == null) presetWarnings.Remove(key);
                 else {
                     var device = tracker.Current.Devices.FirstOrDefault(d => d.Id == id);
-                    presetWarnings[key] = (device == null ? "设备" : device.Name) + "：" + (result.Error ?? result.Warning);
+                    presetWarnings[key] = L.Text("{0}：{1}", (device == null ? L.Text("设备") : device.Name), (result.Error ?? result.Warning));
                 }
             });
             panelDolby = new PanelDolbyApply(dolby);
-            tray = new NotifyIcon { Text = "声间 音频设备管理", Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
+            tray = new NotifyIcon { Text = L.Text("声间 音频设备管理"), Icon = AppIcon.Create(SystemInformation.SmallIconSize.Width), Visible = true };
             tray.DoubleClick += delegate { if (preferences.OpenPanelInBrowser) frontends.ShowBrowser(); else ShowFrontend(false); };
             tray.BalloonTipClicked += delegate { ShowFrontend(true); };
             trayPopup = new TrayPopupHost(action => {
                 if (!exiting && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)(() => {
                     if (exiting) return;
                     try { action(); }
-                    catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "操作未完成", ex.Message, ToolTipIcon.Warning); }
+                    catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, L.Text("操作未完成"), ex.Message, ToolTipIcon.Warning); }
                 }));
-            }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, "菜单未能打开", ex.Message, ToolTipIcon.Warning); }, CreateTrayCommands);
+            }, ex => { Program.Log(ex); tray.ShowBalloonTip(5000, L.Text("菜单未能打开"), ex.Message, ToolTipIcon.Warning); }, CreateTrayCommands);
             tray.MouseUp += delegate(object sender, MouseEventArgs e) {
                 if (e.Button == MouseButtons.Right && !exiting) trayPopup.Show(Cursor.Position, CreateTrayCommands(), preferences.DarkMode, preferences.UiStyle);
             };
@@ -83,7 +84,7 @@ namespace AudioSwitch
                 if (DevicePriority.Remember(preferences, tracker.Current)) SavePreferences();
                 if (hadOrder) ApplyPriority(DeviceAutomation.StartupTargets(tracker.Current, preferences));
             }
-            catch (Exception ex) { priorityError = "初始化设备优先级失败：" + ex.Message; Program.Log(ex); }
+            catch (Exception ex) { priorityError = L.Text("初始化设备优先级失败：{0}", ex.Message); Program.Log(ex); }
             ObserveDolby(tracker.Current);
             updates = new BackgroundUpdate(new AutomaticUpdateStore(Program.DataDirectory, Application.ExecutablePath), updateIssue, preferences.IncludePrerelease);
             updateIdleTimer.Tick += async delegate {
@@ -104,8 +105,8 @@ namespace AudioSwitch
             };
             UpdateGameMode();
             try { frontends.SetBrowserPort(preferences.BrowserPort); frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen); }
-            catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, "浏览器端口未开启", ex.Message, ToolTipIcon.Warning); }
-            if (show) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
+            catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, L.Text("浏览器端口未开启"), ex.Message, ToolTipIcon.Warning); }
+            if (show || preferences.Language == null) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
         }
         private void RefreshAudio(bool notify, bool automatic = false)
         {
@@ -132,7 +133,7 @@ namespace AudioSwitch
                     ShowFrontend(true);
                 }
             }
-            catch (Exception ex) { audioError = "更新音频设备失败：" + ex.Message; Program.Log(ex); }
+            catch (Exception ex) { audioError = L.Text("更新音频设备失败：{0}", ex.Message); Program.Log(ex); }
             finally { PublishTraySnapshot(); }
         }
         private void ApplyPriority(System.Collections.Generic.List<Endpoint> targets)
@@ -149,11 +150,11 @@ namespace AudioSwitch
         }
         private void ReportAutomaticErrors(List<string> errors)
         {
-            priorityError = errors.Count == 0 ? null : "自动选择设备未完成。" + String.Join("；", errors);
+            priorityError = errors.Count == 0 ? null : L.Text("自动选择设备未完成。{0}", String.Join("；", errors));
             if (priorityError != null)
             {
                 Program.Log(new InvalidOperationException(priorityError));
-                tray.ShowBalloonTip(5000, "自动切换未完成", priorityError, ToolTipIcon.Warning);
+                tray.ShowBalloonTip(5000, L.Text("自动切换未完成"), priorityError, ToolTipIcon.Warning);
             }
         }
         private void UpdateAfterAutomation()
@@ -186,19 +187,19 @@ namespace AudioSwitch
         }
         private Reply Handle(Request request)
         {
-            if (exiting) return new Reply { Error = "声间正在退出，请等待更新完成。" };
+            if (exiting) return new Reply { Error = L.Text("声间正在退出，请等待更新完成。") };
             if (request.Action == "panelLaunchError") {
                 if (!frontends.OwnsProcess(request.OwnerPid) || String.IsNullOrWhiteSpace(request.Message) || request.Message.Length > 4096)
-                    return new Reply { Error = "无效的面板启动提示。" };
+                    return new Reply { Error = L.Text("无效的面板启动提示。") };
                 dispatcher.BeginInvoke((Action)(() => {
-                    if (!exiting) NoticeDialog.ShowNotice(null, request.Value ? "无法打开浏览器面板" : "无法打开声间面板", request.Message, true);
+                    if (!exiting) NoticeDialog.ShowNotice(null, request.Value ? L.Text("无法打开浏览器面板") : L.Text("无法打开声间面板"), request.Message, true);
                 }));
                 return new Reply { BackendPid = Process.GetCurrentProcess().Id };
             }
             if (request.Action == "exitForUpdate")
             {
                 if (String.IsNullOrEmpty(request.UpdatePath) || !UpdateInstaller.SamePath(request.UpdatePath, Application.ExecutablePath) || !UpdateInstaller.IsUpdating())
-                    return new Reply { Error = "更新任务与当前程序不一致。" };
+                    return new Reply { Error = L.Text("更新任务与当前程序不一致。") };
                 exiting = true; dolby.Stop(); debounce.Stop(); updates.Dispose(); updateIdleTimer.Stop(); ReleaseUpdateActivity();
                 return new Reply();
             }
@@ -229,7 +230,7 @@ namespace AudioSwitch
                         preferences.KeepBrowserPortOpen = request.Value; SavePreferences(); preferencesSaved = true;
                         frontends.SetBrowserPersistent(request.Value); break;
                     case "browserPort":
-                        if (!request.BrowserPort.HasValue) throw new InvalidOperationException("缺少浏览器端口。");
+                        if (!request.BrowserPort.HasValue) throw new InvalidOperationException(L.Text("缺少浏览器端口。"));
                         FrontendWindows.ValidateBrowserPort(request.BrowserPort.Value);
                         preferences.BrowserPort = request.BrowserPort.Value; SavePreferences(); preferencesSaved = true;
                         frontends.SetBrowserPort(preferences.BrowserPort); break;
@@ -237,6 +238,9 @@ namespace AudioSwitch
                     case "uiStyle":
                         PreferenceStore.ValidateUiStyle(request.UiStyle);
                         preferences.UiStyle = request.UiStyle; SavePreferences(); preferencesSaved = true; break;
+                    case "language":
+                        if (!L.Languages.Any(item => item.id == request.Language)) throw new InvalidOperationException(L.Text("不支持此语言"));
+                        preferences.Language = request.Language; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
                         UpdateGameMode();
@@ -286,7 +290,7 @@ namespace AudioSwitch
                     case "saveDeviceSettings":
                         var info = ReadDeviceSettings(request.DeviceId);
                         if (request.DeviceRule.HasValue && !Enum.IsDefined(typeof(DeviceRule), request.DeviceRule.Value))
-                            throw new InvalidOperationException("无效的白名单规则。");
+                            throw new InvalidOperationException(L.Text("无效的白名单规则。"));
                         DeviceProfiles.Validate(request.Profile, info.Device.Flow);
                         // Saving a valid preset does not require its driver to be readable/available.
                         // Actual application performs capability checks and rollback in DeviceProfiles.Apply.
@@ -320,16 +324,16 @@ namespace AudioSwitch
                     case "old":
                         RefreshAudio(false);
                         var pending = tracker.Pending.FirstOrDefault(p => p.Token == request.Token);
-                        if (pending == null) throw new InvalidOperationException("设备状态已变化，请重新选择。");
+                        if (pending == null) throw new InvalidOperationException(L.Text("设备状态已变化，请重新选择。"));
                         if (request.Action == "alternative")
                         {
                             if (!tracker.Current.Devices.Any(d => d.Id == request.DeviceId && d.Flow == pending.Flow))
-                                throw new InvalidOperationException("所选设备已断开，请重新选择在线设备。");
+                                throw new InvalidOperationException(L.Text("所选设备已断开，请重新选择在线设备。"));
                             SwitchTo(request.DeviceId);
                         }
                         else if (request.Action == "new")
                         {
-                            if (!pending.NewDevices.Any(d => d.Id == request.DeviceId)) throw new InvalidOperationException("新设备已断开。");
+                            if (!pending.NewDevices.Any(d => d.Id == request.DeviceId)) throw new InvalidOperationException(L.Text("新设备已断开。"));
                             SwitchTo(request.DeviceId);
                         }
                         else RestorePrevious(pending);
@@ -353,15 +357,17 @@ namespace AudioSwitch
                         break;
                     case "ask": preferences.AskOnConnect = request.Value; SavePreferences(); preferencesSaved = true; if (!request.Value) tracker.Pending.RemoveAll(p => !p.IsDisconnection); break;
                     case "communications": preferences.IncludeCommunications = request.Value; SavePreferences(); preferencesSaved = true; break;
-                    default: throw new InvalidOperationException("未知操作。");
+                    default: throw new InvalidOperationException(L.Text("未知操作。"));
                 }
             }
             catch (Exception ex)
             {
                 if (!preferencesSaved) preferences = beforePreferences;
-                Program.Log(ex); error = (preferencesSaved ? "设置已保存，但本次应用未完成。" : "") + ex.Message;
-                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "uiStyle" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
+                Program.Log(ex); error = L.Text("{0}{1}", (preferencesSaved ? L.Text("设置已保存，但本次应用未完成。") : ""), ex.Message);
+                if (request.Action != "saveAndApplyDolby" && request.Action != "readDolbyApply" && request.Action != "cancelDolbyApply" && request.Action != "saveDolbyProfile" && request.Action != "previewImport" && request.Action != "importPreparedSettings" && request.Action != "saveBasicDeviceSettings" && request.Action != "deviceSettings" && request.Action != "ask" && request.Action != "communications" && request.Action != "importSettings" && request.Action != "exportSettings" && request.Action != "darkMode" && request.Action != "uiStyle" && request.Action != "language" && request.Action != "startup" && request.Action != "gameMode" && request.Action != "automaticUpdates" && request.Action != "includePrerelease" && request.Action != "openPanelInBrowser" && request.Action != "keepBrowserPortOpen" && request.Action != "browserPort") RefreshAudio(false);
             }
+            L.SetLanguage(preferences.Language);
+            tray.Text = L.Text("声间 音频设备管理");
             PublishTraySnapshot();
             var reply = CreateReply();
             reply.DolbyOperation = dolbyOperation;
@@ -377,7 +383,7 @@ namespace AudioSwitch
         private Reply CreateReply()
         {
             return new Reply {
-                PanelApiVersion = 13, Error = audioError ?? priorityError,
+                PanelApiVersion = 14, ResolvedLanguage = L.Resolve(preferences.Language), Error = audioError ?? priorityError,
                 Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values),
                 State = tracker.Current, Pending = tracker.Pending, Preferences = preferences,
                 Update = updates == null ? null : updates.Snapshot(),
@@ -389,7 +395,7 @@ namespace AudioSwitch
         private void SwitchTo(string id, bool quietAutomatic = false)
         {
             var device = tracker.Current.Devices.FirstOrDefault(d => d.Id == id);
-            if (device == null) throw new InvalidOperationException("设备已断开，请选择其他设备。");
+            if (device == null) throw new InvalidOperationException(L.Text("设备已断开，请选择其他设备。"));
             var targets = new Dictionary<int, string> { { 0, id }, { 1, id } };
             if (preferences.IncludeCommunications) targets[2] = id;
             ApplyRoles(device.Flow, targets, quietAutomatic);
@@ -403,11 +409,11 @@ namespace AudioSwitch
                 string id;
                 if (arrival.PreviousDefaults.TryGetValue(arrival.Flow + ":" + role, out id))
                 {
-                    if (!tracker.Current.Devices.Any(d => d.Id == id)) throw new InvalidOperationException("旧设备已断开，无法恢复。请选择仍在线的设备。");
+                    if (!tracker.Current.Devices.Any(d => d.Id == id)) throw new InvalidOperationException(L.Text("旧设备已断开，无法恢复。请选择仍在线的设备。"));
                     targets[role] = id;
                 }
             }
-            if (targets.Count == 0) throw new InvalidOperationException("没有可以恢复的旧设备。");
+            if (targets.Count == 0) throw new InvalidOperationException(L.Text("没有可以恢复的旧设备。"));
             ApplyRoles(arrival.Flow, targets);
         }
         private void ApplyRoles(int flow, Dictionary<int, string> targets, bool quietAutomatic = false)
@@ -421,7 +427,7 @@ namespace AudioSwitch
                 if (warnings.Count > 0)
                 {
                     var device = tracker.Current.Devices.FirstOrDefault(d => d.Id == id);
-                    presetWarnings[id] = (device == null ? "设备" : device.Name) + " 已切换；" + String.Join("；", warnings);
+                    presetWarnings[id] = L.Text("{0} 已切换；{1}", (device == null ? L.Text("设备") : device.Name), String.Join("；", warnings));
                 }
             }
             priorityError = null;
@@ -430,10 +436,10 @@ namespace AudioSwitch
         private DeviceSettingsInfo ReadDeviceSettings(string id)
         {
             var endpoint = audio.Read().Devices.FirstOrDefault(d => d.Id == id);
-            if (endpoint == null) throw new InvalidOperationException("设备已断开，请重新连接后设置。");
+            if (endpoint == null) throw new InvalidOperationException(L.Text("设备已断开，请重新连接后设置。"));
             var info = new DeviceSettingsInfo { Device = endpoint, DeviceRule = DeviceAutomation.Rule(preferences, id) };
             try { info.CurrentVolume = (int)Math.Round(audio.ReadVolume(id) * 100); }
-            catch (Exception ex) { info.VolumeError = "不能读取该设备音量：" + ex.Message; }
+            catch (Exception ex) { info.VolumeError = L.Text("不能读取该设备音量：{0}", ex.Message); }
             if (endpoint.Flow == 0)
             {
                 try { info.Spatial = audio.ReadSpatial(id); }
@@ -462,7 +468,7 @@ namespace AudioSwitch
         private void UpdateGameMode()
         {
             gameScheduling.Apply(preferences.GameMode);
-            updates.SetPaused(!preferences.AutomaticUpdatesAllowed, preferences.AutoUpdateEnabled ? null : "自动更新已关闭，可手动检查更新。");
+            updates.SetPaused(!preferences.AutomaticUpdatesAllowed, preferences.AutoUpdateEnabled ? null : L.Text("自动更新已关闭，可手动检查更新。"));
             if (!preferences.AutomaticUpdatesAllowed)
             {
                 updateIdleTimer.Stop(); ReleaseUpdateActivity();

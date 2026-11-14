@@ -178,7 +178,7 @@ namespace AudioSwitch
             int left = bounds.X + (int)(44 * s), width = Math.Max(1, bounds.Width - (int)(75 * s));
             TextRenderer.DrawText(e.Graphics, GetItemText(Items[e.Index]), Font, new Rectangle(left, bounds.Y + (int)(3 * s), width, (int)(23 * s)),
                 online ? Palette.Text : Palette.Muted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-            using (var font = new Font(Font.FontFamily, 8F)) TextRenderer.DrawText(e.Graphics, online ? "在线 · 可自动选择" : "离线 · 保留排序", font,
+            using (var font = new Font(Font.FontFamily, 8F)) TextRenderer.DrawText(e.Graphics, online ? L.Text("在线 · 可自动选择") : L.Text("离线 · 保留排序"), font,
                 new Rectangle(left, bounds.Y + (int)(25 * s), width, (int)(18 * s)), Palette.Muted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
             if (selected) ChoiceBox.DrawCheck(e.Graphics, bounds.Right - 21 * s, bounds.Top + bounds.Height / 2, Palette.Accent);
         }

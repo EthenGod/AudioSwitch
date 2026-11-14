@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, AudioLines, Check, ChevronDown, Headphones, LoaderCircle, Mic, Unplug, X } from 'lucide-react'
 import { Button } from './components/ui/button'
@@ -5,10 +6,12 @@ import { Select } from './components/ui/select'
 import { DeviceIcon } from './components/shared'
 import { ScrollSurface } from './components/ScrollSurface'
 import { useAppearance } from './useAppearance'
+import { useLanguage } from './i18n/useLanguage'
 import { canRestore, PromptFailure, type PromptAction, type PromptGateway, type PromptState } from './data/prompt'
 
 export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   const [state, setState] = useState<PromptState>(), [token, setToken] = useState(''), [selected, setSelected] = useState('')
+  const language = useLanguage(state?.snapshot.Preferences.Language, state?.snapshot.ResolvedLanguage, !!state)
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [closed, setClosed] = useState(false)
   const lock = useRef(false), paused = useRef(false)
   const selection = useRef({ token: '', id: '' })
@@ -50,7 +53,7 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     } catch {
       if (mounted.current) {
         leaving.current = false; setPhase('open')
-        setError(openPanel ? '无法打开面板，请重试' : '无法关闭提示，请重试')
+        setError(openPanel ? t("无法打开面板，请重试") : t("无法关闭提示，请重试"))
       }
     }
   }
@@ -75,11 +78,11 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
     finally { lock.current = false; setBusy(false) }
   }
   useEffect(() => {
-    document.title = gateway.mode === 'desktop' ? '声间 设备提示' : '声间 设备提示预览'
+    document.title = gateway.mode === 'desktop' ? t("声间 设备提示") : t("声间 设备提示预览")
     document.querySelector('meta[name="description"]')?.setAttribute('content', gateway.mode === 'desktop'
-      ? '声间 Audio Switch 音频设备接入与断开提示'
-      : '声间 Audio Switch 仅使用模拟数据的设备提示预览')
-  }, [gateway.mode])
+      ? t("声间 Audio Switch 音频设备接入与断开提示")
+      : t("声间 Audio Switch 仅使用模拟数据的设备提示预览"))
+  }, [gateway.mode, language])
   useEffect(() => {
     if (closed) return
     let active = true, timer: ReturnType<typeof setTimeout>
@@ -129,60 +132,60 @@ export function PromptApp({ gateway }: { gateway: PromptGateway }) {
   const currentId = arrival && state?.snapshot.Defaults[`${arrival.Flow}:1`]
   const eventDevices = state?.snapshot.Devices.filter(d => arrival?.NewIds.includes(d.Id)) ?? []
   const eventName = arrival?.Disconnected ? arrival.PreviousName : eventDevices.map(d => d.Name).join('、')
-  const currentName = devices.find(d => d.Id === currentId)?.Name ?? '没有可用设备'
+  const currentName = devices.find(d => d.Id === currentId)?.Name ?? t("没有可用设备")
   const canSelect = !!state?.snapshot.CanWrite && !error && devices.some(d => d.Id === selected)
   const canPrevious = !!state && !!arrival && !error && state.snapshot.CanWrite && canRestore(state, arrival)
   const action = hoverAction ?? focusAction
   const feedback = action === 'close' ? 'close' : action === 'selected' && canSelect ? 'selected' : action === 'previous' && canPrevious ? 'previous' : 'current'
-  const targetName = devices.find(d => d.Id === selected)?.Name ?? '没有可用设备'
+  const targetName = devices.find(d => d.Id === selected)?.Name ?? t("没有可用设备")
   return <main className="prompt-shell" data-phase={phase} data-choosing={choosing} data-compact={compact} data-closed={closed || undefined} onKeyDown={event => {
     if (event.key === 'Escape' && !event.defaultPrevented && !busy) { event.preventDefault(); void close() }
   }}>
     <header className="prompt-header">
-      <span className="prompt-brand"><AudioLines size={16} aria-hidden="true" />声间</span>
-      {state && state.pending.length > 1 && <span className="prompt-count" aria-label={`${state.pending.length} 个待处理提示`}>{state.pending.length} 个提示</span>}
+      <span className="prompt-brand"><AudioLines size={16} aria-hidden="true" />{t("声间")}</span>
+      {state && state.pending.length > 1 && <span className="prompt-count" aria-label={t("{0} 个待处理提示", state.pending.length)}>{t("{0} 个待处理提示", state.pending.length)}</span>}
       <div className="prompt-tools">
-        <Button variant="ghost" size="icon" aria-label="打开面板" title="打开面板" pending={busy || phase === 'closing'} onClick={() => void close(true)}><ArrowUpRight size={16} /></Button>
-        <Button variant="ghost" size="icon" aria-label="关闭提示" title="关闭提示" pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('close')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('close')} onBlur={() => setFocusAction(null)} onClick={() => void close()}><X size={16} /></Button>
+        <Button variant="ghost" size="icon" aria-label={t("打开面板")} title={t("打开面板")} pending={busy || phase === 'closing'} onClick={() => void close(true)}><ArrowUpRight size={16} /></Button>
+        <Button variant="ghost" size="icon" aria-label={t("关闭提示")} title={t("关闭提示")} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('close')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('close')} onBlur={() => setFocusAction(null)} onClick={() => void close()}><X size={16} /></Button>
       </div>
     </header>
-    {gateway.mode === 'preview' && <div className="prompt-preview">界面预览，操作不会改变系统设置</div>}
+    {gateway.mode === 'preview' && <div className="prompt-preview">{t("界面预览，操作不会改变系统设置")}</div>}
     <ScrollSurface className="prompt-content">
-      {closed ? <p role="status" className="prompt-closed"><Check size={20} />提示已关闭</p> : <section className="prompt-event" key={token} data-advance={token !== firstToken.current || undefined} aria-busy={busy}>
+      {closed ? <p role="status" className="prompt-closed"><Check size={20} />{t("提示已关闭")}</p> : <section className="prompt-event" key={token} data-advance={token !== firstToken.current || undefined} aria-busy={busy}>
         <div className="prompt-hero">
           <span className="prompt-device-art" data-disconnected={arrival?.Disconnected || undefined}>
             {arrival?.Disconnected ? <Unplug size={24} /> : eventDevices[0] ? <DeviceIcon device={eventDevices[0]} size={24} /> : arrival?.Flow === 1 ? <Mic size={24} /> : <Headphones size={24} />}
           </span>
           <div className="prompt-heading">
-            <h1>{arrival ? arrival.Disconnected ? '当前设备已断开' : `发现新的${arrival.Flow === 0 ? '输出设备' : '麦克风'}` : error ? '无法读取设备提示' : '正在读取设备提示'}</h1>
-            {arrival && <p className="prompt-device-name" title={eventName}>{eventName || (arrival.Flow === 0 ? '声音输出' : '麦克风输入')}</p>}
+            <h1>{arrival ? arrival.Disconnected ? t("当前设备已断开") : arrival.Flow === 0 ? t("发现新的输出设备") : t("发现新的麦克风") : error ? t("无法读取设备提示") : t("正在读取设备提示")}</h1>
+            {arrival && <p className="prompt-device-name" title={eventName}>{eventName || (arrival.Flow === 0 ? t("声音输出") : t("麦克风输入"))}</p>}
           </div>
         </div>
         {arrival && state && <>
           <div className="prompt-outcome" aria-live="polite" aria-atomic="true" data-preview={feedback !== 'current' || undefined}>
             {[
-              { key: 'current', label: '当前使用', name: currentName },
-              { key: 'close', label: '将保持', name: currentName },
-              { key: 'selected', label: '将使用', name: targetName },
-              { key: 'previous', label: '将恢复', name: arrival.PreviousName },
+              { key: 'current', label: t("当前使用"), name: currentName },
+              { key: 'close', label: t("将保持"), name: currentName },
+              { key: 'selected', label: t("将使用"), name: targetName },
+              { key: 'previous', label: t("将恢复"), name: arrival.PreviousName },
             ].map(item => <div key={item.key} className="prompt-current" data-active={feedback === item.key} aria-hidden={feedback !== item.key}>
               <span>{item.label}</span><span title={item.name}>{item.name}</span>
             </div>)}
           </div>
-          <Button className="prompt-choose" variant="ghost" size="sm" aria-expanded={choosing} aria-controls="prompt-device-choice" disabled={!!error || !state.snapshot.CanWrite || !devices.length} pending={busy || phase === 'closing'} onClick={() => setChoosing(value => !value)}>选择其他设备<ChevronDown size={14} aria-hidden="true" /></Button>
+          <Button className="prompt-choose" variant="ghost" size="sm" aria-expanded={choosing} aria-controls="prompt-device-choice" disabled={!!error || !state.snapshot.CanWrite || !devices.length} pending={busy || phase === 'closing'} onClick={() => setChoosing(value => !value)}>{t("选择其他设备")}<ChevronDown size={14} aria-hidden="true" /></Button>
           <div id="prompt-device-choice" className="prompt-choice" data-open={choosing} aria-hidden={!choosing} inert={!choosing}>
           <div className="prompt-choice-inner">
-          <Select id="prompt-device" label={arrival.Flow === 0 ? '声音输出' : '麦克风输入'} value={devices.length ? selected : ''} disabled={!!error || !state.snapshot.CanWrite || !devices.length} pending={busy || phase === 'closing'} onValueChange={value => { selection.current.id = value; setSelected(value) }} options={devices.length ? devices.map((d, i) => ({ value: d.Id, label: `${d.Name}${devices.some(other => other.Id !== d.Id && other.Name === d.Name) ? `（${i + 1}）` : ''}` })) : [{ value: '', label: '没有可用设备' }]} />
+          <Select id="prompt-device" label={arrival.Flow === 0 ? t("声音输出") : t("麦克风输入")} value={devices.length ? selected : ''} disabled={!!error || !state.snapshot.CanWrite || !devices.length} pending={busy || phase === 'closing'} onValueChange={value => { selection.current.id = value; setSelected(value) }} options={devices.length ? devices.map((d, i) => ({ value: d.Id, label: `${d.Name}${devices.some(other => other.Id !== d.Id && other.Name === d.Name) ? `（${i + 1}）` : ''}` })) : [{ value: '', label: t("没有可用设备") }]} />
           </div></div>
-          {!state.snapshot.CanWrite && <p role="status" className="prompt-readonly">当前后台仅支持查看，请更新后台后再操作</p>}
+          {!state.snapshot.CanWrite && <p role="status" className="prompt-readonly">{t("当前后台仅支持查看，请更新后台后再操作")}</p>}
         </>}
-        {error && <div role="alert" className="prompt-error"><p>{error}</p><Button variant="outline" disabled={busy || phase === 'closing'} onClick={() => void refresh()}>刷新状态</Button></div>}
+        {error && <div role="alert" className="prompt-error"><p>{error}</p><Button variant="outline" disabled={busy || phase === 'closing'} onClick={() => void refresh()}>{t("刷新状态")}</Button></div>}
       </section>}
     </ScrollSurface>
     {!closed && arrival && state && <footer className="prompt-actions" aria-busy={busy}>
-      <Button className="prompt-primary" disabled={!canSelect} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('selected')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('selected')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'selected', token, id: selected })}>{busy && <LoaderCircle className="spin" aria-hidden="true" />}{!arrival.Disconnected && arrival.NewIds.includes(selected) ? '使用新设备' : '切换'}</Button>
+      <Button className="prompt-primary" disabled={!canSelect} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('selected')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('selected')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'selected', token, id: selected })}>{busy && <LoaderCircle className="spin" aria-hidden="true" />}{!arrival.Disconnected && arrival.NewIds.includes(selected) ? t("使用新设备") : t("切换")}</Button>
       {!arrival.Disconnected && <div className="prompt-secondary">
-        <Button variant="ghost" disabled={!canPrevious} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('previous')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('previous')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'previous', token })}>保留原设备</Button>
+        <Button variant="ghost" disabled={!canPrevious} pending={busy || phase === 'closing'} onMouseEnter={() => setHoverAction('previous')} onMouseLeave={() => setHoverAction(null)} onFocus={() => setFocusAction('previous')} onBlur={() => setFocusAction(null)} onClick={() => void respond({ kind: 'previous', token })}>{t("保留原设备")}</Button>
       </div>}
     </footer>}
   </main>

@@ -8,7 +8,7 @@ namespace AudioSwitch
     {
         internal static TrayCommand Create(bool enabled, Action<bool> change)
         {
-            return new TrayCommand("游戏模式", TrayGlyph.Game, () => change(!enabled)) { Key = "gameMode", KeepOpen = true, Toggle = true, Checked = enabled };
+            return new TrayCommand(L.Text("游戏模式"), TrayGlyph.Game, () => change(!enabled)) { Key = "gameMode", KeepOpen = true, Toggle = true, Checked = enabled };
         }
     }
 }

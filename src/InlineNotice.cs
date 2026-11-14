@@ -14,8 +14,8 @@ namespace AudioSwitch
         private readonly Label heading = Palette.Label("", 9.5F, Palette.Text, true);
         private readonly NoticeMark mark = new NoticeMark();
         internal readonly Label MessageLabel = Palette.Label("", 8.5F, Palette.Muted, false);
-        internal readonly FlatAction CloseButton = new FlatAction("×", false) { Name = "dismissNotice", AccessibleName = "关闭此提示" };
-        internal readonly FlatAction DetailsButton = new FlatAction("查看详情", false) { Name = "noticeDetails" };
+        internal readonly FlatAction CloseButton = new FlatAction("×", false) { Name = "dismissNotice", AccessibleName = L.Text("关闭此提示") };
+        internal readonly FlatAction DetailsButton = new FlatAction(L.Text("查看详情"), false) { Name = "noticeDetails" };
         private bool failure;
         internal InlineNotice()
         {
@@ -30,7 +30,7 @@ namespace AudioSwitch
         internal void SetMessage(string message, bool isFailure)
         {
             failure = isFailure; mark.Failure = isFailure;
-            heading.Text = isFailure ? "操作未完成" : "需要留意";
+            heading.Text = isFailure ? L.Text("操作未完成") : L.Text("需要留意");
             MessageLabel.Text = message ?? ""; mark.Invalidate();
             Visible = MessageLabel.Text.Length > 0;
         }

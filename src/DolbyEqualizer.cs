@@ -16,13 +16,13 @@ namespace AudioSwitch
 
         internal static decimal[] ToTen(int[] raw)
         {
-            if (raw == null || raw.Length != 20 || raw.Any(n => n < -192 || n > 192)) throw new ArgumentException("均衡器需要 20 个 -192 到 192 的整数。");
+            if (raw == null || raw.Length != 20 || raw.Any(n => n < -192 || n > 192)) throw new ArgumentException(L.Text("均衡器需要 20 个 -192 到 192 的整数。"));
             return Anchors.Select(i => raw[i] / 16m).ToArray();
         }
 
         internal static int[] ToTwenty(decimal[] db)
         {
-            if (db == null || db.Length != 10 || db.Any(n => n < -12 || n > 12)) throw new ArgumentException("均衡器需要 10 个 -12 到 12 dB 的数值。");
+            if (db == null || db.Length != 10 || db.Any(n => n < -12 || n > 12)) throw new ArgumentException(L.Text("均衡器需要 10 个 -12 到 12 dB 的数值。"));
             var gains = db.Select(n => (int)Math.Round(n * 16m, MidpointRounding.AwayFromZero)).ToArray();
             var result = new int[20];
             for (int i = 0; i < result.Length; i++)

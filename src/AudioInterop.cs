@@ -169,7 +169,7 @@ namespace AudioSwitch
                 Marshal.ThrowExceptionForHR(device.OpenPropertyStore(0, out store));
                 var key = new PropertyKey { Format = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), Id = 14 };
                 Marshal.ThrowExceptionForHR(store.GetValue(ref key, out value));
-                return value.Type == 31 ? Marshal.PtrToStringUni(value.Pointer) : "音频设备";
+                return value.Type == 31 ? Marshal.PtrToStringUni(value.Pointer) : L.Text("音频设备");
             }
             finally { PropVariantClear(ref value); Release(store); }
         }
@@ -214,7 +214,7 @@ namespace AudioSwitch
                 var context = Guid.Empty;
                 Marshal.ThrowExceptionForHR(volume.SetMasterVolumeLevelScalar(value, ref context));
                 float actual; Marshal.ThrowExceptionForHR(volume.GetMasterVolumeLevelScalar(out actual));
-                if (Math.Abs(actual - value) > 0.011F) throw new InvalidOperationException("音量未能设置到目标值。");
+                if (Math.Abs(actual - value) > 0.011F) throw new InvalidOperationException(L.Text("音量未能设置到目标值。"));
                 return 0;
             });
         }

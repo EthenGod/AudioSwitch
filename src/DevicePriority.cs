@@ -43,10 +43,10 @@ namespace AudioSwitch
 
         internal static void Reorder(Preferences preferences, int flow, List<string> ids)
         {
-            if (flow != 0 && flow != 1) throw new InvalidOperationException("无效的设备类型。");
+            if (flow != 0 && flow != 1) throw new InvalidOperationException(L.Text("无效的设备类型。"));
             var known = preferences.DeviceOrder.Where(d => d.Flow == flow).ToList();
             if (ids == null || ids.Count != ids.Distinct().Count() || ids.Any(id => !known.Any(d => d.Id == id)))
-                throw new InvalidOperationException("设备列表已变化，请重新打开优先级设置。");
+                throw new InvalidOperationException(L.Text("设备列表已变化，请重新打开优先级设置。"));
             // Preserve endpoints discovered while the editor was open, after the submitted order.
             var arranged = ids.Select(id => known.Single(d => d.Id == id)).Concat(known.Where(d => !ids.Contains(d.Id))).ToList();
             preferences.DeviceOrder = preferences.DeviceOrder.Where(d => d.Flow != flow).Concat(arranged).ToList();

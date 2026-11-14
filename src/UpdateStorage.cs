@@ -27,7 +27,7 @@ namespace AudioSwitch
             while (pending.Count > 0)
                 foreach (string path in Directory.EnumerateFileSystemEntries(pending.Pop()))
                 {
-                    if (++entries > 20000) throw new UpdateStorageException("更新目录中的文件过多，请手动整理：" + root);
+                    if (++entries > 20000) throw new UpdateStorageException(L.Text("更新目录中的文件过多，请手动整理：{0}", root));
                     UpdateInstaller.RejectLinks(path);
                     if (Directory.Exists(path)) pending.Push(path);
                     else size = checked(size + new FileInfo(path).Length);
@@ -38,10 +38,10 @@ namespace AudioSwitch
         {
             long used = Measure(root);
             if (additional < 0 || used > limit || additional > limit - used)
-                throw new UpdateStorageException(label + "空间已达预留上限（" + (limit / 1024 / 1024) + " MiB），更新操作已暂停。请手动整理后重试：" + root);
+                throw new UpdateStorageException(L.Text("{0}空间已达预留上限（{1} MiB），更新操作已暂停。请手动整理后重试：{2}", label, (limit / 1024 / 1024), root));
             var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root)));
             if (drive.AvailableFreeSpace < additional + 64L * 1024 * 1024)
-                throw new UpdateStorageException("磁盘剩余空间不足，更新已暂停，请腾出空间后重试。");
+                throw new UpdateStorageException(L.Text("磁盘剩余空间不足，更新已暂停，请腾出空间后重试。"));
         }
         internal static void Backup(string payload, string directory, string[] files)
         {
@@ -54,7 +54,7 @@ namespace AudioSwitch
                 // Leave room to retain a newly introduced file if rollback cannot remove it.
                 if (File.Exists(source)) reserve = checked(reserve + new FileInfo(source).Length);
             }
-            Require(Path.Combine(directory, "update-backups"), BackupLimit, reserve, "旧版备份");
+            Require(Path.Combine(directory, "update-backups"), BackupLimit, reserve, L.Text("旧版备份"));
         }
     }
 }

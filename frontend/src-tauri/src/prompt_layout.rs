@@ -20,7 +20,7 @@ fn target_height(scale: f64, expanded: bool, compact: bool, chrome: i32, availab
 }
 
 pub async fn resize(window: tauri::WebviewWindow, generation: Arc<AtomicU64>, expanded: bool, reduced_motion: bool, compact: bool) -> Result<(), String> {
-    if window.label() != "prompt" { return Err("此窗口不能调整设备提示大小".into()); }
+    if window.label() != "prompt" { return Err(crate::localization::text("此窗口不能调整设备提示大小").into()); }
     let revision = generation.fetch_add(1, Ordering::SeqCst) + 1;
     let position = window.outer_position().map_err(|e| e.to_string())?;
     let outer = window.outer_size().map_err(|e| e.to_string())?;

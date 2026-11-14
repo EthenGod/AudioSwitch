@@ -21,42 +21,48 @@ pub enum Action {
     Preference { key: Preference, value: bool },
     BrowserPort { port: u16 },
     UiStyle { style: String },
+    Language { language: String },
     Reorder { flow: u8, ids: Vec<String> },
     Startup { value: bool, expected_command: Option<String> },
 }
 
 fn id(value: &str) -> Result<(), String> {
-    if value.is_empty() || value.len() > 2048 || value.contains(['\0', '\r', '\n']) { Err("无效的设备标识。".into()) } else { Ok(()) }
+    if value.is_empty() || value.len() > 2048 || value.contains(['\0', '\r', '\n']) { Err(crate::localization::text("无效的设备标识。").into()) } else { Ok(()) }
 }
 fn profile(value: &BasicProfile) -> Result<Value, String> {
-    if value.volume.is_some_and(|v| v > 100) { return Err("音量必须在 0 到 100 之间。".into()); }
-    if value.spatial_format.as_ref().is_some_and(|v| v.len() > 128 || v.contains(['\0', '\r', '\n'])) { return Err("空间音效格式无效。".into()); }
+    if value.volume.is_some_and(|v| v > 100) { return Err(crate::localization::text("音量必须在 0 到 100 之间。").into()); }
+    if value.spatial_format.as_ref().is_some_and(|v| v.len() > 128 || v.contains(['\0', '\r', '\n'])) { return Err(crate::localization::text("空间音效格式无效。").into()); }
     Ok(json!({ "Volume": value.volume, "SpatialFormat": value.spatial_format }))
 }
 
 impl Action {
     pub fn request(&self, snapshot: &Value) -> Result<Value, String> {
         if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 1 {
-            return Err("当前后台仅支持只读预览，请退出原后台后使用本阶段构建的后台。".into());
+            return Err(crate::localization::text("当前后台仅支持只读预览，请退出原后台后使用本阶段构建的后台。").into());
         }
         Ok(match self {
+            Self::Language { language } => {
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 14 { return Err(crate::localization::text("切换语言需要新版后台").into()); }
+                if !super::localization::supported(language) { return Err(crate::localization::text("不支持此语言").into()); }
+                json!({"Action":"language", "Language":language})
+            },
             Self::Switch { id: device } => { id(device)?; json!({"Action":"switch", "DeviceId": device}) },
             Self::BrowserPort { port } => {
-                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 9 { return Err("自定义端口需要新版后台。".into()); }
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 9 { return Err(crate::localization::text("自定义端口需要新版后台。").into()); }
                 json!({"Action":"browserPort", "BrowserPort":port})
             },
             Self::UiStyle { style } => {
-                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 13 { return Err("切换界面风格需要新版后台。".into()); }
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 13 { return Err(crate::localization::text("切换界面风格需要新版后台。").into()); }
                 if style.is_empty() || style.len() > 32 || !style.as_bytes()[0].is_ascii_lowercase()
                     || !style.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-') {
-                    return Err("界面风格标识无效。".into());
+                    return Err(crate::localization::text("界面风格标识无效。").into());
                 }
                 json!({"Action":"uiStyle", "UiStyle":style})
             },
             Self::SaveBasic { id: device, profile: next, expected_profile, rule, expected_rule, rename } => {
                 id(device)?;
-                if *rule > 2 || *expected_rule > 2 { return Err("白名单规则无效。".into()); }
-                if rename.is_some() && snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 11 { return Err("自定义设备名称需要新版后台。".into()); }
+                if *rule > 2 || *expected_rule > 2 { return Err(crate::localization::text("白名单规则无效。").into()); }
+                if rename.is_some() && snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 11 { return Err(crate::localization::text("自定义设备名称需要新版后台。").into()); }
                 json!({"Action":"saveBasicDeviceSettings", "DeviceAlias":rename.as_ref().map(|r| &r.name), "ExpectedDeviceAlias":rename.as_ref().map(|r| &r.expected), "DeviceId":device, "Profile":profile(next)?,
                     "ExpectedProfile":expected_profile.as_ref().map(profile).transpose()?, "DeviceRule":rule, "ExpectedDeviceRule":expected_rule, "Value":false})
             },
@@ -64,28 +70,28 @@ impl Action {
                 Preference::DarkMode => "darkMode", Preference::GameMode => "gameMode", Preference::AskOnConnect => "ask",
                 Preference::IncludeCommunications => "communications", Preference::UseDevicePriority => "priority", Preference::AutoUpdateEnabled => "automaticUpdates",
                 Preference::IncludePrerelease => {
-                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 10 { return Err("更新版本设置需要新版后台。".into()); }
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 10 { return Err(crate::localization::text("更新版本设置需要新版后台。").into()); }
                     "includePrerelease"
                 },
                 Preference::KeepBrowserPortOpen => {
-                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 8 { return Err("此设置需要新版后台。".into()); }
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 8 { return Err(crate::localization::text("此设置需要新版后台。").into()); }
                     "keepBrowserPortOpen"
                 },
                 Preference::OpenPanelInBrowser => {
-                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 7 { return Err("此设置需要新版后台。".into()); }
+                    if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 7 { return Err(crate::localization::text("此设置需要新版后台。").into()); }
                     "openPanelInBrowser"
                 },
             }, "Value":value}),
             Self::Reorder { flow, ids } => {
-                if *flow > 1 || ids.len() > 4096 { return Err("设备排序无效。".into()); }
+                if *flow > 1 || ids.len() > 4096 { return Err(crate::localization::text("设备排序无效。").into()); }
                 let mut unique = std::collections::HashSet::new();
-                for item in ids { id(item)?; if !unique.insert(item) { return Err("设备排序有重复项。".into()); } }
+                for item in ids { id(item)?; if !unique.insert(item) { return Err(crate::localization::text("设备排序有重复项。").into()); } }
                 json!({"Action":"deviceOrder", "Flow":flow, "DeviceOrder":ids})
             },
             Self::Startup { value, expected_command } => {
-                let path = snapshot["BackendExecutablePath"].as_str().filter(|s| !s.is_empty()).ok_or("无法确认后台程序位置。")?;
-                if snapshot["Startup"]["Available"] != true { return Err("当前无法修改自启，请查看后台自启说明。".into()); }
-                if expected_command.as_ref().is_some_and(|s| s.len() > 32768) { return Err("自启登记信息无效。".into()); }
+                let path = snapshot["BackendExecutablePath"].as_str().filter(|s| !s.is_empty()).ok_or(crate::localization::text("无法确认后台程序位置。"))?;
+                if snapshot["Startup"]["Available"] != true { return Err(crate::localization::text("当前无法修改自启，请查看后台自启说明。").into()); }
+                if expected_command.as_ref().is_some_and(|s| s.len() > 32768) { return Err(crate::localization::text("自启登记信息无效。").into()); }
                 // Path comes only from the backend; never register the panel executable.
                 json!({"Action":"startup", "Value":value, "StartupExecutablePath":path, "ExpectedStartupCommand":expected_command})
             },
@@ -152,6 +158,14 @@ mod tests {
         assert_eq!(request["Profile"]["Volume"], 0); assert_eq!(request["Profile"]["SpatialFormat"], Value::Null);
         assert!(request["Profile"].get("Dolby").is_none());
         assert!(action.request(&json!({})).is_err());
+    }
+    #[test]
+    fn language_requires_supported_catalogue_and_backend_without_device_operation() {
+        let action: Action = serde_json::from_value(json!({"kind":"language","language":"ja"})).unwrap();
+        assert!(action.request(&json!({"PanelApiVersion":13})).is_err());
+        assert_eq!(action.request(&json!({"PanelApiVersion":14})).unwrap(), json!({"Action":"language","Language":"ja"}));
+        assert!(Action::Language { language:"../en".into() }.request(&json!({"PanelApiVersion":14})).is_err());
+        assert!(Action::Language { language:"zz".into() }.request(&json!({"PanelApiVersion":14})).is_err());
     }
     #[test]
     fn renaming_requires_new_backend_and_carries_expected_name() {

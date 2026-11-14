@@ -19,14 +19,14 @@ namespace AudioSwitch
     {
         internal static void Validate(DeviceProfile profile, int flow)
         {
-            if (profile == null) throw new InvalidOperationException("缺少设备设置。");
+            if (profile == null) throw new InvalidOperationException(L.Text("缺少设备设置。"));
             DolbyProfiles.Validate(profile.Dolby);
-            if (flow != 0 && profile.Dolby != null) throw new InvalidOperationException("麦克风不适用 Dolby 播放预设。");
-            if (profile.Volume.HasValue && (profile.Volume < 0 || profile.Volume > 100)) throw new InvalidOperationException("音量必须在 0–100 之间。");
-            if (flow != 0 && profile.SpatialFormat != null) throw new InvalidOperationException("麦克风不适用播放空间音效。");
+            if (flow != 0 && profile.Dolby != null) throw new InvalidOperationException(L.Text("麦克风不适用 Dolby 播放预设。"));
+            if (profile.Volume.HasValue && (profile.Volume < 0 || profile.Volume > 100)) throw new InvalidOperationException(L.Text("音量必须在 0–100 之间。"));
+            if (flow != 0 && profile.SpatialFormat != null) throw new InvalidOperationException(L.Text("麦克风不适用播放空间音效。"));
             Guid format;
             if (!String.IsNullOrEmpty(profile.SpatialFormat) && !Guid.TryParse(profile.SpatialFormat, out format))
-                throw new InvalidOperationException("空间音效格式无效。");
+                throw new InvalidOperationException(L.Text("空间音效格式无效。"));
         }
         private sealed class Original
         {
@@ -56,10 +56,10 @@ namespace AudioSwitch
                     if (!SameFormat(profile.SpatialFormat, state.CurrentFormat) && !SameFormat(profile.SpatialFormat, "")
                         && (!state.Supported || !state.Options.Any(o => SameFormat(o.Id, profile.SpatialFormat))))
                     {
-                        if (spatialWarning == null) throw new InvalidOperationException("该设备目前不支持保存的空间音效，请修改设备设置。");
+                        if (spatialWarning == null) throw new InvalidOperationException(L.Text("该设备目前不支持保存的空间音效，请修改设备设置。"));
                         // Skip only the unavailable effect for this automatic selection; never rewrite the saved preset.
                         original.Target = new DeviceProfile { Volume = profile.Volume, SpatialFormat = null };
-                        spatialWarning("暂不支持保存的空间音效，本次保留设备当前音效。可在设备设置中修改。");
+                        spatialWarning(L.Text("暂不支持保存的空间音效，本次保留设备当前音效。可在设备设置中修改。"));
                     }
                 }
                 originals.Add(original);
@@ -89,7 +89,7 @@ namespace AudioSwitch
                     try { if (original.SpatialAttempted) access.SetSpatial(original.Id, original.Spatial); } catch { incomplete = true; }
                     try { if (original.VolumeAttempted || (original.SpatialAttempted && original.Target.Volume.HasValue)) access.SetVolume(original.Id, original.Volume); } catch { incomplete = true; }
                 }
-                throw new InvalidOperationException("设备或预设应用失败：" + ex.Message + (incomplete ? " 部分音量或音效未能恢复，请检查设备。" : " 已恢复本次更改的音量和音效。"));
+                throw new InvalidOperationException(L.Text("设备或预设应用失败：{0}{1}", ex.Message, (incomplete ? L.Text(" 部分音量或音效未能恢复，请检查设备。") : L.Text(" 已恢复本次更改的音量和音效。"))));
             }
         }
         internal static bool SameFormat(string a, string b)

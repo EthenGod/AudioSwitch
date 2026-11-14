@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import type { Snapshot, UiGateway } from '@/data/types'
 import { dolbyRunning, type DolbyOperation, type DolbyProfile } from '@/data/dolby'
@@ -8,7 +9,7 @@ export function useDolbyApply(gateway: UiGateway, id: string, onSaved: (s: Snaps
   const current = useRef<DolbyOperation | null>(null), alive = useRef(true), locked = useRef(false), closeWanted = useRef(false), cancelWanted = useRef(false)
   const callbacks = useRef({ onSaved, onClose, onFailure, onSettled, onResult }); callbacks.current = { onSaved, onClose, onFailure, onSettled, onResult }
   function accept(value: DolbyOperation) {
-    if (value.Token !== current.current?.Token || value.DeviceId !== id) throw new Error('应用结果与当前任务不一致，请重新检查。')
+    if (value.Token !== current.current?.Token || value.DeviceId !== id) throw new Error(t("应用结果与当前任务不一致，请重新检查。"))
     current.current = value
     if (!alive.current) return
     setJob(value)
@@ -29,7 +30,7 @@ export function useDolbyApply(gateway: UiGateway, id: string, onSaved: (s: Snaps
   useEffect(() => {
     if (!dolbyRunning(job) || starting || error) return
     let active = true
-    const timer = setTimeout(() => { gateway.readDolbyApply(job!.Token).then(v => { if (active) accept(v) }).catch(e => { if (active) setError(e instanceof Error ? e.message : '无法确认应用结果，请重试读取。') }) }, 250)
+    const timer = setTimeout(() => { gateway.readDolbyApply(job!.Token).then(v => { if (active) accept(v) }).catch(e => { if (active) setError(e instanceof Error ? e.message : t("无法确认应用结果，请重试读取。")) }) }, 250)
     return () => { active = false; clearTimeout(timer) }
   }, [job, starting, error, gateway])
   async function cancel(close = false) {
@@ -38,14 +39,14 @@ export function useDolbyApply(gateway: UiGateway, id: string, onSaved: (s: Snaps
     if (!dolbyRunning(current.current)) { if (close) callbacks.current.onClose(); return }
     locked.current = true; setError('')
     try { accept(await gateway.cancelDolbyApply(current.current!.Token)) }
-    catch (e) { if (alive.current) setError(e instanceof Error ? e.message : '尚未确认应用停止，请重试。') }
+    catch (e) { if (alive.current) setError(e instanceof Error ? e.message : t("尚未确认应用停止，请重试。")) }
     finally { locked.current = false }
   }
   async function start(profile: DolbyProfile, expected: DolbyProfile | null) {
     if (locked.current || dolbyRunning(current.current) || uncertain) return
     locked.current = true; closeWanted.current = cancelWanted.current = false; setStarting(true); setError('')
     const token = crypto.randomUUID().replaceAll('-', '')
-    current.current = { Token:token, DeviceId:id, Status:'running', Message:'正在保存并请求应用…' }; setJob(current.current)
+    current.current = { Token:token, DeviceId:id, Status:'running', Message:t("正在保存并请求应用…") }; setJob(current.current)
     try {
       const result = await gateway.startDolbyApply(id, profile, expected, token)
       if (alive.current) callbacks.current.onSaved(result.snapshot)
@@ -53,7 +54,7 @@ export function useDolbyApply(gateway: UiGateway, id: string, onSaved: (s: Snaps
       if (!alive.current || cancelWanted.current || closeWanted.current) accept(await gateway.cancelDolbyApply(token))
     } catch (e) {
       if (!alive.current) { void gateway.cancelDolbyApply(token).catch(() => {}); return }
-      const failure = e instanceof OperationFailure ? e : new OperationFailure(e instanceof Error ? e.message : '无法确认应用结果。', undefined, true)
+      const failure = e instanceof OperationFailure ? e : new OperationFailure(e instanceof Error ? e.message : t("无法确认应用结果。"), undefined, true)
       setError(failure.message); callbacks.current.onFailure(failure)
       if (failure.requiresRefresh) setUncertain(true)
       else { current.current = null; setJob(null); if (closeWanted.current) callbacks.current.onClose() }

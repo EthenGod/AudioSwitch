@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './i18n/language.css';
 @import '@radix-ui/colors/slate.css';
 @import '@radix-ui/colors/slate-dark.css';
 @import '@radix-ui/colors/indigo.css';

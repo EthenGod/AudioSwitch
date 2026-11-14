@@ -18,6 +18,7 @@ export interface DeviceProfile {
   SpatialFormat: string | null
 }
 export interface Preferences {
+  Language?: string | null
   UiStyle: string
   BrowserPort: number
   DarkMode: boolean; GameMode: boolean; AskOnConnect: boolean
@@ -51,6 +52,8 @@ export interface Snapshot {
   CanKeepBrowserPortOpen?: boolean
   CanSetBrowserPort?: boolean
   CanSetUiStyle?: boolean
+  CanSetLanguage?: boolean
+  ResolvedLanguage?: string
   DolbyApplying?: boolean
 }
 export interface DeviceDetails {
@@ -69,12 +72,12 @@ export interface UpgradeJob {
   Token: string; Kind: UpgradeKind
   Status: 'checking' | 'available' | 'repairable' | 'current' | 'passed' | 'unavailable' | 'downloading' | 'ready' | 'installing' | 'handoff' | 'cancelled' | 'error'
   Message: string; Version?: string; Notes?: string; Bytes: number; Total: number; CanDownload: boolean
-  Directory?: string; Entries?: string[]
+  Directory?: string; Entries?: string[]; EntryStatuses?: string[]
 }
 export interface MaintenanceJob {
   Token: string; Kind: MaintenanceKind
   Status: 'running' | 'available' | 'current' | 'ahead' | 'unavailable' | 'passed' | 'failed' | 'cancelled' | 'error'
-  Message: string; CurrentVersion?: string; LatestVersion?: string; Notes?: string; Directory?: string; Entries?: string[]
+  Message: string; CurrentVersion?: string; LatestVersion?: string; Notes?: string; Directory?: string; Entries?: string[]; EntryStatuses?: string[]
 }
 /** The desktop implementation permits only explicit panel commands. */
 export interface AudioGateway {
@@ -97,6 +100,7 @@ export interface AudioGateway {
   setPreference(key: PreferenceKey, value: boolean): Promise<Snapshot>
   setBrowserPort(port: number): Promise<Snapshot>
   setUiStyle(style: string): Promise<Snapshot>
+  setLanguage(language: string): Promise<Snapshot>
   setStartup(value: boolean): Promise<Snapshot>
   reorder(flow: Flow, ids: string[]): Promise<Snapshot>
   exportBackup(): Promise<{ Path: string } | null>

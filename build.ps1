@@ -27,6 +27,9 @@ $integrityManifest = Join-Path $output 'integrity-manifest.txt'
 $integrityResource = '/resource:' + $integrityManifest + ',AudioSwitch.Integrity'
 $repairResources = @("/resource:$PSScriptRoot\src\App.config,AudioSwitch.Repair.Config", "/resource:$PSScriptRoot\vendor\svcl\svcl.exe,AudioSwitch.Repair.Svcl")
 $entryPoint = 'AudioSwitch.Program'
+foreach ($locale in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'locales') -Filter '*.json') {
+    $repairResources += "/resource:$($locale.FullName),AudioSwitch.Locales.$($locale.BaseName)"
+}
 if ($DesktopPayload) {
     if ($Test) { throw '便捷展开版不作为普通测试宿主，请先验证完整包。' }
     $payloadPath = (Resolve-Path -LiteralPath $DesktopPayload).Path

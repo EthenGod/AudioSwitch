@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { memo, useMemo, useState } from 'react'
 import { Marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -29,11 +30,11 @@ export function renderReleaseNotes(source: string): string {
   }
   for (const input of fragment.querySelectorAll('input')) {
     if (input.type !== 'checkbox') input.remove()
-    else { input.disabled = true; input.setAttribute('aria-label', input.checked ? '已完成' : '未完成') }
+    else { input.disabled = true; input.setAttribute('aria-label', input.checked ? t("已完成") : t("未完成")) }
   }
   for (const table of fragment.querySelectorAll('table')) {
     const scroll = document.createElement('div'); scroll.className = 'release-table'; scroll.tabIndex = 0
-    scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', '更新说明表格')
+    scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', t("更新说明表格"))
     table.replaceWith(scroll); scroll.append(table)
   }
   const container = document.createElement('div'); container.append(fragment); return container.innerHTML
@@ -45,7 +46,7 @@ export const ReleaseNotes = memo(function ReleaseNotes({ source }: { source: str
     const link = (event.target as Element).closest('a[href]')
     if (link && isTauri()) {
       event.preventDefault(); setError('')
-      void invoke('open_release_link', { url: link.getAttribute('href') }).catch(() => setError('无法打开链接，请复制链接到浏览器。'))
+      void invoke('open_release_link', { url: link.getAttribute('href') }).catch(() => setError(t("无法打开链接，请复制链接到浏览器。")))
     }
   }} dangerouslySetInnerHTML={{ __html: html }} />{error && <p role="alert">{error}</p>}</>
 })

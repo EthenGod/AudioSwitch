@@ -49,7 +49,7 @@ namespace AudioSwitch
         internal BackgroundUpdateState Snapshot()
         {
             lock (gate) return paused ? new BackgroundUpdateState { Stage = "paused", Version = state.Version,
-                Message = pauseReason != null ? pauseReason + (state.Stage == "ready" ? "已下载的更新会保留。" : "") : state.Stage == "ready" ? "游戏模式已开启，已下载更新保留，关闭后下次启动安装。" : "游戏模式已开启，自动更新和负载检测已暂停。" } :
+                Message = pauseReason != null ? L.Text("{0}{1}", pauseReason, (state.Stage == "ready" ? L.Text("已下载的更新会保留。") : "")) : state.Stage == "ready" ? L.Text("游戏模式已开启，已下载更新保留，关闭后下次启动安装。") : L.Text("游戏模式已开启，自动更新和负载检测已暂停。") } :
                 new BackgroundUpdateState { Stage = state.Stage, Version = state.Version, Message = state.Message };
         }
         internal bool Finished { get { lock (gate) return !paused && checkedOnce && work != null && work.IsCompleted && state.Stage != "waiting" && state.Stage != "downloading"; } }
@@ -91,11 +91,11 @@ namespace AudioSwitch
                             if (!AppUpdate.IsAvailable(found)) return;
                             release = found;
                             if (blocked != null && found.Version <= blocked)
-                                state = new BackgroundUpdateState { Stage = "error", Version = found.Tag, Message = "上次自动安装未完成，请点击检查更新手动重试。" };
-                            else state = new BackgroundUpdateState { Stage = "waiting", Version = found.Tag, Message = "发现 " + found.Tag + "，将在空闲时下载，下次启动时安装。" };
+                                state = new BackgroundUpdateState { Stage = "error", Version = found.Tag, Message = L.Text("上次自动安装未完成，请点击检查更新手动重试。") };
+                            else state = new BackgroundUpdateState { Stage = "waiting", Version = found.Tag, Message = L.Text("发现 {0}，将在空闲时下载，下次启动时安装。", found.Tag) };
                         }
                     }
-                    catch (Exception ex) { lock (gate) if (!disposed && !checkSuspended) { checkedOnce = true; state = new BackgroundUpdateState { Stage = "error", Message = "自动检查未完成，可点击检查更新重试。" + ex.Message }; } }
+                    catch (Exception ex) { lock (gate) if (!disposed && !checkSuspended) { checkedOnce = true; state = new BackgroundUpdateState { Stage = "error", Message = L.Text("自动检查未完成，可点击检查更新重试。{0}", ex.Message) }; } }
                     finally { lock (gate) { checking = null; timeout.Dispose(); } }
                 });
             }
@@ -108,7 +108,7 @@ namespace AudioSwitch
                 if (busy && state.Stage == "downloading" && download != null)
                 { yielded = true; download.Cancel(); return; }
                 if (!idle || busy || work == null || !work.IsCompleted || state.Stage != "waiting" || now() < retryAfter) return;
-                state = new BackgroundUpdateState { Stage = "downloading", Version = release.Tag, Message = "正在后台下载 " + release.Tag + "，本次使用不会重启。" };
+                state = new BackgroundUpdateState { Stage = "downloading", Version = release.Tag, Message = L.Text("正在后台下载 {0}，本次使用不会重启。", release.Tag) };
                 attempts++;
                 yielded = false;
                 download = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
@@ -123,7 +123,7 @@ namespace AudioSwitch
                             if (disposed) return;
                             timeout.Token.ThrowIfCancellationRequested();
                             stage(release, payload);
-                            state = new BackgroundUpdateState { Stage = "ready", Version = release.Tag, Message = release.Tag + " 已下载，下次启动时自动安装。" };
+                            state = new BackgroundUpdateState { Stage = "ready", Version = release.Tag, Message = L.Text("{0} 已下载，下次启动时自动安装。", release.Tag) };
                         }
                     }
                     catch (Exception ex)
@@ -133,14 +133,14 @@ namespace AudioSwitch
                             if (yielded)
                             {
                                 attempts--; retryAfter = now().AddSeconds(30);
-                                state = new BackgroundUpdateState { Stage = "waiting", Version = release.Tag, Message = "下载已暂缓，等待全屏应用退出且系统空闲后继续。" };
+                                state = new BackgroundUpdateState { Stage = "waiting", Version = release.Tag, Message = L.Text("下载已暂缓，等待全屏应用退出且系统空闲后继续。") };
                             }
                             else
                             {
                                 retryAfter = now().AddMinutes(5);
                                 bool retry = attempts < 3 && !(ex is UpdateStorageException);
                                 state = new BackgroundUpdateState { Stage = retry ? "waiting" : "error", Version = release.Tag,
-                                    Message = retry ? "下载暂未完成，将在稍后空闲时重试。" : "自动下载未完成，请点击检查更新重试。" + ex.Message };
+                                    Message = retry ? L.Text("下载暂未完成，将在稍后空闲时重试。") : L.Text("自动下载未完成，请点击检查更新重试。{0}", ex.Message) };
                             }
                         }
                     }

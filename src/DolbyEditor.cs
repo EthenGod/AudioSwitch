@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 EthenGod
+// Copyright (C) 2026 EthenGod
 // SPDX-License-Identifier: GPL-3.0-only
 // This file is part of AudioSwitch. See LICENSE and NOTICE.txt.
 using System;
@@ -31,38 +31,38 @@ namespace AudioSwitch
             BeginContentUpdate(); content.SuspendLayout();
             Dock = DockStyle.Fill; AutoScroll = false; BackColor = Palette.Card; ForeColor = Palette.Text;
             content.Layout += delegate { AlignRows(); };
-            use.Name = "useDolby"; use.Text = "此设备成为声音输出时，自动应用 Dolby 方案"; use.SetBounds(12, 10, 506, 28); Canvas.Controls.Add(use);
-            var help = Palette.Label("独立保存到此设备；Dolby 自定义槽位由驱动共享。\n可先在 Dolby Access 调好，再读取保存。未勾选的项目保持原值。", 8.5F, Palette.Muted, false);
+            use.Name = "useDolby"; use.Text = L.Text("此设备成为声音输出时，自动应用 Dolby 方案"); use.SetBounds(12, 10, 506, 28); Canvas.Controls.Add(use);
+            var help = Palette.Label(L.Text("独立保存到此设备；Dolby 自定义槽位由驱动共享。\n可先在 Dolby Access 调好，再读取保存。未勾选的项目保持原值。"), 8.5F, Palette.Muted, false);
             help.SetBounds(12, 43, 506, 44); Canvas.Controls.Add(help);
-            var read = new FlatAction("读取当前 Dolby 并填入", false) { Name = "readDolby" }; read.SetBounds(12, 94, 204, 32); Canvas.Controls.Add(read);
-            status = Palette.Label("读取需此设备是当前输出。设置失败只在面板提示，不弹窗。", 8F, Palette.Muted, false); status.SetBounds(12, 133, 506, 48); Canvas.Controls.Add(status);
+            var read = new FlatAction(L.Text("读取当前 Dolby 并填入"), false) { Name = "readDolby" }; read.SetBounds(12, 94, 204, 32); Canvas.Controls.Add(read);
+            status = Palette.Label(L.Text("读取需此设备是当前输出。设置失败只在面板提示，不弹窗。"), 8F, Palette.Muted, false); status.SetBounds(12, 133, 506, 48); Canvas.Controls.Add(status);
             content.SetBounds(0, 188, 530, 820); Canvas.Controls.Add(content);
-            var presetLabel = LabelAt("Dolby 预设", 12, 0, 130);
-            Combo(preset, "dolbyPreset", 145, 0, 365, new[] { "保持当前预设", "电影", "自定义 1", "自定义 2" });
+            var presetLabel = LabelAt(L.Text("Dolby 预设"), 12, 0, 130);
+            Combo(preset, "dolbyPreset", 145, 0, 365, new[] { L.Text("保持当前预设"), L.Text("电影"), L.Text("自定义 1"), L.Text("自定义 2") });
             AlignWith(presetLabel, preset);
-            string[] labels = { "Dolby 总开关", "环绕虚拟化", "人声增强", "音量平衡", "Dolby 内容自动切换" };
-            for (int i = 0; i < toggles.Length; i++) { var label = LabelAt(labels[i], 12, 40 + 35 * i, 180); toggles[i] = new ChoiceBox(); Combo(toggles[i], "dolbyToggle" + i, 238, 40 + 35 * i, 272, new[] { "保持不变", "开启", "关闭" }); AlignWith(label, toggles[i]); }
+            string[] labels = { L.Text("Dolby 总开关"), L.Text("环绕虚拟化"), L.Text("人声增强"), L.Text("音量平衡"), L.Text("Dolby 内容自动切换") };
+            for (int i = 0; i < toggles.Length; i++) { var label = LabelAt(labels[i], 12, 40 + 35 * i, 180); toggles[i] = new ChoiceBox(); Combo(toggles[i], "dolbyToggle" + i, 238, 40 + 35 * i, 272, new[] { L.Text("保持不变"), L.Text("开启"), L.Text("关闭开关") }); AlignWith(label, toggles[i]); }
             for (int i = 0; i < 3; i++)
             {
-                strengths[i] = new TickOption { Text = new[] { "环绕强度", "人声强度", "音量平衡强度" }[i] }; strengths[i].SetBounds(12, 224 + i * 34, 215, 28); content.Controls.Add(strengths[i]);
-                numbers[i] = Number(238, 224 + i * 34, 105, 0, 100); var unit = LabelAt("%（驱动可能取整）", 352, 224 + i * 34, 176);
+                strengths[i] = new TickOption { Text = new[] { L.Text("环绕强度"), L.Text("人声强度"), L.Text("音量平衡强度") }[i] }; strengths[i].SetBounds(12, 224 + i * 34, 215, 28); content.Controls.Add(strengths[i]);
+                numbers[i] = Number(238, 224 + i * 34, 105, 0, 100); var unit = LabelAt(L.Text("%（驱动可能取整）"), 352, 224 + i * 34, 176);
                 AlignWith(strengths[i], numbers[i]); AlignWith(unit, numbers[i]);
                 int slot = i; strengths[i].CheckedChanged += delegate { numbers[slot].Enabled = strengths[slot].Checked; };
             }
-            var ieqLabel = LabelAt("智能均衡器", 12, 332, 180); Combo(ieq, "dolbyIeq", 238, 332, 272, new[] { "保持不变", "关闭", "平衡" }); AlignWith(ieqLabel, ieq);
-            useEq.Text = "应用均衡器（自定义预设）"; useEq.Name = "dolbyUseEq"; useEq.SetBounds(12, 374, 495, 28); content.Controls.Add(useEq);
+            var ieqLabel = LabelAt(L.Text("智能均衡器"), 12, 332, 180); Combo(ieq, "dolbyIeq", 238, 332, 272, new[] { L.Text("保持不变"), L.Text("关闭开关"), L.Text("平衡") }); AlignWith(ieqLabel, ieq);
+            useEq.Text = L.Text("应用均衡器（自定义预设）"); useEq.Name = "dolbyUseEq"; useEq.SetBounds(12, 374, 495, 28); content.Controls.Add(useEq);
             equalizer.Location = new Point(12, 410); content.Controls.Add(equalizer);
-            var foot = Palette.Label("内容自动切换开启后，Dolby 可能自行改变预设。\n低音增强暂不支持。", 8F, Palette.Muted, false); foot.SetBounds(12, equalizer.Bottom + 12, 515, 46); content.Controls.Add(foot);
+            var foot = Palette.Label(L.Text("内容自动切换开启后，Dolby 可能自行改变预设。\n低音增强暂不支持。"), 8F, Palette.Muted, false); foot.SetBounds(12, equalizer.Bottom + 12, 515, 46); content.Controls.Add(foot);
             Action update = () => { use.Enabled = !Busy; read.Enabled = !Busy; content.Enabled = use.Checked && !Busy; bool custom = preset.SelectedIndex >= 2; ieq.Enabled = preset.SelectedIndex == 1; useEq.Enabled = custom; equalizer.Enabled = custom && useEq.Checked; };
             use.CheckedChanged += delegate { update(); }; preset.SelectedIndexChanged += delegate { update(); }; useEq.CheckedChanged += delegate { update(); };
             LoadProfile(profile); update();
             read.Click += async delegate {
                 if (Busy) return;
-                Busy = true; update(); status.Text = "正在读取…";
+                Busy = true; update(); status.Text = L.Text("正在读取…");
                 try { var result = await (readCurrent == null ? Task.Run(() => DolbyWorker.Run(deviceId, null)) : readCurrent()); if (IsDisposed) return;
-                    if (result == null || (result.Error == null && result.Profile == null)) throw new InvalidOperationException("Dolby 未返回有效方案，已保留原设置，请重试。");
+                    if (result == null || (result.Error == null && result.Profile == null)) throw new InvalidOperationException(L.Text("Dolby 未返回有效方案，已保留原设置，请重试。"));
                     if (result.Error != null) status.Text = result.Error;
-                    else { DolbyProfiles.Validate(result.Profile); LoadProfile(result.Profile); status.Text = "已填入当前设置，点击“仅保存”或“保存并应用”后生效。"; }
+                    else { DolbyProfiles.Validate(result.Profile); LoadProfile(result.Profile); status.Text = L.Text("已填入当前设置，点击“仅保存”或“保存并应用”后生效。"); }
                 } catch (Exception ex) { if (!IsDisposed) status.Text = ex.Message; }
                 finally { Busy = false; if (!IsDisposed) update(); }
             };
@@ -99,7 +99,7 @@ namespace AudioSwitch
         private double? Strength(int i) { return strengths[i].Checked ? (double?)numbers[i].Value / 100 : null; }
         internal DolbyProfile Value()
         {
-            if (Busy) throw new InvalidOperationException("请等待读取 Dolby 设置完成。");
+            if (Busy) throw new InvalidOperationException(L.Text("请等待读取 Dolby 设置完成。"));
             if (!use.Checked) return null;
             var p = new DolbyProfile { MainProfile = preset.SelectedIndex == 0 ? (int?)null : preset.SelectedIndex == 1 ? 0 : 4,
                 SubProfile = preset.SelectedIndex >= 2 ? (int?)(preset.SelectedIndex + 2) : null,
