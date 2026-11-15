@@ -6,11 +6,13 @@
 
 [![前往 GitHub Releases 下载](https://img.shields.io/badge/%E5%89%8D%E5%BE%80%20GitHub%20Releases%20%E4%B8%8B%E8%BD%BD-2563EB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EthenGod/AudioSwitch/releases)
 
-支持 Windows 10 / 11 x64。桌面面板需要 Microsoft Edge WebView2 Runtime。
+支持 Windows 10 / 11 x64，需要 .NET Framework 4.8。桌面面板还需要 Microsoft Edge WebView2 Runtime。
 
 ## 下载与运行
 
 打开 [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases)，在所选版本的 **Assets（附件）** 中下载。以 v0.13.0 为例，两种附件都包含完整桌面面板。
+
+[v0.13.0 发行说明](releases/RELEASE-NOTES-v0.13.0.md)
 
 | 附件 | 使用方法 |
 | --- | --- |
@@ -21,6 +23,7 @@
 
 ## 使用
 
+- **语言** — 首次启动选择语言，默认跟随系统，未匹配到时使用简体中文。以后可在“应用设置 → 语言”中更改。
 - **切换设备** — 右键单击托盘图标，选择输出设备或麦克风。双击图标默认打开主面板，也可以在应用设置中改为打开本机浏览器面板。
 - **自动切换** — 在“自动切换”中分别设置输出和输入设备的优先级。通过“同时切换通话设备”决定是否一并更改 Windows 默认通话设备。
 - **设备预设** — 在“声音设备”中打开设备设置，为设备命名或保存音量。输出设备还可设置 Windows 空间音效，受支持的 Dolby 设备可保存独立方案。“仅保存”留待下次使用；Dolby 编辑器中的“保存并应用”立即应用到当前输出。

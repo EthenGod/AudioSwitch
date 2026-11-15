@@ -6,7 +6,7 @@
 
 [Back to home](../../README.en.md)
 
-This guide describes the current repository code. Check your version's release notes for features available in a published build.
+This guide describes the current repository code. Check your version's release notes for features available in a published build. [v0.13.0 release notes](../../releases/RELEASE-NOTES-v0.13.0.en.md)
 
 ## Language and appearance
 
@@ -17,6 +17,8 @@ System device names and names you enter are not translated. App-provided device 
 ## Devices and auto switching
 
 Use Audio devices to switch the default output or microphone. Open a device's settings to give it a display name; leave the name blank to restore its system name. Devices with the same name remain separate because AudioSwitch uses their Windows endpoint IDs.
+
+Start typing a name to see a faint completion from names saved on this computer. Press Tab to accept one word at a time. Suggested text that you have not accepted is not saved.
 
 In Auto switch, drag devices to change their priority, or use the move up/down buttons. Output and input devices have separate lists. Enabling priority or changing the order may switch devices immediately. Turn off “Also switch communications device” to leave the default communications roles unchanged.
 
@@ -48,13 +50,13 @@ Check for updates currently uses GitHub. Choose stable releases only or include 
 
 With automatic updates enabled, downloads run while the computer is idle and installation happens on the next launch. Game mode pauses automatic updates; manual checks remain available. Game mode also lowers the background process priority and uses efficiency mode where supported. Device connection and disconnection events still work.
 
-File check shows which program files passed, are missing, or cannot be read. If repairs are needed, download the complete package for the current version. Follow the confirmation prompts before installation or repair. Personal settings and existing backups are outside the scope of program file repairs.
+“Check files” shows which program files passed, are missing, or cannot be read. If repairs are needed, download the complete package for the current version. Follow the confirmation prompts before installation or repair. Personal settings and existing backups are outside the scope of program file repairs.
 
 ## Dolby profiles
 
 Dolby features require a supported DAX component and output device. If a component is unsupported, do not bypass the check or replace driver files.
 
-The Dolby editor in device settings can read the current profile, save a device profile, or apply it to the current output. Enable automatic application on output selection to follow that device when it becomes the default multimedia output. Devices without a profile do not actively reset Dolby.
+The Dolby editor in device settings can read the current profile, save a device profile, or apply it to the current output. Enable “Apply this profile when selected as output” to apply the profile when that device becomes the default multimedia output. Devices without a profile do not actively reset Dolby.
 
 “Save only” does not write to current sound effects. In the Dolby editor, “Save and apply” applies immediately only to the current output. Turning off a strength override means keeping its current value, not disabling the effect. The driver may adjust strengths to supported steps.
 

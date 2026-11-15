@@ -1,5 +1,7 @@
 # 声间 AudioSwitch v0.13.0 正式版
 
+[简体中文](https://github.com/EthenGod/AudioSwitch/blob/master/releases/RELEASE-NOTES-v0.13.0.md) | [English](https://github.com/EthenGod/AudioSwitch/blob/master/releases/RELEASE-NOTES-v0.13.0.en.md) | [日本語](https://github.com/EthenGod/AudioSwitch/blob/master/releases/RELEASE-NOTES-v0.13.0.ja.md)
+
 新增英语、日语和跟随系统语言，支持自定义设备名称。
 
 [![下载 AudioSwitch.exe](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20AudioSwitch.exe-2563EB?style=for-the-badge)](https://github.com/EthenGod/AudioSwitch/releases/download/v0.13.0/AudioSwitch.exe)

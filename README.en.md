@@ -8,11 +8,13 @@ AudioSwitch is a Windows tray app for switching your default speakers, headphone
 
 [![Download on GitHub Releases](https://img.shields.io/badge/Download_on_GitHub_Releases-2563EB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EthenGod/AudioSwitch/releases)
 
-Supports Windows 10 / 11 x64. The desktop panel requires Microsoft Edge WebView2 Runtime.
+Supports Windows 10 / 11 x64 and requires .NET Framework 4.8. The desktop panel also requires Microsoft Edge WebView2 Runtime.
 
 ## Download and run
 
 Open [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) and download a file under **Assets** for the version you want. For v0.13.0, both packages include the full desktop panel.
+
+[v0.13.0 release notes](releases/RELEASE-NOTES-v0.13.0.en.md)
 
 | File | How to use it |
 | --- | --- |
@@ -23,6 +25,7 @@ Before a manual upgrade, exit the old version from its tray menu, then start the
 
 ## Using AudioSwitch
 
+- **Language** — Choose a language on first launch. The default follows your system, with Simplified Chinese as the fallback if no language matches. You can change it later under Settings → Language.
 - **Switch devices** — Right-click the tray icon to choose an output or microphone. Double-click to open the main panel. In Settings, you can change this to open the local browser panel.
 - **Auto switch** — Set separate priorities for output and input devices. “Also switch communications device” controls whether the Windows default communications device changes too.
 - **Device presets** — Open a device's settings from Audio devices to give it a custom name or save a volume level. Output devices also support Windows spatial sound. Compatible Dolby devices can have their own profiles. “Save only” stores a preset for later; “Save and apply” in the Dolby editor applies it to the current output immediately.

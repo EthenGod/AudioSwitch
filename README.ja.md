@@ -8,11 +8,13 @@ AudioSwitch は、Windows の既定のスピーカー、ヘッドホン、マイ
 
 [![GitHub Releases からダウンロード](https://img.shields.io/badge/GitHub_Releases-2563EB?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EthenGod/AudioSwitch/releases)
 
-Windows 10 / 11 x64 に対応しています。デスクトップパネルには Microsoft Edge WebView2 Runtime が必要です。
+Windows 10 / 11 x64 に対応し、.NET Framework 4.8 が必要です。デスクトップパネルには Microsoft Edge WebView2 Runtime も必要です。
 
 ## ダウンロードと起動
 
 [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) を開き、使いたいバージョンの **Assets** からダウンロードしてください。v0.13.0 では、どちらの配布形式にもデスクトップパネルが含まれています。
+
+[v0.13.0 リリースノート](releases/RELEASE-NOTES-v0.13.0.ja.md)
 
 | ファイル | 使い方 |
 | --- | --- |
@@ -23,6 +25,7 @@ Windows 10 / 11 x64 に対応しています。デスクトップパネルには
 
 ## 使い方
 
+- **言語** — 初回起動時に選びます。初期設定ではシステムの言語に合わせ、一致しない場合は簡体字中国語を使います。後から「アプリ設定 → 言語」で変更できます。
 - **デバイスの切り替え** — トレイアイコンを右クリックし、出力デバイスまたはマイクを選びます。ダブルクリックするとメインパネルが開きます。設定で、ローカルのブラウザーパネルを開く動作にも変更できます。
 - **自動切り替え** — 出力と入力の優先順位をそれぞれ設定します。「通信用デバイスも切り替える」で、Windows の既定の通信デバイスも変更するかを選べます。
 - **デバイスのプリセット** — 「サウンドデバイス」からデバイス設定を開き、表示名や音量を保存します。出力デバイスでは Windows の空間サウンドも設定できます。対応する Dolby デバイスには、個別のプロファイルを保存できます。「保存のみ」は次回使用時のために保存し、Dolby エディターの「保存して適用」は現在の出力にすぐ適用します。
