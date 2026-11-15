@@ -41,14 +41,44 @@ function Sample {
 function IsBaseline($item) {
     return @($record.Before | Where-Object { $_.Pid -eq $item.Pid -and $_.StartTicks -eq $item.StartTicks }).Count -gt 0
 }
-function CloseWindow([int]$Id, [string]$Title) {
-    $windowProcess = Panel $Id
-    if (!('LaunchIdleWindow' -as [type])) {
-        Add-Type 'using System; using System.Text; using System.Runtime.InteropServices; public static class LaunchIdleWindow { public delegate bool Callback(IntPtr h,IntPtr l); [DllImport("user32.dll")] static extern bool EnumWindows(Callback c,IntPtr l); [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint p); [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,StringBuilder s,int n); [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint m,IntPtr w,IntPtr l); public static IntPtr Find(int pid,string title){IntPtr found=IntPtr.Zero;EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid){var s=new StringBuilder(256);GetWindowText(h,s,256);if(s.ToString()==title){found=h;return false;}}return true;},IntPtr.Zero);return found;} }'
+function InitializeWindowCheck {
+    if (!('LaunchTestWindow' -as [type])) {
+        # Window titles are translated. The caller verifies the executable path first.
+        Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class LaunchTestWindow {
+    public delegate bool Callback(IntPtr window, IntPtr state);
+    [DllImport("user32.dll")] static extern bool EnumWindows(Callback callback, IntPtr state);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextLength(IntPtr window);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
+    public static IntPtr Find(int processId) {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows((window, state) => {
+            uint owner;
+            GetWindowThreadProcessId(window, out owner);
+            if (owner == processId && IsWindowVisible(window) && GetWindowTextLength(window) > 0) {
+                found = window;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
     }
+}
+'@
+    }
+}
+function CloseWindow([int]$Id) {
+    $windowProcess = Panel $Id
+    InitializeWindowCheck
     $watch = [Diagnostics.Stopwatch]::StartNew()
-    do { $window = [LaunchIdleWindow]::Find($Id,$Title); if (!$window) { Start-Sleep -Milliseconds 100 } } while (!$window -and !$windowProcess.HasExited -and $watch.ElapsedMilliseconds -lt 10000)
-    if (!$window -or ![LaunchIdleWindow]::PostMessage($window,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) -or !$windowProcess.WaitForExit(10000)) { throw 'Test window did not close normally' }
+    do { $window = [LaunchTestWindow]::Find($Id); if ($window -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100 } } while ($window -eq [IntPtr]::Zero -and !$windowProcess.HasExited -and $watch.ElapsedMilliseconds -lt 10000)
+    if ($window -eq [IntPtr]::Zero -or ![LaunchTestWindow]::PostMessage($window,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) -or !$windowProcess.WaitForExit(10000)) { throw 'Test window did not close normally' }
 }
 if($Command -eq 'Open') {
     if(Get-Process AudioSwitch,AudioSwitch.Tests,audio-switch-panel -ErrorAction SilentlyContinue){throw '已有声间进程；请先由用户关闭，不结束其他实例。'}
@@ -75,22 +105,22 @@ if($Command -eq 'Open') {
         $first=Request show; $again=Request show
         if(!$first.FrontendPid -or $first.FrontendPid -ne $again.FrontendPid){throw 'Repeated show did not reuse panel'}
         $panel=Panel $first.FrontendPid
-        if (!('LaunchWindowCheck' -as [type])) {
-            Add-Type 'using System; using System.Text; using System.Runtime.InteropServices; public static class LaunchWindowCheck { public delegate bool Callback(IntPtr h,IntPtr l); [DllImport("user32.dll")] static extern bool EnumWindows(Callback c,IntPtr l); [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint p); [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,StringBuilder s,int n); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int c); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint m,IntPtr w,IntPtr l); public static IntPtr Find(int pid){IntPtr found=IntPtr.Zero;EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid){var s=new StringBuilder(256);GetWindowText(h,s,256);if(s.ToString()=="声间 · 设备面板"){found=h;return false;}}return true;},IntPtr.Zero);return found;} }'
-        }
-        $wait=[Diagnostics.Stopwatch]::StartNew(); $window=[LaunchWindowCheck]::Find($panel.Id)
-        while(!$panel.HasExited -and !$window -and $wait.ElapsedMilliseconds -lt 15000){Start-Sleep -Milliseconds 100;$window=[LaunchWindowCheck]::Find($panel.Id)}
-        if(!$window){throw 'Titled panel window was not created'}
-        [void][LaunchWindowCheck]::ShowWindow($window,6)
-        if(![LaunchWindowCheck]::IsIconic($window)){throw 'Could not minimize test panel'}
+        InitializeWindowCheck
+        $wait=[Diagnostics.Stopwatch]::StartNew(); $window=[LaunchTestWindow]::Find($panel.Id)
+        while(!$panel.HasExited -and $window -eq [IntPtr]::Zero -and $wait.ElapsedMilliseconds -lt 15000){Start-Sleep -Milliseconds 100;$window=[LaunchTestWindow]::Find($panel.Id)}
+        if($window -eq [IntPtr]::Zero){throw 'Titled panel window was not created'}
+        [void][LaunchTestWindow]::ShowWindowAsync($window,6)
+        $minimize=[Diagnostics.Stopwatch]::StartNew()
+        while(![LaunchTestWindow]::IsIconic($window) -and $minimize.ElapsedMilliseconds -lt 3000){Start-Sleep -Milliseconds 50}
+        if(![LaunchTestWindow]::IsIconic($window)){throw 'Could not minimize test panel'}
         Request show | Out-Null
         $restore=[Diagnostics.Stopwatch]::StartNew()
-        while([LaunchWindowCheck]::IsIconic($window) -and $restore.ElapsedMilliseconds -lt 3000){Start-Sleep -Milliseconds 50}
-        if([LaunchWindowCheck]::IsIconic($window)){throw 'Repeated show did not restore minimized panel'}
+        while([LaunchTestWindow]::IsIconic($window) -and $restore.ElapsedMilliseconds -lt 3000){Start-Sleep -Milliseconds 50}
+        if([LaunchTestWindow]::IsIconic($window)){throw 'Repeated show did not restore minimized panel'}
         $panelOnly = @(Sample)
         $record | Add-Member -Force NoteProperty PanelOnly $panelOnly
         $record | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $recordPath -Encoding utf8
-        if(![LaunchWindowCheck]::PostMessage($window,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) -or !$panel.WaitForExit(10000)){throw 'Panel did not close normally'}
+        if(![LaunchTestWindow]::PostMessage($window,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) -or !$panel.WaitForExit(10000)){throw 'Panel did not close normally'}
         $releaseWait = [Diagnostics.Stopwatch]::StartNew()
         do {
             $closedChildren = @($panelOnly | Where-Object { $p=Get-Process -Id $_.Pid -ErrorAction SilentlyContinue; !(IsBaseline $_) -and $p -and $p.StartTime.Ticks -eq $_.StartTicks })
@@ -110,8 +140,8 @@ if($Command -eq 'Open') {
     elseif($Command -eq 'Idle') {
         $state = Request snapshot
         $beforeIdle = @(Sample)
-        if ($state.PromptPid) { CloseWindow $state.PromptPid '声间 · 设备提示' }
-        if ($state.FrontendPid) { CloseWindow $state.FrontendPid '声间 · 设备面板' }
+        if ($state.PromptPid) { CloseWindow $state.PromptPid }
+        if ($state.FrontendPid) { CloseWindow $state.FrontendPid }
         $watch = [Diagnostics.Stopwatch]::StartNew()
         do {
             $remaining = @($beforeIdle | Where-Object { $p=Get-Process -Id $_.Pid -ErrorAction SilentlyContinue; !(IsBaseline $_) -and $p -and $p.StartTime.Ticks -eq $_.StartTicks })

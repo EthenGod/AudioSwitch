@@ -1,7 +1,7 @@
 import { t } from '../i18n'
 import { APP_VERSION } from '../version'
 import type { UpgradeJob, UpgradeKind } from './types'
-import { demoNotes } from './demoNotes'
+import { demoNotes, nextDemoVersion } from './demoNotes'
 export const upgradeActive = (job: UpgradeJob | null) => !!job && ['checking', 'available', 'repairable', 'downloading', 'ready', 'installing'].includes(job.Status)
 export function mapUpgrade(value: unknown, token?: string, kind?: UpgradeKind): UpgradeJob {
   const raw = value as UpgradeJob | null
@@ -28,7 +28,20 @@ export function mockUpgrade(includePrerelease: () => boolean = () => false) {
     async readUpgrade(token: string) {
       const j = current(token)
       if (Date.now() >= finish) {
-        if (j.Status === 'checking') Object.assign(j, { Status:j.Kind === 'update' ? 'available' : 'repairable', Message:j.Kind === 'update' ? t("示例：发现可安装版本。") : t("示例：发现文件缺损，可下载完整包修复。"), Version: j.Kind === 'repair' ? t("v{0}（示例）", APP_VERSION) : includePrerelease() ? t("v0.13.0（测试版示例）") : t("v0.12.3（正式版示例）"), Notes: j.Kind === 'update' ? demoNotes() : undefined, Directory: j.Kind === 'repair' ? t("示例程序目录") : undefined, Entries: j.Kind === 'repair' ? [t("通过：AudioSwitch.exe"), t("通过：AudioSwitch.exe.config"), t("缺失：audio-switch-panel.exe"), t("无法读取：vendor/svcl/svcl.exe")] : undefined, EntryStatuses: j.Kind === 'repair' ? ['passed','passed','failed','failed'] : undefined, CanDownload:true })
+        if (j.Status === 'checking') {
+          const repair = j.Kind === 'repair'
+          Object.assign(j, {
+            Status: repair ? 'repairable' : 'available',
+            Message: repair ? t("示例：发现文件缺损，可下载完整包修复。") : t("示例：发现可安装版本。"),
+            Version: repair ? t("v{0}（示例）", APP_VERSION) : includePrerelease()
+              ? t("v{0}（测试版示例）", nextDemoVersion(true)) : t("v{0}（正式版示例）", nextDemoVersion()),
+            Notes: repair ? undefined : demoNotes(),
+            Directory: repair ? t("示例程序目录") : undefined,
+            Entries: repair ? [t("通过：AudioSwitch.exe"), t("通过：AudioSwitch.exe.config"), t("缺失：audio-switch-panel.exe"), t("无法读取：vendor/svcl/svcl.exe")] : undefined,
+            EntryStatuses: repair ? ['passed', 'passed', 'failed', 'failed'] : undefined,
+            CanDownload: true,
+          })
+        }
         if (j.Status === 'downloading') Object.assign(j, { Status:'ready', Message:t("模拟下载与校验完成。"), Bytes:j.Total })
         if (j.Status === 'installing') Object.assign(j, { Status:'handoff', Message:t("模拟交接结束。没有安装、退出或重启任何程序。") })
       } else if (j.Status === 'downloading') j.Bytes = Math.min(j.Total, j.Bytes + 1024 * 1024)

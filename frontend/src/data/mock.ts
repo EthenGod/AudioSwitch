@@ -3,6 +3,7 @@ import type { Device, Flow, MaintenanceJob, PreferenceKey, PreviewGateway, Scena
 import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOperation } from './dolby'
 import { mockUpgrade } from './upgrade'
 import { APP_VERSION } from '../version'
+import { nextDemoVersion } from './demoNotes'
 import { DEFAULT_UI_STYLE, isUiStyle } from '../appearance/styles'
 import { isSupportedLanguageChoice } from '../i18n'
 
@@ -108,7 +109,7 @@ export function createMockGateway(latency = 260, previewNames: string[] = [], la
     async readMaintenance(token) {
       if (!maintenance || token !== maintenance.Token) throw new Error(t("检查已失效。"))
       if (maintenance.Status === 'running' && Date.now() >= finishAt) maintenance = maintenance.Kind === 'update'
-        ? { ...maintenance, Status: 'available', CurrentVersion: APP_VERSION, LatestVersion: t("v0.13.0（示例）"), Notes: t("示例更新说明：改善界面操作。\n这不是实际发布信息。"), Message: t("模拟发现新版本，未连接 GitHub。") }
+        ? { ...maintenance, Status: 'available', CurrentVersion: APP_VERSION, LatestVersion: t("v{0}（示例）", nextDemoVersion()), Notes: t("示例更新说明：改善界面操作。\n这不是实际发布信息。"), Message: t("模拟发现新版本，未连接 GitHub。") }
         : { ...maintenance, Status: 'passed', Directory: t("示例后台目录（未读取本机文件）"), Entries: [t("示例通过：AudioSwitch.exe"), t("示例通过：AudioSwitch.exe.config"), t("示例通过：vendor/svcl/svcl.exe")], EntryStatuses: ['passed', 'passed', 'passed'], Message: t("模拟检查通过，未读取本机文件。") }
       return structuredClone(maintenance)
     },

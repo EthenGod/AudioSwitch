@@ -1,6 +1,6 @@
 声间 Desktop 完整包
 
-v0.12.2 正式版
+v0.13.0 正式版
 
 请将整个 ZIP 解压到独立目录，保留全部 14 个文件，再运行 AudioSwitch.exe。
 需要 Windows x64、.NET Framework 4.8 和 Microsoft Edge WebView2 Evergreen Runtime。

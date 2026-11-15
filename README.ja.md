@@ -12,12 +12,12 @@ Windows 10 / 11 x64 に対応しています。デスクトップパネルには
 
 ## ダウンロードと起動
 
-[GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) を開き、使いたいバージョンの **Assets** からダウンロードしてください。v0.12.2 では、どちらの配布形式にもデスクトップパネルが含まれています。
+[GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) を開き、使いたいバージョンの **Assets** からダウンロードしてください。v0.13.0 では、どちらの配布形式にもデスクトップパネルが含まれています。
 
 | ファイル | 使い方 |
 | --- | --- |
 | **AudioSwitch.exe**（推奨） | 書き込み可能な新しいフォルダーに保存し、ファイル名を変更せずにダブルクリックします。初回起動時に、同じ場所の `AudioSwitch` フォルダーへアプリ一式を展開します。 |
-| **AudioSwitch-Desktop-v0.12.2-win-x64.zip** | ZIP 全体を新しいフォルダーへ展開し、中の `AudioSwitch.exe` を実行します。 |
+| **AudioSwitch-Desktop-v0.13.0-win-x64.zip** | ZIP 全体を新しいフォルダーへ展開し、中の `AudioSwitch.exe` を実行します。 |
 
 手動で更新する場合は、先にトレイメニューから旧バージョンを終了してから、新バージョンを起動してください。デバイス設定は Windows ユーザーの設定フォルダーに保存され、更新後も引き継がれます。
 

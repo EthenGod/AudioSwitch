@@ -10,12 +10,12 @@
 
 ## 下载与运行
 
-打开 [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases)，在所选版本的 **Assets（附件）** 中下载。以 v0.12.2 为例，两种附件都包含完整桌面面板。
+打开 [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases)，在所选版本的 **Assets（附件）** 中下载。以 v0.13.0 为例，两种附件都包含完整桌面面板。
 
 | 附件 | 使用方法 |
 | --- | --- |
 | **AudioSwitch.exe**（推荐） | 下载到可写的新文件夹，保留文件名，双击运行。首次启动会将完整程序展开到旁边的 `AudioSwitch` 文件夹。 |
-| **AudioSwitch-Desktop-v0.12.2-win-x64.zip** | 将整个 ZIP 解压到新文件夹，运行其中的 `AudioSwitch.exe`。 |
+| **AudioSwitch-Desktop-v0.13.0-win-x64.zip** | 将整个 ZIP 解压到新文件夹，运行其中的 `AudioSwitch.exe`。 |
 
 手动升级前，先从托盘退出旧版，再启动新版。设备设置保存在当前 Windows 用户的配置目录中，升级时会沿用。
 

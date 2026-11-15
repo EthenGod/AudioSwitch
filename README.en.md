@@ -12,12 +12,12 @@ Supports Windows 10 / 11 x64. The desktop panel requires Microsoft Edge WebView2
 
 ## Download and run
 
-Open [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) and download a file under **Assets** for the version you want. For v0.12.2, both packages include the full desktop panel.
+Open [GitHub Releases](https://github.com/EthenGod/AudioSwitch/releases) and download a file under **Assets** for the version you want. For v0.13.0, both packages include the full desktop panel.
 
 | File | How to use it |
 | --- | --- |
 | **AudioSwitch.exe** (recommended) | Save it in a new, writable folder. Keep the filename and double-click it. On first launch, it extracts the complete app into an adjacent `AudioSwitch` folder. |
-| **AudioSwitch-Desktop-v0.12.2-win-x64.zip** | Extract the entire ZIP into a new folder, then run the `AudioSwitch.exe` inside it. |
+| **AudioSwitch-Desktop-v0.13.0-win-x64.zip** | Extract the entire ZIP into a new folder, then run the `AudioSwitch.exe` inside it. |
 
 Before a manual upgrade, exit the old version from its tray menu, then start the new version. Your device settings are kept in your Windows user profile and carry over to the new version.
 

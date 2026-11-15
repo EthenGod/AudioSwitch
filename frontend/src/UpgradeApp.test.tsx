@@ -6,6 +6,7 @@ import { createDesktopGateway } from './data/desktop'
 import { mapUpgrade } from './data/upgrade'
 import { backendFixture } from './test/backendFixture'
 import { createMockGateway } from './data/mock'
+import { APP_VERSION } from './version'
 const available = { Token:'job-1', Kind:'update', Status:'available', CanDownload:true, Bytes:0, Total:4000, Message:'发现可安装版本', Notes:'<script>不可执行说明</script>', Version:'v99.0.0' }
 const ready = { ...available, Status:'ready', CanDownload:false, Message:'文件校验通过' }
 async function setup(call: (command: string, args: Record<string, unknown>) => Promise<unknown>, title = '检查更新') {
@@ -57,7 +58,12 @@ describe('update and repair confirmation', () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith('IncludePrerelease', true))
     await user.click(screen.getByRole('button', { name: '模拟检查' }))
     await screen.findByRole('heading', { name: '✨ 更新内容' }, { timeout: 2500 })
-    expect(screen.getByText(/v0.13.0（测试版示例）/)).toBeVisible()
+    const offered = screen.getByText(/v\d+\.\d+\.\d+（测试版示例）/)
+    expect(offered).toBeVisible()
+    const parts = (offered.textContent!.match(/\d+\.\d+\.\d+/)![0]).split('.').map(Number)
+    const current = APP_VERSION.split('.').map(Number)
+    const firstChange = parts.findIndex((part, index) => part !== current[index])
+    expect(firstChange >= 0 && parts[firstChange] > current[firstChange]).toBe(true)
     await user.click(screen.getByRole('combobox', { name: '接收版本' }))
     await user.click(await screen.findByRole('option', { name: '仅正式版' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith('IncludePrerelease', false))

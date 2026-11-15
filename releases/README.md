@@ -1,8 +1,8 @@
 # Release 待上传文件
 
-当前准备发行 **v0.12.2 正式版**。待上传的 EXE 和完整 ZIP 在 `v0.12.2/`。GitHub 标签使用 `v0.12.2`，发布时不勾选 **Set as a pre-release**。
+当前准备发行 **v0.13.0 正式版**。待上传的 EXE 和完整 ZIP 在 `v0.13.0/`。GitHub 标签使用 `v0.13.0`，发布时不勾选 **Set as a pre-release**。
 
-[发行说明](RELEASE-NOTES-v0.12.2.md) ｜ [交付记录](DELIVERY-v0.12.2.md)
+[发行说明](RELEASE-NOTES-v0.13.0.md) ｜ [交付记录](DELIVERY-v0.13.0.md)
 
 ## 发行说明规范
 

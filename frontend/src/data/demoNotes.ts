@@ -1,4 +1,11 @@
 import { t } from '../i18n'
+import { APP_VERSION } from '../version'
+
+// Preview updates stay newer than the app without version-specific translation keys.
+export function nextDemoVersion(prerelease = false) {
+  const [major, minor, patch] = APP_VERSION.split('.').map(Number)
+  return prerelease ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`
+}
 
 // This is app-owned preview copy. Real release notes remain the publisher's text.
 export function demoNotes() { return `## :sparkles: ${t('更新内容')}
