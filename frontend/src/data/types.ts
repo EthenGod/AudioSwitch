@@ -55,6 +55,7 @@ export interface Snapshot {
   CanSetBrowserPort?: boolean
   CanSetUiStyle?: boolean
   CanSetLanguage?: boolean
+  CanFollowSystemLanguage?: boolean
   ResolvedLanguage?: string
   DolbyApplying?: boolean
 }

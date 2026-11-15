@@ -1,7 +1,7 @@
 import { t } from '../i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { DEFAULT_UI_STYLE, isUiStyle, isUiStyleId } from '../appearance/styles'
-import { isLanguageId, LANGUAGES } from '../i18n'
+import { isLanguageChoice, isSupportedLanguageChoice, SYSTEM_LANGUAGE } from '../i18n'
 import { mapUpgrade, upgradeActive } from './upgrade'
 import { dolbyProfile, mapDolbyRead, mapDolbyOperation, type DolbyProfile } from './dolby'
 import type { DesktopGateway, Device, DeviceDetails, DeviceProfile, DeviceRule, Flow, ImportPreview, MaintenanceJob, Preferences, Snapshot } from './types'
@@ -96,7 +96,7 @@ export function mapSnapshot(value: unknown): Snapshot {
     if (device) { device.SystemName = device.Name; device.Name = aliases[id] }
   }
   const preferences: Preferences = {
-    Language: prefs.Language == null ? null : isLanguageId(prefs.Language) ? prefs.Language : (() => { throw invalid() })(),
+    Language: prefs.Language == null ? null : isLanguageChoice(prefs.Language) ? prefs.Language : (() => { throw invalid() })(),
     UiStyle: uiStyle(prefs.UiStyle),
     DeviceAliases: aliases, RecentDeviceAliases: array(prefs.RecentDeviceAliases ?? []).map(string),
     BrowserPort: prefs.BrowserPort === undefined ? 0 : browserPort(prefs.BrowserPort),
@@ -108,6 +108,7 @@ export function mapSnapshot(value: unknown): Snapshot {
   return { Devices: [...devices.values()], Defaults: defaults, Preferences: preferences,
     ResolvedLanguage: reply.ResolvedLanguage == null ? undefined : string(reply.ResolvedLanguage),
     CanSetLanguage: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 14,
+    CanFollowSystemLanguage: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 15,
     CanRenameDevices: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 11,
     DolbyProfiles: dolbyProfiles, CanEditDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 4,
     CanApplyDolby: typeof reply.PanelApiVersion === 'number' && reply.PanelApiVersion >= 5,
@@ -343,7 +344,8 @@ export function createDesktopGateway(readSnapshot: () => Promise<unknown> = () =
     setPreference: (key, value) => mutate({ kind: 'preference', key, value }),
     setLanguage: language => {
       if (!snapshot?.CanSetLanguage) return Promise.reject(new OperationFailure(t("切换语言需要新版后台")))
-      if (!LANGUAGES.some(item => item.id === language)) return Promise.reject(new OperationFailure(t("不支持此语言")))
+      if (language === SYSTEM_LANGUAGE && !snapshot.CanFollowSystemLanguage) return Promise.reject(new OperationFailure(t("切换语言需要新版后台")))
+      if (!isSupportedLanguageChoice(language)) return Promise.reject(new OperationFailure(t("不支持此语言")))
       return mutate({ kind: 'language', language })
     },
     setUiStyle: style => {

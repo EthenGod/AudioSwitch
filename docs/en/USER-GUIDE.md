@@ -10,7 +10,7 @@ This guide describes the current repository code. Check your version's release n
 
 ## Language and appearance
 
-Choose a language on first launch. AudioSwitch matches your system's preferred languages and recommends Simplified Chinese if none match. After you confirm, the choice is saved. Change it later under Settings → Language. Simplified Chinese, English and Japanese are available.
+Choose a language on first launch. “Use system language” is selected by default. AudioSwitch matches your system's preferred languages and uses Simplified Chinese if none match. Confirming saves your choice so you won't be asked again. Under Settings → Language, you can follow the system or select Simplified Chinese, English or Japanese.
 
 System device names and names you enter are not translated. App-provided device types, status labels and controls follow the selected language. Language is separate from light/dark mode and interface style. The main panel defaults to dark mode if no appearance preference is saved.
 

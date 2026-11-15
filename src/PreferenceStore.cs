@@ -74,7 +74,7 @@ namespace AudioSwitch
         {
             if (settings.Count == 0) throw new InvalidOperationException(L.Text("缺少设置内容。"));
             Keys(settings, "AskOnConnect", "IncludeCommunications", "UseDevicePriority", "DarkMode", "UiStyle", "Language", "GameMode", "AutoUpdateEnabled", "OpenPanelInBrowser", "KeepBrowserPortOpen", "BrowserPort", "IncludePrerelease", "UpdateChannel", "DeviceAliases", "DeviceProfiles", "DeviceOrder", "DeviceRules");
-            if (settings.ContainsKey("Language") && settings["Language"] != null && !L.ValidId(settings["Language"] as string)) throw new InvalidOperationException(L.Text("语言标识无效"));
+            if (settings.ContainsKey("Language") && settings["Language"] != null && !L.ValidChoice(settings["Language"] as string)) throw new InvalidOperationException(L.Text("语言标识无效"));
             if (settings.ContainsKey("UiStyle")) ValidateUiStyle(settings["UiStyle"] as string);
             if (settings.ContainsKey("DeviceAliases"))
             {
@@ -138,7 +138,7 @@ namespace AudioSwitch
         {
             if (preferences == null) throw new InvalidOperationException(L.Text("缺少配置。"));
             ValidateUiStyle(preferences.UiStyle);
-            if (preferences.Language != null && !L.ValidId(preferences.Language)) throw new InvalidOperationException(L.Text("语言标识无效"));
+            if (preferences.Language != null && !L.ValidChoice(preferences.Language)) throw new InvalidOperationException(L.Text("语言标识无效"));
             FrontendWindows.ValidateBrowserPort(preferences.BrowserPort);
             if (preferences.UpdateChannel != "GitHub") throw new InvalidOperationException(L.Text("目前仅支持 GitHub 更新渠道。"));
             var history = preferences.RecentDeviceAliases;

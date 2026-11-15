@@ -22,6 +22,7 @@ namespace AudioSwitch
     internal static class L
     {
         internal const string DefaultLanguage = "zh-CN";
+        internal const string SystemChoice = "system";
         private sealed class Selection
         {
             internal string Id;
@@ -51,7 +52,10 @@ namespace AudioSwitch
         }
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern bool GetUserPreferredUILanguages(uint flags, out uint count, [Out] char[] buffer, ref uint length);
-        internal static readonly string SystemLanguage = DetectSystemLanguage();
+        private static volatile string systemLanguage = DetectSystemLanguage();
+        internal static string SystemLanguage { get { return systemLanguage; } }
+        // Read Windows again only on a preference notification or an explicit system selection.
+        internal static void RefreshSystemLanguage() { systemLanguage = DetectSystemLanguage(); }
         private static string DetectSystemLanguage()
         {
             try
@@ -68,7 +72,14 @@ namespace AudioSwitch
             return Match(new[] { CultureInfo.CurrentUICulture.Name, CultureInfo.InstalledUICulture.Name });
         }
         internal static bool ValidId(string id) { return id != null && id.Length <= 35 && Regex.IsMatch(id, @"\A[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\z", RegexOptions.CultureInvariant); }
-        internal static string Resolve(string saved) { return saved == null ? SystemLanguage : Languages.Any(item => item.id == saved) ? saved : DefaultLanguage; }
+        internal static bool ValidChoice(string value) { return value == SystemChoice || ValidId(value); }
+        internal static bool SupportedChoice(string value) { return value == SystemChoice || Languages.Any(item => item.id == value); }
+        internal static string Resolve(string saved) { return Resolve(saved, SystemLanguage); }
+        internal static string Resolve(string saved, string system)
+        {
+            string id = saved == null || saved == SystemChoice ? system : saved;
+            return Languages.Any(item => item.id == id) ? id : DefaultLanguage;
+        }
         internal static void SetLanguage(string saved)
         {
             string id = Resolve(saved);

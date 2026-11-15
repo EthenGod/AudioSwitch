@@ -37,9 +37,10 @@ export function createLanguageTransition(
       const box = element.getBoundingClientRect()
       if (!box.width || !box.height || box.bottom <= 0 || box.right <= 0 || box.top >= view.innerHeight || box.left >= view.innerWidth) continue
       saved.push([element, element.style.viewTransitionName])
-      element.style.viewTransitionName = `language-${saved.length}`
     }
     restore = () => { for (const [element, name] of saved) element.style.viewTransitionName = name }
+    // Finish layout reads before writing styles, so each surface uses the same layout.
+    saved.forEach(([element], index) => { element.style.viewTransitionName = `language-${index + 1}` })
   }
 
   return {

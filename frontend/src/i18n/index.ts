@@ -5,8 +5,16 @@ import languages from '../../../locales/languages.json'
 const files = import.meta.glob<Record<string, string>>('../../../locales/*.json', { eager: true, import: 'default' })
 export const LANGUAGES = languages
 export const DEFAULT_LANGUAGE = 'zh-CN'
+export const SYSTEM_LANGUAGE = 'system'
 export function isLanguageId(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(value) && value.length <= 35
+}
+export function isLanguageChoice(value: unknown): value is string { return value === SYSTEM_LANGUAGE || isLanguageId(value) }
+export function isSupportedLanguageChoice(value: string) { return value === SYSTEM_LANGUAGE || languages.some(item => item.id === value) }
+export function systemLanguage() { return matchLanguage(typeof navigator === 'undefined' ? [] : navigator.languages) }
+export function subscribeSystemLanguage(listener: () => void) {
+  window.addEventListener('languagechange', listener)
+  return () => window.removeEventListener('languagechange', listener)
 }
 export function matchLanguage(preferred: readonly string[]): string {
   for (const value of preferred) {
@@ -19,8 +27,11 @@ export function matchLanguage(preferred: readonly string[]): string {
   return DEFAULT_LANGUAGE
 }
 export function resolveLanguage(saved?: string | null, recommended?: string): string {
-  if (saved) return languages.find(language => language.id === saved)?.id ?? DEFAULT_LANGUAGE
-  return matchLanguage(recommended ? [recommended] : typeof navigator === 'undefined' ? [] : navigator.languages)
+  if (saved && saved !== SYSTEM_LANGUAGE) return languages.find(language => language.id === saved)?.id ?? DEFAULT_LANGUAGE
+  return recommended ? matchLanguage([recommended]) : systemLanguage()
+}
+export function languageChoices(includeSystem = true, locale = getLanguage()) {
+  return [...(includeSystem ? [{ id: SYSTEM_LANGUAGE, name: translate(locale, '跟随系统') }] : []), ...LANGUAGES]
 }
 let language = DEFAULT_LANGUAGE
 const listeners = new Set<() => void>()

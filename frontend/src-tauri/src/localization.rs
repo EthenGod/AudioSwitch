@@ -14,6 +14,11 @@ fn selection() -> &'static RwLock<String> {
     LANGUAGE.get_or_init(|| RwLock::new("zh-CN".into()))
 }
 pub fn supported(id: &str) -> bool { languages().iter().any(|language| language.id == id) }
+pub const SYSTEM_LANGUAGE: &str = "system";
+fn resolve_language(saved: Option<&str>, system: &str) -> String {
+    let id = match saved { None | Some(SYSTEM_LANGUAGE) => system, Some(id) => id };
+    if supported(id) { id.into() } else { "zh-CN".into() }
+}
 pub fn match_language(preferred: &[String]) -> String {
     for value in preferred {
         let tag = value.replace('_', "-").to_lowercase();
@@ -35,7 +40,8 @@ pub fn initialize() {
         let value: serde_json::Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
         value.get("Settings").unwrap_or(&value).get("Language")?.as_str().map(str::to_owned)
     });
-    set_language(&saved.unwrap_or_else(system_language));
+    let system = if saved.is_none() || saved.as_deref() == Some(SYSTEM_LANGUAGE) { system_language() } else { String::new() };
+    set_language(&resolve_language(saved.as_deref(), &system));
 }
 fn system_language() -> String {
     use windows_sys::Win32::Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME};
@@ -82,6 +88,14 @@ pub fn format(source: &str, args: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn saved_system_choice_uses_detected_language_but_explicit_choice_does_not() {
+        assert_eq!(resolve_language(Some(SYSTEM_LANGUAGE), "ja"), "ja");
+        assert_eq!(resolve_language(Some(SYSTEM_LANGUAGE), "en"), "en");
+        assert_eq!(resolve_language(Some(SYSTEM_LANGUAGE), "unknown"), "zh-CN");
+        assert_eq!(resolve_language(None, "ja"), "ja");
+        assert_eq!(resolve_language(Some("en"), "ja"), "en");
+        assert_eq!(resolve_language(Some("unknown"), "ja"), "zh-CN");
+    }
     #[test] fn locale_matching_and_fallback() {
         assert_eq!(match_language(&["ja-JP".into()]), "ja");
         assert_eq!(match_language(&["zz-ZZ".into(), "en-GB".into()]), "en");

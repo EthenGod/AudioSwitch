@@ -6,7 +6,7 @@ import { SettingRow, ToggleRow } from './shared'
 import { APP_VERSION } from '../version'
 import { Select } from './ui/select'
 import { getUiStyle, UI_STYLES } from '../appearance/styles'
-import { LANGUAGES, resolveLanguage } from '../i18n'
+import { languageChoices, resolveLanguage, SYSTEM_LANGUAGE } from '../i18n'
 
 export function Settings({ snapshot, busy, readOnly = false, desktop = false, onPreference, onBrowserPort, onUiStyle, onLanguage, onStartup, onBackup, onMaintenance }: {
   snapshot: Snapshot; busy: boolean; readOnly?: boolean; desktop?: boolean; onPreference: (key: PreferenceKey, value: boolean) => void
@@ -21,8 +21,8 @@ export function Settings({ snapshot, busy, readOnly = false, desktop = false, on
   const styleOptions = UI_STYLES.map(style => ({ value: style.id, label: style.label }))
   return <>
     <section className="settings-group" aria-label={t("应用偏好")}>
-      <SettingRow title={t("语言")}><Select label={t("语言")} value={resolveLanguage(prefs.Language, snapshot.ResolvedLanguage)}
-        options={LANGUAGES.map(item => ({ value: item.id, label: item.name }))}
+      <SettingRow title={t("语言")}><Select label={t("语言")} value={prefs.Language === SYSTEM_LANGUAGE ? SYSTEM_LANGUAGE : resolveLanguage(prefs.Language, snapshot.ResolvedLanguage)}
+        options={languageChoices(!desktop || snapshot.CanFollowSystemLanguage === true).map(item => ({ value: item.id, label: item.name }))}
         pending={busy} disabled={readOnly || (desktop && !snapshot.CanSetLanguage)}
         onValueChange={language => { if (language !== prefs.Language) onLanguage?.(language) }} /></SettingRow>
       <SettingRow title={t("双击托盘图标")}><Select label={t("双击托盘图标")} value={prefs.OpenPanelInBrowser ? 'browser' : 'panel'} options={[{ value: 'panel', label: t("打开主面板") }, { value: 'browser', label: t("在浏览器打开") }]} pending={busy} disabled={readOnly || (desktop && !snapshot.CanSetTrayBehavior)} onValueChange={v => onPreference('OpenPanelInBrowser', v === 'browser')} /></SettingRow>

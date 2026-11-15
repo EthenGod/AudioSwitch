@@ -4,8 +4,9 @@
 }
 .language-backdrop[data-starting-style], .language-backdrop[data-ending-style] { opacity: 0; }
 .language-backdrop[data-ending-style] { transition-duration: 200ms; transition-timing-function: ease-in; }
+.language-layer { position: fixed; inset: 0; z-index: 101; display: grid; place-items: center; padding: 16px; pointer-events: none; }
 .language-dialog {
-  position: fixed; z-index: 101; top: 50%; left: 50%; translate: -50% -50%;
+  position: relative; min-height: 0; max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; pointer-events: auto;
   width: min(380px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--border);
   border-radius: var(--radius-panel); background: var(--background); color: var(--foreground);
   box-shadow: var(--shadow-panel); display: grid; gap: 16px;
@@ -14,13 +15,22 @@
 .language-dialog[data-starting-style], .language-dialog[data-ending-style] { opacity: 0; transform: translateY(6px); }
 .language-dialog[data-ending-style] { transition-duration: 200ms; transition-timing-function: ease-in; }
 .language-dialog h2 { font-size: 18px; font-weight: 650; margin: 0; }
-.language-dialog p { font-size: 12px; color: var(--muted-foreground); margin: -8px 0 0; }
-.language-choices { display: grid; gap: 6px; }
-.language-choices button { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; transition: background 150ms ease, border-color 150ms ease; }
-.language-choices button[aria-checked=true] { background: var(--selected); color: var(--accent); border-color: var(--selected-border); }
+.language-dialog p { font-size: 12px; color: var(--muted-foreground); margin: 0; }
+.language-intro { display: grid; gap: 8px; }
+.language-choices { position: relative; display: grid; grid-auto-rows: 1fr; gap: 6px; }
+.language-choices button { position: relative; display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
+.language-choices button[aria-checked=true] { color: var(--accent); border-color: transparent; }
 .language-choices button:hover { background: var(--muted); }
-.language-choices button[aria-checked=true]:hover { background: var(--selected-strong); }
-@media (prefers-reduced-motion: reduce) { .language-dialog, .language-backdrop, .language-choices button { animation: none; transition: none; } }
+.language-choices button[aria-checked=true]:hover { background: var(--selected-hover); background-clip: padding-box; }
+.language-selection { position: absolute; inset: 0 0 auto; height: calc((100% - (var(--language-count) - 1) * 6px) / var(--language-count)); border: 1px solid var(--selected-border); border-radius: var(--radius); background: var(--selected); transform: translateY(calc(var(--language-index) * (100% + 6px))); transition: transform 250ms var(--ease-spring), height 250ms ease-out; }
+.language-check { flex-shrink: 0; opacity: 0; transition: opacity 200ms ease-in; }
+[aria-checked=true] > .language-check { opacity: 1; transition: opacity 250ms ease-out; }
+.language-caption { display: inline-grid; min-width: 0; }
+.language-choices .language-caption { text-align: start; }
+.language-caption > span { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity 200ms ease-in, visibility 0s linear 200ms; }
+.language-caption > span[data-active=true] { opacity: 1; visibility: visible; transition: opacity 250ms ease-out, visibility 0s; }
+.language-dialog:lang(ja) { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif; }
+@media (prefers-reduced-motion: reduce) { .language-dialog, .language-backdrop, .language-choices button, .language-selection, .language-check, .language-caption > span { animation: none; transition: none; } }
 @media (min-width: 851px) { :root:lang(en) .sidebar { width: 204px; } }
 :root:lang(en) .brand strong { letter-spacing: 0; }
 :root:lang(en) .prompt-actions button { white-space: normal; }

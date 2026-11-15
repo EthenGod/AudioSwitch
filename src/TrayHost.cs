@@ -107,6 +107,7 @@ namespace AudioSwitch
             try { frontends.SetBrowserPort(preferences.BrowserPort); frontends.SetBrowserPersistent(preferences.KeepBrowserPortOpen); }
             catch (Exception ex) { Program.Log(ex); tray.ShowBalloonTip(5000, L.Text("浏览器端口未开启"), ex.Message, ToolTipIcon.Warning); }
             if (show || preferences.Language == null) dispatcher.BeginInvoke((Action)(() => ShowFrontend(false)));
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += SystemPreferencesChanged;
         }
         private void RefreshAudio(bool notify, bool automatic = false)
         {
@@ -239,7 +240,8 @@ namespace AudioSwitch
                         PreferenceStore.ValidateUiStyle(request.UiStyle);
                         preferences.UiStyle = request.UiStyle; SavePreferences(); preferencesSaved = true; break;
                     case "language":
-                        if (!L.Languages.Any(item => item.id == request.Language)) throw new InvalidOperationException(L.Text("不支持此语言"));
+                        if (!L.SupportedChoice(request.Language)) throw new InvalidOperationException(L.Text("不支持此语言"));
+                        if (request.Language == L.SystemChoice) L.RefreshSystemLanguage();
                         preferences.Language = request.Language; SavePreferences(); preferencesSaved = true; break;
                     case "gameMode":
                         preferences.GameMode = request.Value; SavePreferences(); preferencesSaved = true;
@@ -383,7 +385,7 @@ namespace AudioSwitch
         private Reply CreateReply()
         {
             return new Reply {
-                PanelApiVersion = 14, ResolvedLanguage = L.Resolve(preferences.Language), Error = audioError ?? priorityError,
+                PanelApiVersion = 15, ResolvedLanguage = L.Resolve(preferences.Language), Error = audioError ?? priorityError,
                 Warning = presetWarnings.Count == 0 ? null : String.Join("；", presetWarnings.Values),
                 State = tracker.Current, Pending = tracker.Pending, Preferences = preferences,
                 Update = updates == null ? null : updates.Snapshot(),
@@ -495,6 +497,24 @@ namespace AudioSwitch
             if (activitySample == null || activitySample.IsCompleted) updateActivity.Dispose();
             else activityCleanup = activitySample.ContinueWith(task => updateActivity.Dispose(), System.Threading.Tasks.TaskScheduler.Default);
         }
+        private void SystemPreferencesChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+        {
+            if (e.Category != Microsoft.Win32.UserPreferenceCategory.Locale && e.Category != Microsoft.Win32.UserPreferenceCategory.General) return;
+            if (exiting || dispatcher.IsDisposed) return;
+            try
+            {
+                dispatcher.BeginInvoke((Action)(() => {
+                    if (exiting || disposed) return;
+                    L.RefreshSystemLanguage();
+                    string before = L.Language;
+                    L.SetLanguage(preferences.Language);
+                    if (before == L.Language) return;
+                    tray.Text = L.Text("声间 音频设备管理");
+                    PublishTraySnapshot();
+                }));
+            }
+            catch (InvalidOperationException) { } // The dispatcher may be closing.
+        }
         protected override void ExitThreadCore()
         {
             exiting = true;
@@ -513,6 +533,7 @@ namespace AudioSwitch
             {
                 disposed = true;
                 exiting = true;
+                Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemPreferencesChanged;
                 if (dolby != null) dolby.Stop();
                 if (panelDolby != null) panelDolby.Dispose();
                 if (server != null) server.Dispose();

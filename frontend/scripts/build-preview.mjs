@@ -38,6 +38,7 @@ const inlineLogo = text => text.replaceAll('/mark.svg', logo)
 let html = String(htmlAsset.source)
 if (process.argv.includes('--prompt')) html = html.replace('<html', '<html data-preview-view="prompt"')
 if (process.argv.includes('--disconnected')) html = html.replace('<html', '<html data-preview-disconnected="true"')
+if (process.argv.includes('--first-run')) html = html.replace('<html', '<html data-preview-first-run="true"')
 html = html.replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, tag => {
   const href = tag.match(/href="([^"]+)"/)?.[1]?.replace(/^\//, '')
   const css = output.find(item => item.type === 'asset' && item.fileName === href)

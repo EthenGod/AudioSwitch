@@ -16,7 +16,10 @@ namespace AudioSwitch
             check(L.Match(new[] { "zz-ZZ" }) == "zh-CN" && L.Resolve("unknown") == "zh-CN", "unsupported language falls back to Chinese");
             check(new Preferences().Language == null && PreferenceStore.Parse("{\"DarkMode\":true}").Language == null, "new and old configurations ask for language once");
             check(!PreferenceStore.Export(new Preferences()).Contains("Language"), "unconfirmed recommendation is not saved as a choice");
-            foreach (string id in new[] { "zh-CN", "en", "ja", "fr-FR" })
+            check(L.Resolve(L.SystemChoice, "ja") == "ja" && L.Resolve(L.SystemChoice, "en") == "en" && L.Resolve(L.SystemChoice, "unknown") == "zh-CN", "system choice follows supported system languages and falls back to Chinese");
+            check(L.Resolve("en", "ja") == "en" && L.Resolve("fr-FR", "ja") == "zh-CN", "explicit choices do not follow later system changes");
+            check(L.SupportedChoice(L.SystemChoice) && !L.SupportedChoice("../en") && !L.SupportedChoice("fr-FR"), "language commands distinguish system mode from unsupported catalogues");
+            foreach (string id in new[] { "zh-CN", "en", "ja", "fr-FR", L.SystemChoice })
             {
                 var preferences = new Preferences { Language = id, DarkMode = false };
                 check(PreferenceStore.Parse(PreferenceStore.Export(preferences)).Language == id && !preferences.DarkMode, "language survives backup independently from appearance: " + id);
@@ -50,6 +53,10 @@ namespace AudioSwitch
             check(PreferenceStore.Load(path).Language == "ja", "confirmed language survives process-independent file reload");
             string backup;
             check(PreferenceStore.Import(path, "{\"DarkMode\":true}", current, out backup).Language == "ja", "importing an older backup does not repeat language onboarding");
+            current.Language = L.SystemChoice;
+            PreferenceStore.Save(path, current);
+            check(PreferenceStore.Load(path).Language == L.SystemChoice, "saved system choice does not return to unconfirmed onboarding");
+            check(PreferenceStore.Import(path, "{\"DarkMode\":true}", current, out backup).Language == L.SystemChoice, "legacy imports retain the system language choice");
         }
 
         // Pure UI fixtures; no backend, audio service, or application settings.

@@ -42,8 +42,9 @@ impl Action {
         }
         Ok(match self {
             Self::Language { language } => {
-                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < 14 { return Err(crate::localization::text("切换语言需要新版后台").into()); }
-                if !super::localization::supported(language) { return Err(crate::localization::text("不支持此语言").into()); }
+                let system = language == super::localization::SYSTEM_LANGUAGE;
+                if snapshot["PanelApiVersion"].as_u64().unwrap_or(0) < if system { 15 } else { 14 } { return Err(crate::localization::text("切换语言需要新版后台").into()); }
+                if !system && !super::localization::supported(language) { return Err(crate::localization::text("不支持此语言").into()); }
                 json!({"Action":"language", "Language":language})
             },
             Self::Switch { id: device } => { id(device)?; json!({"Action":"switch", "DeviceId": device}) },
@@ -166,6 +167,9 @@ mod tests {
         assert_eq!(action.request(&json!({"PanelApiVersion":14})).unwrap(), json!({"Action":"language","Language":"ja"}));
         assert!(Action::Language { language:"../en".into() }.request(&json!({"PanelApiVersion":14})).is_err());
         assert!(Action::Language { language:"zz".into() }.request(&json!({"PanelApiVersion":14})).is_err());
+        let system = Action::Language { language: super::super::localization::SYSTEM_LANGUAGE.into() };
+        assert!(system.request(&json!({"PanelApiVersion":14})).is_err());
+        assert_eq!(system.request(&json!({"PanelApiVersion":15})).unwrap(), json!({"Action":"language","Language":"system"}));
     }
     #[test]
     fn renaming_requires_new_backend_and_carries_expected_name() {

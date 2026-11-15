@@ -313,14 +313,14 @@ h1 { margin: 0; font-size: var(--font-title); line-height: 1.25; letter-spacing:
 .sheet-preview { font-size: var(--font-caption); color: var(--accent); display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--selected); flex-shrink: 0; }
 .sheet-scroll { padding: 0 24px 24px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
 /* The fallback precedes the WebKit override so native thin scrollbars cannot hide custom thumbs. */
-.ui-select-list { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+.ui-select-list, .language-dialog { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
 @supports selector(::-webkit-scrollbar) {
-  :is(.main-content, .sheet-scroll, .ui-select-list) { scrollbar-width: auto; scrollbar-color: auto; }
-  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar { width: 6px; height: 6px; }
-  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-track, :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-corner { background: transparent; }
-  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--scroll-thumb); }
-  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
-  :is(.main-content, .sheet-scroll, .ui-select-list)::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog) { scrollbar-width: auto; scrollbar-color: auto; }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar { width: 6px; height: 6px; }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar-track, :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar-corner { background: transparent; }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--scroll-thumb); }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+  :is(.main-content, .sheet-scroll, .ui-select-list, .language-dialog)::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 }
 .scroll-surface { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .scroll-surface > .scroll-viewport { position: absolute; inset: 0; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; scrollbar-gutter: auto; overscroll-behavior: contain; overflow-anchor: none; }

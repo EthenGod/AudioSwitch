@@ -58,6 +58,12 @@ test('generated preview contains a complete executable bundle, root and separate
     await waitFor(() => assert.match(document.body.textContent, /提示已关闭/), { container: document.body })
     return
   }
+  if (document.documentElement.dataset.previewFirstRun === 'true') {
+    await waitFor(() => assert.ok(within(document.body).getByRole('dialog')), { container: document.body, timeout: 3000 })
+    within(document.body).getByRole('radio', { name: '简体中文' }).click()
+    await waitFor(() => assert.ok(within(document.body).getByRole('button', { name: '确认' })), { container: document.body })
+    within(document.body).getByRole('button', { name: '确认' }).click()
+  }
   await waitFor(() => assert.ok(within(document.body).getByRole('table')), { container: document.body, timeout: 3000 })
   within(document.body).getByRole('button', { name: '应用设置', exact: true }).click()
   await waitFor(() => assert.ok(within(document.body).getByRole('button', { name: /检查更新/ })), { container: document.body })

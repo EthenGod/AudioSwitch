@@ -4,7 +4,7 @@ import { dolbyProfile, emptyDolby, dolbyRunning, type DolbyRead, type DolbyOpera
 import { mockUpgrade } from './upgrade'
 import { APP_VERSION } from '../version'
 import { DEFAULT_UI_STYLE, isUiStyle } from '../appearance/styles'
-import { LANGUAGES } from '../i18n'
+import { isSupportedLanguageChoice } from '../i18n'
 
 export const SONIC_FORMAT = '{b53d82a5-7b8b-4f03-9c28-12c06378a941}' // Mock identifier only; never sent to Windows.
 const devices: Device[] = [
@@ -197,7 +197,7 @@ export function createMockGateway(latency = 260, previewNames: string[] = [], la
       await delay(); state.Preferences.UiStyle = style; return copy()
     },
     async setLanguage(language) {
-      if (!LANGUAGES.some(item => item.id === language)) throw new Error(t("不支持此语言"))
+      if (!isSupportedLanguageChoice(language)) throw new Error(t("不支持此语言"))
       await delay(); state.Preferences.Language = language; return copy()
     },
     async setStartup(value) { await delay(); state.StartupEnabled = value; return copy() },
